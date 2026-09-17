@@ -1,4 +1,4 @@
-import type { State } from '../types';
+import type { State, Catalog } from '../types';
 
 export type ClientMessage =
   | { type: 'create'; capacity: number; name: string }
@@ -10,7 +10,7 @@ export type ClientMessage =
       action: 'move' | 'nest' | 'bed' | 'door' | 'build' | 'repair';
       room: number;
       cell: number;
-      kind: 'launcher' | 'pantry' | 'repair';
+      kind: string;
       seq: number;
     };
 
@@ -26,6 +26,7 @@ interface ConnectionCallbacks {
 // The connection owns transport, retry timers and the private resumption token.
 // UI and rendering receive snapshots; they never mutate server-owned game state.
 export class GameConnection {
+  private catalog: Catalog | null = null;
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
   private reconnectTimer = 0;
@@ -58,6 +59,7 @@ export class GameConnection {
     socket.onopen = () => {
       if (socket !== this.socket || this.disposed) return;
       this.reconnectAttempts = 0;
+      this.catalog = null;
       this.callbacks.onStatus(true);
       const token = sessionStorage.getItem(this.storageKey);
       if (token) socket.send(JSON.stringify({ type: 'resume', token }));
@@ -81,8 +83,12 @@ export class GameConnection {
           sessionStorage.setItem(this.storageKey, message.token);
           this.callbacks.onJoined(message.lastSequence ?? 0);
           break;
+        case 'config':
+          this.catalog = message as Catalog;
+          break;
         case 'state':
-          this.callbacks.onState(message as State);
+          if (this.catalog?.version !== message.configVersion) return;
+          this.callbacks.onState({ ...message, catalog: this.catalog } as State);
           break;
         case 'error':
           this.callbacks.onError(String(message.message));

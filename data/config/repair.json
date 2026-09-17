@@ -1,0 +1,10 @@
+{
+  "cost": [
+    {
+      "currency": "cans",
+      "amount": 45
+    }
+  ],
+  "amount": 140,
+  "cooldown_ms": 5000
+}

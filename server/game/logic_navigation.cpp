@@ -1,5 +1,6 @@
 #include "common/game_math.h"
 #include "game.h"
+#include "logic_economy.h"
 #include <algorithm>
 namespace snackshop {
 const Prop* Game::propAt(int cell) const {
@@ -18,7 +19,7 @@ bool Game::walkable(int cell, int player, int startingRoom) const {
     if (map.wall(cell)) {
         return false;
     }
-    if (const auto* prop = propAt(cell); prop && prop->kind != PropKind::Crate) {
+    if (const auto* prop = propAt(cell); prop && config().item(prop->kind).behavior != ItemBehavior::Pickup) {
         return false;
     }
     const int room = map.roomAt(cell);
@@ -73,7 +74,7 @@ bool Game::buildKeepsAccess(const Dorm& room, int cell) const {
             return false;
         }
         const auto* prop = propAt(next);
-        return !prop || prop->kind == PropKind::Crate;
+        return !prop || config().item(prop->kind).behavior == ItemBehavior::Pickup;
     };
     const auto reachable = map.distances(room.door, passable);
     for (int floor : room.floor) {
@@ -88,12 +89,15 @@ void Game::arrive(Player& p) {
     if (roomId >= 0) {
         auto& props = dorms[roomId].props;
         const auto crate = std::find_if(props.begin(), props.end(), [&](const Prop& prop) {
-            return prop.cell == cell && prop.kind == PropKind::Crate;
+            return prop.cell == cell && config().item(prop.kind).behavior == ItemBehavior::Pickup;
         });
         if (crate != props.end()) {
-            p.gold += 35;
+            const auto& item = config().item(crate->kind);
+            const auto amount = item.levels[crate->level - 1].amount;
+            LogicEconomy::credit(p, config(), item.currency, amount);
             props.erase(crate);
-            notify(p.name + " 找到一箱罐头 +35");
+            notify(p.name + " 找到" + item.name + " +" + std::to_string(amount) + " " +
+                   config().currency(item.currency).name);
         }
     }
     if (!p.path.empty() || p.nestIntent < 0) {

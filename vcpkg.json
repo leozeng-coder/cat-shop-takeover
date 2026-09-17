@@ -5,7 +5,8 @@
     {
       "name": "drogon",
       "default-features": false
-    }
+    },
+    "jsoncpp"
   ],
   "builtin-baseline": "a97c98d785fc0b1710bc711acf47767b756e6b7c"
 }

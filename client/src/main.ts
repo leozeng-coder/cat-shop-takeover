@@ -4,7 +4,7 @@ import { updateHtml } from './ui/dom_patch';
 import { lobbyView } from './ui/lobby';
 import { gridMenuView } from './ui/grid_menu';
 import { combatStatusView } from './ui/combat_status';
-import { clock } from './ui/format';
+import { clock, escapeHtml } from './ui/format';
 import { roomAt, type State } from './types';
 import { Renderer } from './renderer';
 import { GameConnection, type ClientMessage } from './net/game_connection';
@@ -44,7 +44,7 @@ function send(message: ClientMessage) {
   return true;
 }
 type Action = Extract<ClientMessage, { type: 'action' }>['action'];
-function act(action: Action, room = -1, cell = -1, kind: 'launcher' | 'pantry' | 'repair' = 'launcher') {
+function act(action: Action, room = -1, cell = -1, kind = 'launcher') {
   return send({ type: 'action', action, room, cell, kind, seq: ++sequence });
 }
 function beginLoading() {
@@ -180,13 +180,29 @@ function render() {
   el('phase-description').textContent = night ? '店长不在，找猫窝安家' : '坚持到店长放弃';
   el('day-badge').textContent = night ? 'MOONLIGHT DISTRICT' : 'SUNRISE · THE OWNER IS BACK';
   updateHtml(el('combat-status'), combatStatusView(g));
-  el('cans').textContent = String(me.gold);
-  el('income').textContent = '+' + me.income + ' / 秒';
+  updateHtml(
+    el('wallet'),
+    g.catalog.currencies
+      .map(
+        (c) =>
+          '<div class="resource"><span class="can-icon">' +
+          escapeHtml(c.symbol) +
+          '</span><div><small>' +
+          escapeHtml(c.name) +
+          '</small><strong>' +
+          (me.wallet[c.id] ?? 0) +
+          '</strong></div><span class="income">+' +
+          Number((me.incomes[c.id] ?? 0).toFixed(2)) +
+          ' / 秒</span></div>',
+      )
+      .join(''),
+  );
   const ownerState: Record<string, string> = {
     hunting: '店长正在街上找猫',
     attacking: '店长正在拆 ' + (g.monster.target + 1) + ' 号店门',
     chasing: '店长正在追猫！',
-    retreating: '店长被毛线球赶退了',
+    retreating: '店长血量不足，正在回家',
+    defeated: '店长被赶跑了！',
     resting: '店长暂时在街口休息',
     waiting: '店长还没回来',
   };
@@ -316,8 +332,7 @@ app.addEventListener('click', async (event) => {
   else if (op === 'zoom-out') renderer.zoomBy(0.8);
   else if (['move', 'nest', 'bed', 'door', 'repair', 'build'].includes(op) && state && selected >= 0) {
     const room = roomAt(state.map, selected);
-    const kind =
-      button.dataset.kind === 'pantry' ? 'pantry' : button.dataset.kind === 'repair' ? 'repair' : 'launcher';
+    const kind = button.dataset.kind ?? '';
     act(op as Action, room, selected, kind);
     if (op === 'move' || op === 'nest') closeGrid();
   } else if (op === 'help') {

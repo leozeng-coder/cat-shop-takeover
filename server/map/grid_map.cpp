@@ -105,7 +105,7 @@ std::vector<int> GridMap::route(int from, int to, const std::function<bool(int)>
     std::reverse(path.begin(), path.end());
     return path;
 }
-void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms) {
+void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms, const GameConfig& config) {
     seed = value;
     spawn = 12 * MapWidth + 22;
     shopkeeperSpawn = 18 * MapWidth + 1;
@@ -129,6 +129,7 @@ void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms) {
     for (int id = 0; id < Seats; ++id) {
         auto& room = rooms[id];
         room = Dorm{};
+        room.hp = config.doors.front().health;
         room.id = id;
         auto z = zones[id];
         z.x += pick(0, 1);
@@ -217,13 +218,16 @@ void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms) {
                 continue;
             }
             const auto index = room.props.size();
-            const PropKind kind = index == 0 ? static_cast<PropKind>(pick(2, 4)) : PropKind::Crate;
+            const auto& kind = index == 0
+                                   ? config.initialItems[pick(0, static_cast<int>(config.initialItems.size()) - 1)]
+                                   : config.pickupItem;
             auto passable = [&](int c) {
-                if (roomAt(c) != id || wall(c) || (c == cell && kind != PropKind::Crate)) {
+                if (roomAt(c) != id || wall(c) || (c == cell && config.item(kind).behavior != ItemBehavior::Pickup)) {
                     return false;
                 }
-                return std::none_of(room.props.begin(), room.props.end(),
-                                    [&](const Prop& p) { return p.cell == c && p.kind != PropKind::Crate; });
+                return std::none_of(room.props.begin(), room.props.end(), [&](const Prop& p) {
+                    return p.cell == c && config.item(p.kind).behavior != ItemBehavior::Pickup;
+                });
             };
             const auto reachable = distances(room.door, passable);
             bool connected = true;
@@ -244,7 +248,7 @@ void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms) {
             }
             if (cell != room.nest && std::none_of(room.props.begin(), room.props.end(),
                                                   [&](const Prop& prop) { return prop.cell == cell; })) {
-                room.props.push_back({cell, PropKind::Crate});
+                room.props.push_back({cell, config.pickupItem});
             }
         }
     }

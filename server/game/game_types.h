@@ -1,6 +1,6 @@
 #ifndef SNACKSHOP_GAME_TYPES_H
 #define SNACKSHOP_GAME_TYPES_H
-#include "config/combat_config.h"
+#include "ai/ai_state.h"
 #include "config/game_config.h"
 #include <cstdint>
 #include <deque>
@@ -11,10 +11,9 @@ struct Point {
     double x = 0;
     double y = 0;
 };
-enum class PropKind { Shelf, Crate, Launcher, Pantry, Repair };
 struct Prop {
     int cell = -1;
-    PropKind kind = PropKind::Shelf;
+    std::string kind = "shelf";
     int level = 1;
     double cooldown = 0;
     double lastShot = -100;
@@ -22,7 +21,7 @@ struct Prop {
 struct Dorm {
     int id = 0, owner = -1, level = 1;
     int door = -1, entrance = -1, nest = -1;
-    double hp = DoorHealth[0];
+    double hp = 0;
     std::vector<int> floor;
     std::vector<Prop> props;
     bool doorClosed() const { return owner >= 0 && hp > 0; }
@@ -31,15 +30,20 @@ struct Player {
     int id = 0;
     std::string name;
     bool human = false, connected = false, ready = true, alive = true, sleeping = false;
-    int room = -1, gold = 120, bed = 1, personality = 0, nestIntent = -1;
+    int room = -1, bed = 1, personality = 0, nestIntent = -1;
+    Wallet wallet;
+    CatAiState ai;
+    double productionRemainder = 0;
     Point position{};
     std::deque<Point> path;
     double decisionAt = 0, repairAt = 0, disconnectedFor = 0;
 };
 struct Monster {
+    bt::Runtime behavior;
+    double targetDecisionAt = 0, targetHoldUntil = 0, lastCombatAt = 0;
     Point position{};
     std::deque<Point> path;
-    double hp = EnemyLevels[0].maxHp, maxHp = EnemyLevels[0].maxHp;
+    double hp = 0, maxHp = 0;
     double attackCooldown = 0, restUntil = 0, repathAt = 0, experienceRemainder = 0;
     int experience = 0, doorHits = 0, attackingPlayer = -1;
     double attackStartedAt = -1;

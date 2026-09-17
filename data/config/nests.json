@@ -1,0 +1,52 @@
+[
+  {
+    "level": 1,
+    "next_level": 2,
+    "cost": [],
+    "conditions": [],
+    "amount": 6,
+    "interval_ms": 1000,
+    "range": 0,
+    "currency": "cans"
+  },
+  {
+    "level": 2,
+    "next_level": 3,
+    "cost": [
+      {
+        "currency": "cans",
+        "amount": 80
+      }
+    ],
+    "conditions": [
+      {
+        "type": "door_stage",
+        "id": "wood_2"
+      }
+    ],
+    "amount": 11,
+    "interval_ms": 1000,
+    "range": 0,
+    "currency": "cans"
+  },
+  {
+    "level": 3,
+    "next_level": 0,
+    "cost": [
+      {
+        "currency": "cans",
+        "amount": 200
+      }
+    ],
+    "conditions": [
+      {
+        "type": "door_stage",
+        "id": "iron_1"
+      }
+    ],
+    "amount": 19,
+    "interval_ms": 1000,
+    "range": 0,
+    "currency": "cans"
+  }
+]

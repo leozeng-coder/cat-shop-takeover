@@ -1,18 +1,22 @@
 #include "ai/logic_cat_ai.h"
 #include "battle/logic_enemy.h"
 #include "game/game.h"
+#include "game/logic_economy.h"
+#include "item/logic_item.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>
 namespace snackshop {
-Game::Game(std::string value, int size, std::uint32_t seed, Balance rules)
-    : code(std::move(value)), capacity(size), balance(rules), m_random(seed) {
-    map.generate(seed, dorms);
+Game::Game(std::string value, int size, std::uint32_t seed, std::shared_ptr<const GameConfig> rules)
+    : code(std::move(value)), capacity(size), balance(rules->balance), m_config(std::move(rules)), m_random(seed) {
+    map.generate(seed, dorms, config());
+    monster.hp = monster.maxHp = config().enemy.levels.front().maxHp;
     monster.position = GridMap::center(map.shopkeeperSpawn);
     for (int i = 0; i < Seats; ++i) {
+        LogicEconomy::initialize(players[i], config());
         players[i].id = i;
         players[i].name = "猫队员 " + std::to_string(i + 1);
-        players[i].personality = i % 3;
+        players[i].personality = i % static_cast<int>(config().catAi.profiles.size());
         players[i].position = GridMap::center(map.spawn + (i % 3) - 1 + (i / 3) * MapWidth);
     }
 }
@@ -72,6 +76,9 @@ void Game::setConnected(int id, bool connected) {
     if (!validPlayer(id)) {
         return;
     }
+    if (connected) {
+        LogicCatAi::stop(*this, players[id]);
+    }
     players[id].connected = connected;
     players[id].disconnectedFor = 0;
     notify(players[id].name + (connected ? " 已重新连接" : " 暂时离线"));
@@ -100,15 +107,20 @@ std::string Game::start(int id) {
     }
     phase = "preparing";
     elapsed = 0;
-    notify("夜深了，店长不在！30 秒内找到猫店，点击罐头窝安家");
+    notify("夜深了，店长不在！" + std::to_string(static_cast<int>(balance.preparation)) +
+           " 秒内找到猫店，点击罐头窝安家");
     return {};
 }
-std::string Game::rematch(int id) {
+std::string Game::rematch(int id, std::shared_ptr<const GameConfig> nextConfig) {
     if (id != host || !validPlayer(id)) {
         return "只有房主可以再开一局";
     }
     if (phase != "won" && phase != "lost") {
         return "请等待本局结束";
+    }
+    if (nextConfig) {
+        m_config = std::move(nextConfig);
+        balance = config().balance;
     }
     resetBoard();
     return {};
@@ -116,39 +128,43 @@ std::string Game::rematch(int id) {
 void Game::resetBoard() {
     elapsed = 0;
     tick = 0;
-    m_incomeAccumulator = 0;
     notices.clear();
     phase = "lobby";
-    map.generate(m_random(), dorms);
+    map.generate(m_random(), dorms, config());
     monster = Monster{};
+    monster.hp = monster.maxHp = config().enemy.levels.front().maxHp;
     monster.position = GridMap::center(map.shopkeeperSpawn);
     for (int i = 0; i < Seats; ++i) {
         const auto old = players[i];
         auto& p = players[i];
         p = Player{};
+        LogicEconomy::initialize(p, config());
         p.id = i;
         p.name = old.name;
         p.human = old.human;
         p.connected = old.connected;
         p.ready = !p.human || i == host;
-        p.personality = i % 3;
+        p.personality = i % static_cast<int>(config().catAi.profiles.size());
         p.position = GridMap::center(map.spawn + i % 3 - 1 + (i / 3) * MapWidth);
     }
     notify("新街区已经准备好，猫店形状和物资都变了");
 }
-int Game::income(const Player& player) const {
+double Game::income(const Player& player, const std::string& currency) const {
     if (!player.alive || player.room < 0 || dorms[player.room].owner != player.id) {
         return 0;
     }
-    int total = BedIncome[player.bed - 1];
+    const auto& nest = config().nest(player.bed);
+    double total = nest.currency == currency ? nest.amount * 1000.0 / nest.intervalMs : 0;
     for (const auto& prop : dorms[player.room].props) {
-        if (prop.kind == PropKind::Pantry) {
-            total += PantryIncome[prop.level - 1];
+        const auto& item = config().item(prop.kind);
+        if (item.behavior == ItemBehavior::CurrencyProducer && item.currency == currency) {
+            const auto& level = item.levels[prop.level - 1];
+            total += level.amount * 1000.0 / level.intervalMs;
         }
     }
     return total;
 }
-std::string Game::command(int id, GameAction action, int targetRoom, int cell, PropKind kind) {
+std::string Game::command(int id, GameAction action, int targetRoom, int cell, const std::string& kind) {
     if (id < 0 || id >= Seats) {
         return "无效玩家";
     }
@@ -204,36 +220,30 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, P
     }
     auto& room = dorms[p.room];
     if (action == GameAction::UpgradeNest) {
-        if (p.bed >= 3) {
-            return "罐头窝已经满级";
+        const auto error = nestUpgradeError(id);
+        if (!error.empty()) {
+            return error;
         }
-        const int cost = BedCost[p.bed - 1];
-        if (p.gold < cost) {
-            return "罐头不足";
-        }
-        p.gold -= cost;
-        ++p.bed;
+        const auto& next = config().nest(config().nest(p.bed).nextLevel);
+        LogicEconomy::pay(p, next.cost);
+        p.bed = next.level;
+        p.productionRemainder = 0;
     } else if (action == GameAction::UpgradeBarricade) {
-        if (room.hp <= 0) {
-            return "店门已被拆毁，快躲开店长";
+        const auto error = doorUpgradeError(id);
+        if (!error.empty()) {
+            return error;
         }
-        if (room.level >= 3) {
-            return "店门已经满级";
-        }
-        const int cost = DoorCost[room.level - 1];
-        if (p.gold < cost) {
-            return "罐头不足";
-        }
-        p.gold -= cost;
-        const int oldMax = DoorHealth[room.level - 1];
-        ++room.level;
-        room.hp += DoorHealth[room.level - 1] - oldMax;
+        const auto& previous = config().door(room.level);
+        const auto& next = config().door(previous.nextStage);
+        LogicEconomy::pay(p, next.cost);
+        room.level = next.stage;
+        room.hp += next.health - previous.health;
     } else if (action == GameAction::Build) {
         if (!GridMap::valid(cell) || map.roomAt(cell) != p.room || map.wall(cell) || cell == room.door ||
             cell == room.nest) {
             return "只能在自家猫店的空地格安装";
         }
-        if (kind != PropKind::Launcher && kind != PropKind::Pantry && kind != PropKind::Repair) {
+        if (!config().items.contains(kind) || !config().item(kind).buildable) {
             return "无效道具";
         }
         auto existing =
@@ -242,14 +252,15 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, P
         if (existing != room.props.end() && existing->kind != kind) {
             return "这个格子已有其他道具";
         }
-        if (level >= 3) {
+        const auto& item = config().item(kind);
+        const int next = level == 0 ? 1 : item.levels[level - 1].nextLevel;
+        if (!next) {
             return "道具已经满级";
         }
-        const int cost = kind == PropKind::Launcher ? TowerCost[level]
-                         : kind == PropKind::Pantry ? PantryCost[level]
-                                                    : RepairCost[level];
-        if (p.gold < cost) {
-            return "罐头不足";
+        const auto& target = item.levels[next - 1];
+        const auto error = purchaseError(id, target.cost, target.requirements);
+        if (!error.empty()) {
+            return error;
         }
         if (level == 0) {
             for (const auto& cat : players) {
@@ -261,32 +272,23 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, P
                 return "安装后会堵住通道，请留出通往店门和罐头窝的路";
             }
         }
-        p.gold -= cost;
+        LogicEconomy::pay(p, target.cost);
         if (level == 0) {
             room.props.push_back({cell, kind});
         } else {
-            ++existing->level;
+            existing->level = next;
+            existing->cooldown = 0;
         }
     } else if (action == GameAction::Repair) {
-        if (targetRoom < 0 || targetRoom >= Seats) {
-            return "请选择店门";
+        const auto error = repairError(id, targetRoom);
+        if (!error.empty()) {
+            return error;
         }
         auto& target = dorms[targetRoom];
-        if (target.owner < 0 || !players[target.owner].alive || target.hp <= 0) {
-            return "这个店门无法修补";
-        }
-        if (target.hp >= DoorHealth[target.level - 1]) {
-            return "店门状态完好";
-        }
-        if (elapsed < p.repairAt) {
-            return "修补冷却中";
-        }
-        if (p.gold < 45) {
-            return "罐头不足";
-        }
-        p.gold -= 45;
-        target.hp = std::min(target.hp + 140, static_cast<double>(DoorHealth[target.level - 1]));
-        p.repairAt = elapsed + 5;
+        LogicEconomy::pay(p, config().repair.cost);
+        target.hp =
+            std::min(target.hp + config().repair.amount, static_cast<double>(config().door(target.level).health));
+        p.repairAt = elapsed + config().repair.cooldown;
     } else {
         return "未知操作";
     }
@@ -322,6 +324,10 @@ void Game::step(double dt) {
         return;
     }
     if (phase == "won" || phase == "lost") {
+        for (auto& p : players) {
+            LogicCatAi::stop(*this, p);
+        }
+        LogicEnemy::stop(*this);
         return;
     }
     elapsed += dt;
@@ -329,31 +335,15 @@ void Game::step(double dt) {
         if (!p.alive) {
             continue;
         }
-        if ((!p.human || (!p.connected && p.disconnectedFor >= balance.reconnectGrace)) && elapsed > 1.5 + p.id * .25) {
+        if ((!p.human || (!p.connected && p.disconnectedFor >= balance.reconnectGrace))) {
             LogicCatAi::update(*this, p);
         }
         if (!p.path.empty()) {
-            moveAlong(p.position, p.path, CatSpeed * dt, p.id);
+            moveAlong(p.position, p.path, config().catSpeed * dt, p.id);
         }
         arrive(p);
     }
-    m_incomeAccumulator += dt;
-    while (m_incomeAccumulator >= 1) {
-        m_incomeAccumulator -= 1;
-        for (auto& p : players) {
-            p.gold = std::min(999999, p.gold + income(p));
-        }
-        for (auto& room : dorms) {
-            if (room.owner < 0 || !players[room.owner].alive || room.hp <= 0) {
-                continue;
-            }
-            for (const auto& prop : room.props) {
-                if (prop.kind == PropKind::Repair) {
-                    room.hp = std::min(static_cast<double>(DoorHealth[room.level - 1]), room.hp + 2 * prop.level);
-                }
-            }
-        }
-    }
+    LogicItem::updatePassive(*this, dt);
     if (phase == "preparing" && elapsed >= balance.preparation) {
         phase = "running";
         monster.state = "hunting";

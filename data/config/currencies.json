@@ -1,0 +1,16 @@
+[
+  {
+    "id": "cans",
+    "name": "罐头",
+    "symbol": "🥫",
+    "initial": 120,
+    "limit": 999999
+  },
+  {
+    "id": "dried_fish",
+    "name": "小鱼干",
+    "symbol": "🐟",
+    "initial": 0,
+    "limit": 999999
+  }
+]

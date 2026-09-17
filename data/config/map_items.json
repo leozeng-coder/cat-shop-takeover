@@ -1,0 +1,4 @@
+{
+  "initial_items": ["launcher", "pantry", "repair"],
+  "pickup_item": "crate"
+}

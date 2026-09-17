@@ -28,11 +28,11 @@ export const APP_SHELL = `
         <div class="menu-note"><span>✧</span> 房间形状、位置和开局物资每局都不同。</div>
       </div>
     </main>
-    <footer class="menu-footer"><span>SIX CATS. ONE STREET. ALL THE CANS.</span><span>猫猫夺店计划 · 玩法原型 0.2</span></footer>
+    <footer class="menu-footer"><span>SIX CATS. ONE STREET. ALL THE CANS.</span><span>猫猫夺店计划 · 玩法原型 0.3</span></footer>
   </section>
   <section id="lobby-screen" class="lobby-screen hidden"><div class="lobby-card" id="lobby-content"></div></section>
   <section id="game-screen" class="game-screen hidden">
-    <header class="game-hud"><div class="hud-left"><button class="icon-button" data-do="leave" title="返回主菜单" aria-label="返回主菜单">↶</button><div class="game-title">猫猫夺店计划<small id="room-name">午夜猫街</small></div></div><div class="phase-group"><span id="phase-label">☾ 夜间准备</span><strong id="timer">00:30</strong><small id="phase-description">店长不在，找猫窝安家</small></div><div class="resource"><span class="can-icon">🥫</span><div><small>我的罐头</small><strong id="cans">120</strong></div><span id="income">+0 / 秒</span></div></header>
+    <header class="game-hud"><div class="hud-left"><button class="icon-button" data-do="leave" title="返回主菜单" aria-label="返回主菜单">↶</button><div class="game-title">猫猫夺店计划<small id="room-name">午夜猫街</small></div></div><div class="phase-group"><span id="phase-label">☾ 夜间准备</span><strong id="timer">00:30</strong><small id="phase-description">店长不在，找猫窝安家</small></div><div class="wallet" id="wallet" aria-label="局内货币"></div></header>
     <div class="map-stage" id="map-stage">
       <canvas id="board" aria-label="随机网格猫街地图，点击街道移动，点击罐头窝安家，点击自家格子安装道具"></canvas>
       <section class="battle-overview" aria-label="全员战况"><div class="map-label"><span id="day-badge">MOONLIGHT DISTRICT</span><strong id="map-status">寻找一家猫店</strong></div><div id="combat-status"></div></section>

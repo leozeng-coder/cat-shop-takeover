@@ -1,0 +1,254 @@
+[
+  {
+    "id": "launcher",
+    "name": "毛线弹射器",
+    "category": "attack",
+    "behavior": "single_attack",
+    "appearance": "launcher",
+    "currency": "",
+    "buildable": true,
+    "levels": [
+      {
+        "level": 1,
+        "next_level": 2,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 55
+          }
+        ],
+        "conditions": [],
+        "amount": 11,
+        "interval_ms": 850,
+        "range": 235
+      },
+      {
+        "level": 2,
+        "next_level": 3,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 85
+          }
+        ],
+        "conditions": [],
+        "amount": 20,
+        "interval_ms": 850,
+        "range": 235
+      },
+      {
+        "level": 3,
+        "next_level": 0,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 150
+          }
+        ],
+        "conditions": [],
+        "amount": 34,
+        "interval_ms": 850,
+        "range": 235
+      }
+    ]
+  },
+  {
+    "id": "pantry",
+    "name": "罐头储藏柜",
+    "category": "currency",
+    "behavior": "currency_producer",
+    "appearance": "pantry",
+    "currency": "cans",
+    "buildable": true,
+    "levels": [
+      {
+        "level": 1,
+        "next_level": 2,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 65
+          }
+        ],
+        "conditions": [],
+        "amount": 2,
+        "interval_ms": 1000,
+        "range": 0
+      },
+      {
+        "level": 2,
+        "next_level": 3,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 100
+          }
+        ],
+        "conditions": [],
+        "amount": 4,
+        "interval_ms": 1000,
+        "range": 0
+      },
+      {
+        "level": 3,
+        "next_level": 0,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 170
+          }
+        ],
+        "conditions": [],
+        "amount": 7,
+        "interval_ms": 1000,
+        "range": 0
+      }
+    ]
+  },
+  {
+    "id": "repair",
+    "name": "自动修补台",
+    "category": "utility",
+    "behavior": "door_repair",
+    "appearance": "repair",
+    "currency": "",
+    "buildable": true,
+    "levels": [
+      {
+        "level": 1,
+        "next_level": 2,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 75
+          }
+        ],
+        "conditions": [],
+        "amount": 2,
+        "interval_ms": 1000,
+        "range": 0
+      },
+      {
+        "level": 2,
+        "next_level": 3,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 110
+          }
+        ],
+        "conditions": [],
+        "amount": 4,
+        "interval_ms": 1000,
+        "range": 0
+      },
+      {
+        "level": 3,
+        "next_level": 0,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 190
+          }
+        ],
+        "conditions": [],
+        "amount": 6,
+        "interval_ms": 1000,
+        "range": 0
+      }
+    ]
+  },
+  {
+    "id": "fish_rack",
+    "name": "鱼干晾晒架",
+    "category": "currency",
+    "behavior": "currency_producer",
+    "appearance": "fish_rack",
+    "currency": "dried_fish",
+    "buildable": true,
+    "levels": [
+      {
+        "level": 1,
+        "next_level": 2,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 100
+          }
+        ],
+        "conditions": [],
+        "amount": 1,
+        "interval_ms": 2000,
+        "range": 0
+      },
+      {
+        "level": 2,
+        "next_level": 3,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 160
+          }
+        ],
+        "conditions": [],
+        "amount": 2,
+        "interval_ms": 2000,
+        "range": 0
+      },
+      {
+        "level": 3,
+        "next_level": 0,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 260
+          }
+        ],
+        "conditions": [],
+        "amount": 4,
+        "interval_ms": 2000,
+        "range": 0
+      }
+    ]
+  },
+  {
+    "id": "shelf",
+    "name": "旧货架",
+    "category": "utility",
+    "behavior": "obstacle",
+    "appearance": "shelf",
+    "currency": "",
+    "buildable": false,
+    "levels": [
+      {
+        "level": 1,
+        "next_level": 0,
+        "cost": [],
+        "conditions": [],
+        "amount": 0,
+        "interval_ms": 1000,
+        "range": 0
+      }
+    ]
+  },
+  {
+    "id": "crate",
+    "name": "遗落的罐头箱",
+    "category": "utility",
+    "behavior": "pickup",
+    "appearance": "crate",
+    "currency": "cans",
+    "buildable": false,
+    "levels": [
+      {
+        "level": 1,
+        "next_level": 0,
+        "cost": [],
+        "conditions": [],
+        "amount": 35,
+        "interval_ms": 1000,
+        "range": 0
+      }
+    ]
+  }
+]

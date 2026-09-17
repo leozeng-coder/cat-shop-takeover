@@ -7,7 +7,7 @@
 namespace snackshop {
 using Clock = std::chrono::steady_clock;
 struct Session {
-    std::string token, code;
+    std::string token, code, configVersion;
     int seat = -1;
     std::uint64_t lastSequence = 0;
     std::weak_ptr<drogon::WebSocketConnection> connection;

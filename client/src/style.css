@@ -1055,17 +1055,24 @@ input {
   font-size: 12px;
   font-weight: 650;
 }
+.grid-action:disabled {
+  opacity: 0.72;
+}
 .grid-action small {
   display: block;
-  font-size: 9px;
-  color: #95a083;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #768663;
   margin-top: 5px;
 }
 .grid-action .price {
   font-size: 10px;
   color: #b88c4b;
   margin-left: auto;
-  white-space: nowrap;
+  max-width: 74px;
+  flex-shrink: 0;
+  white-space: normal;
+  text-align: right;
 }
 .tile-caption {
   font-size: 9px;
@@ -1367,5 +1374,37 @@ input {
   }
   .avatar {
     padding: 8px;
+  }
+}
+
+.wallet {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.wallet .resource {
+  gap: 8px;
+}
+.wallet .income {
+  white-space: nowrap;
+}
+.item-category {
+  margin: 12px 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7f9070;
+}
+@media (max-width: 760px) {
+  .wallet {
+    gap: 7px;
+  }
+  .wallet .resource {
+    gap: 4px;
+  }
+  .wallet .income {
+    display: none;
+  }
+  .wallet .can-icon {
+    font-size: 20px;
   }
 }

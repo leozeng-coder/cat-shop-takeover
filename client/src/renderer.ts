@@ -145,19 +145,26 @@ export class Renderer {
     const a = this.art,
       c = this.ctx,
       p = this.point(prop.cell);
-    if (prop.kind === 'shelf') {
+    if (prop.appearance === 'shelf') {
       a.rect(p.x - 12, p.y - 13, 24, 26, '#b0ae87', 3, '#8e9577');
       for (let row = 0; row < 2; row++) {
         a.line(p.x - 11, p.y + row * 12, p.x + 11, p.y + row * 12, '#e3d8ad', 2);
         for (let k = 0; k < 3; k++)
           a.can(p.x - 8 + k * 8, p.y - 6 + row * 12, ['#bf9075', '#89a29b', '#dbc183'][k], 0.28);
       }
-    } else if (prop.kind === 'crate') {
+    } else if (prop.appearance === 'crate') {
       a.rect(p.x - 12, p.y - 11, 24, 22, '#d8ae74', 3, '#aa8757');
       a.rect(p.x - 2, p.y - 10, 4, 21, '#edcca0');
       a.can(p.x, p.y - 3, '#d18e5c', 0.55);
-      a.text('+35', p.x, p.y + 19, 9, '#a3844d', 'center');
-    } else if (prop.kind === 'launcher') {
+      a.text(
+        '+' + this.state!.catalog.items[prop.kind].levels[prop.level - 1].amount,
+        p.x,
+        p.y + 19,
+        9,
+        '#a3844d',
+        'center',
+      );
+    } else if (prop.appearance === 'launcher') {
       a.ellipse(p.x, p.y + 5, 13, 10, '#a7bd95', '#748868');
       a.line(p.x - 7, p.y + 4, p.x - 7, p.y - 10, '#af8e63', 4);
       a.line(p.x + 7, p.y + 4, p.x + 7, p.y - 10, '#af8e63', 4);
@@ -171,7 +178,9 @@ export class Renderer {
         a.line(p.x, p.y, target.x, target.y, '#e6ac75bb', 2);
         c.restore();
       }
-    } else if (prop.kind === 'pantry') {
+    } else if (prop.appearance === 'fish_rack') {
+      a.fishRack(p.x, p.y, prop.level);
+    } else if (prop.appearance === 'pantry') {
       a.rect(p.x - 12, p.y - 12, 24, 25, '#a7b895', 4, '#7d9676');
       a.can(p.x - 5, p.y, '#e3b266', 0.55);
       a.can(p.x + 5, p.y - 4, '#c08064', 0.55);
@@ -180,7 +189,7 @@ export class Renderer {
       a.line(p.x - 6, p.y, p.x + 6, p.y, '#94a37e', 4);
       a.line(p.x, p.y - 6, p.x, p.y + 6, '#94a37e', 4);
     }
-    if (prop.kind !== 'shelf' && prop.kind !== 'crate')
+    if (prop.appearance !== 'shelf' && prop.appearance !== 'crate')
       a.text('' + prop.level, p.x + 11, p.y + 12, 8, '#fffbea', 'center');
   }
   private drawMap() {
@@ -229,7 +238,15 @@ export class Renderer {
       // Door frames remain distinct from masonry in all three door states.
       for (const side of [-1, 1]) a.rect(side * 14 - 2, -10, 4, 20, '#8b704f', 1, '#705b42');
       if (room.closed) {
-        a.rect(-12, -9, 24, 18, mine ? '#c89e60' : '#bc925b', 2, '#795d3e');
+        a.rect(
+          -12,
+          -9,
+          24,
+          18,
+          room.doorAppearance === 'iron' ? '#97aeb3' : mine ? '#c89e60' : '#bc925b',
+          2,
+          '#795d3e',
+        );
         a.rect(-9, -6, 8, 12, '#d7b37b', 1, '#af864f');
         a.rect(2, -6, 7, 12, '#d7b37b', 1, '#af864f');
         a.ellipse(8, 0, 1.6, 1.6, '#6c583c');

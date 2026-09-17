@@ -1,7 +1,54 @@
-export type PropKind = 'shelf' | 'crate' | 'launcher' | 'pantry' | 'repair';
+export type Appearance = 'shelf' | 'crate' | 'launcher' | 'pantry' | 'repair' | 'fish_rack';
+export interface Price {
+  currency: string;
+  amount: number;
+}
+export interface Offer {
+  enabled: boolean;
+  reason: string;
+}
+export interface LevelConfig {
+  level: number;
+  nextLevel: number;
+  cost: Price[];
+  requirements: string[];
+  amount: number;
+  intervalMs: number;
+  range: number;
+}
+export interface ItemConfig {
+  id: string;
+  name: string;
+  category: 'currency' | 'attack' | 'utility';
+  behavior: 'obstacle' | 'pickup' | 'currency_producer' | 'single_attack' | 'door_repair';
+  appearance: Appearance;
+  currency: string;
+  buildable: boolean;
+  levels: LevelConfig[];
+}
+export interface Catalog {
+  version: string;
+  catSpeed: number;
+  currencies: { id: string; name: string; symbol: string }[];
+  doors: {
+    id: string;
+    stage: number;
+    name: string;
+    appearance: 'wood' | 'iron';
+    maxHp: number;
+    nextStage: number;
+    cost: Price[];
+    requirements: string[];
+  }[];
+  nests: (LevelConfig & { currency: string })[];
+  items: Record<string, ItemConfig>;
+  repair: { cost: Price[]; amount: number; cooldown: number };
+  manager: { timeExperience: number; doorExperience: number };
+}
 export interface Prop {
   cell: number;
-  kind: PropKind;
+  kind: string;
+  appearance: Appearance;
   level: number;
   lastShot: number;
 }
@@ -15,7 +62,8 @@ export interface Player {
   alive: boolean;
   sleeping: boolean;
   room: number;
-  gold: number;
+  wallet: Record<string, number>;
+  incomes: Record<string, number>;
   bed: number;
   income: number;
   x: number;
@@ -30,6 +78,9 @@ export interface Dorm {
   level: number;
   hp: number;
   maxHp: number;
+  doorName: string;
+  doorAppearance: string;
+  repairOffer: Offer;
   door: number;
   closed: boolean;
   nest: number;
@@ -80,17 +131,9 @@ export interface State {
     state: string;
   };
   notices: { id: number; time: number; text: string }[];
-  rules: {
-    bedIncome: number[];
-    bedCost: number[];
-    doorCost: number[];
-    towerCost: number[];
-    pantryCost: number[];
-    repairCost: number[];
-    repairDoorCost: number;
-    enemyTimeExperience: number;
-    enemyDoorExperience: number;
-  };
+  configVersion: string;
+  catalog: Catalog;
+  offers: { nest: Offer; door: Offer; items: Record<string, Offer[]> };
 }
 export function roomAt(map: GridMap, cell: number): number {
   if (cell < 0 || cell >= map.width * map.height) return -1;

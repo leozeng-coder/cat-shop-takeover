@@ -13,7 +13,8 @@ export function combatStatusView(g: State) {
     hunting: '寻找猫店',
     attacking: '正在敲门',
     chasing: '正在巡视',
-    retreating: '暂时被赶退',
+    retreating: '回家回血',
+    defeated: '被赶跑了',
     resting: '休息回血',
   };
   const experience =
@@ -51,6 +52,6 @@ export function combatStatusView(g: State) {
     ${meter('店长生命值', enemy.hp, enemy.maxHp, 'enemy-bar')}
     <div class="enemy-experience"><span>${experience}</span><span>敲门 ${enemy.doorHits} 次</span></div>
     ${enemy.nextExperience > 0 ? meter('店长升级经验', enemy.experience, enemy.nextExperience, 'experience-bar') : ''}
-    <p>白天 +${g.rules.enemyTimeExperience} 经验 / 秒 · 敲门 +${g.rules.enemyDoorExperience}</p>
+    <p>白天 +${g.catalog.manager.timeExperience} 经验 / 秒 · 敲门 +${g.catalog.manager.doorExperience}</p>
   </div><div class="roster-heading"><strong>猫猫小队</strong><span>${g.players.filter((p) => p.alive).length} / ${g.players.length} 留守</span></div><ul class="combat-roster">${roster}</ul>`;
 }

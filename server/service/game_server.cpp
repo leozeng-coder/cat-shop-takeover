@@ -4,13 +4,25 @@
 #include <algorithm>
 #include <cctype>
 #include <drogon/utils/Utilities.h>
+#include <iostream>
 namespace snackshop {
+std::shared_ptr<const GameConfig> GameServer::latestConfig() {
+    std::string error;
+    if (!m_configs->reload(error)) {
+        std::cerr << "Config reload rejected, keeping current version: " << error << std::endl;
+    }
+    return m_configs->current();
+}
 void GameServer::broadcast(const Game& game) {
     for (const auto& [token, session] : m_sessions) {
         if (session->code != game.code) {
             continue;
         }
         if (const auto connection = session->connection.lock()) {
+            if (session->configVersion != game.config().version) {
+                GameProtocol::send(connection, GameSnapshot::catalog(game.config()));
+                session->configVersion = game.config().version;
+            }
             GameProtocol::send(connection, GameSnapshot::encode(game, session->seat));
         }
     }
@@ -45,6 +57,7 @@ void GameServer::attach(const drogon::WebSocketConnectionPtr& connection, const 
         old->shutdown();
     }
     session->connection = connection;
+    session->configVersion.clear();
     session->lastSeen = Clock::now();
     m_connections[connection.get()] = session;
     Json::Value joined;
@@ -114,7 +127,7 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
                 std::transform(code.begin(), code.end(), code.begin(),
                                [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
             } while (m_matches.contains(code));
-            game = std::make_shared<Game>(code, capacity, std::random_device{}());
+            game = std::make_shared<Game>(code, capacity, std::random_device{}(), latestConfig());
             m_matches.emplace(code, Match{game});
         } else {
             std::string code = GameProtocol::stringField(msg, "code");
@@ -169,7 +182,11 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
     } else if (kind == "start") {
         failure = game.start(session->seat);
     } else if (kind == "rematch") {
-        failure = game.rematch(session->seat);
+        if (session->seat == game.host && (game.phase == "won" || game.phase == "lost")) {
+            failure = game.rematch(session->seat, latestConfig());
+        } else {
+            failure = game.rematch(session->seat);
+        }
     } else if (kind == "action") {
         if (!msg["seq"].isUInt64() || msg["seq"].asUInt64() == 0) {
             GameProtocol::error(connection, "操作序号无效");
@@ -189,11 +206,7 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
             failure = "未知操作";
         } else {
             failure = game.command(session->seat, *action, GameProtocol::intField(msg, "room"),
-                                   GameProtocol::intField(msg, "cell"),
-                                   GameProtocol::stringField(msg, "kind") == "pantry"     ? PropKind::Pantry
-                                   : GameProtocol::stringField(msg, "kind") == "repair"   ? PropKind::Repair
-                                   : GameProtocol::stringField(msg, "kind") == "launcher" ? PropKind::Launcher
-                                                                                          : PropKind::Shelf);
+                                   GameProtocol::intField(msg, "cell"), GameProtocol::stringField(msg, "kind"));
         }
     } else {
         failure = "未知消息";

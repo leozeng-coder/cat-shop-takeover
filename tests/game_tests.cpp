@@ -2,6 +2,7 @@
 #include "battle/logic_progression.h"
 #include "common/game_math.h"
 #include "game/game.h"
+#include "test_config.h"
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -22,7 +23,7 @@ void advance(Game& g, double seconds) {
     }
 }
 Game solo(std::uint32_t seed = 42) {
-    Game g("TEST01", 1, seed);
+    Game g("TEST01", 1, seed, testConfig());
     g.addHuman("Captain");
     check(g.start(0).empty(), "solo start");
     return g;
@@ -37,8 +38,8 @@ void settle(Game& g, int room = 0) {
 void generatedMaps() {
     std::set<std::string> layouts;
     for (std::uint32_t seed = 0; seed < 60; ++seed) {
-        Game g("MAP", 1, seed);
-        Game same("MAP", 1, seed);
+        Game g("MAP", 1, seed, testConfig());
+        Game same("MAP", 1, seed, testConfig());
         check(g.map.rows == same.map.rows, "seed is deterministic");
         std::string layout;
         for (const auto& row : g.map.rows) {
@@ -87,7 +88,7 @@ void movementAndOwnership() {
     room.props.clear();
     check(g.command(0, GameAction::Move, -1, room.nest).empty(), "free movement to nest tile");
     advance(g, 10);
-    check(!p.sleeping && p.room < 0 && p.gold == 120, "walking to nest never auto-claims or earns");
+    check(!p.sleeping && p.room < 0 && p.wallet.at("cans") == 120, "walking to nest never auto-claims or earns");
     check(!room.doorClosed(), "walking into room does not close the door");
     settle(g);
     check(room.doorClosed(), "arriving after nest interaction closes door");
@@ -110,12 +111,13 @@ void movementAndOwnership() {
             farthest = route.size();
         }
     }
-    const int rate = g.income(p), before = p.gold;
-    check(rate == BedIncome[0] && farthest > 1, "claimed nest produces base income");
+    const double rate = g.income(p);
+    const int before = p.wallet.at("cans");
+    check(rate == testConfig()->nest(1).amount && farthest > 1, "claimed nest produces base income");
     check(g.command(0, GameAction::Move, -1, target).empty(), "owner can roam inside shop with a closed door");
     check(!p.sleeping && g.income(p) == rate, "standing and movement preserve income");
     advance(g, 1);
-    check(p.gold == before + rate && GameMath::distance(previous, p.position) > 1,
+    check(p.wallet.at("cans") == before + rate && GameMath::distance(previous, p.position) > 1,
           "cans accumulate while cat is physically walking");
     for (int i = 0; i < 220; ++i) {
         if (i % 11 == 0) {
@@ -126,7 +128,7 @@ void movementAndOwnership() {
         check(!g.map.wall(cell) && cell != room.door && g.map.roomAt(cell) == room.id,
               "rapid retargeting stays inside room with a closed door");
         const auto* prop = g.propAt(cell);
-        check(!prop || prop->kind == PropKind::Crate, "movement never clips through furniture");
+        check(!prop || prop->kind == "crate", "movement never clips through furniture");
     }
     settle(g);
     check(g.income(p) == rate, "returning to rest does not change income");
@@ -178,11 +180,14 @@ void gridBuilding() {
     settle(g);
     auto& p = g.players[0];
     auto& room = g.dorms[p.room];
-    p.gold = 80;
-    check(g.command(0, GameAction::UpgradeNest).empty() && p.gold == 0 && p.bed == 2,
+    p.wallet.at("cans") = 170;
+    check(!g.command(0, GameAction::UpgradeNest).empty() && p.wallet.at("cans") == 170 && p.bed == 1,
+          "nest prerequisite rejects without charging");
+    check(g.command(0, GameAction::UpgradeBarricade).empty() && room.level == 2, "door meets nest prerequisite");
+    check(g.command(0, GameAction::UpgradeNest).empty() && p.wallet.at("cans") == 0 && p.bed == 2,
           "nest upgrade charges exact amount");
     check(!g.command(0, GameAction::UpgradeBarricade).empty(), "insufficient funds rejected");
-    p.gold = 55;
+    p.wallet.at("cans") = 55;
     int built = -1;
     for (int cell : room.floor) {
         if (!g.propAt(cell) && g.command(0, GameAction::Build, -1, cell).empty()) {
@@ -190,14 +195,14 @@ void gridBuilding() {
             break;
         }
     }
-    check(built >= 0 && p.gold == 0, "place launcher on selected valid grid");
-    check(g.propAt(built)->kind == PropKind::Launcher, "placed item is at requested coordinate");
+    check(built >= 0 && p.wallet.at("cans") == 0, "place launcher on selected valid grid");
+    check(g.propAt(built)->kind == "launcher", "placed item is at requested coordinate");
     check(!g.command(0, GameAction::Move, -1, built).empty(), "built furniture blocks movement");
-    p.gold = 10000;
+    p.wallet.at("cans") = 10000;
     check(!g.command(0, GameAction::Build, -1, room.nest).empty(), "cannot build over nest");
     check(!g.command(0, GameAction::Build, -1, room.door).empty(), "cannot build over door");
     check(!g.command(0, GameAction::Build, -1, g.dorms[1].nest).empty(), "cannot build in another shop");
-    check(!g.command(0, GameAction::Build, -1, built, PropKind::Pantry).empty(),
+    check(!g.command(0, GameAction::Build, -1, built, "pantry").empty(),
           "cannot replace occupied grid with different item");
     check(g.command(0, GameAction::Build, -1, built).empty(), "existing launcher can upgrade");
     // The floor immediately inside a single door is a critical choke point.
@@ -207,28 +212,31 @@ void gridBuilding() {
         }
     }
     room.hp = 10;
-    p.gold = 100;
-    check(g.command(0, GameAction::Repair, room.id).empty() && p.gold == 55 && room.hp == 150,
+    p.wallet.at("cans") = 100;
+    check(g.command(0, GameAction::Repair, room.id).empty() && p.wallet.at("cans") == 55 && room.hp == 150,
           "repair debits and heals");
     check(!g.command(0, GameAction::Repair, room.id).empty(), "repair cooldown");
-    p.gold = 1000;
-    const int beforeRate = g.income(p);
+    p.wallet.at("cans") = 1000;
+    const double beforeRate = g.income(p);
     int pantry = -1;
     for (int cell : room.floor) {
-        if (!g.propAt(cell) && g.command(0, GameAction::Build, -1, cell, PropKind::Pantry).empty()) {
+        if (!g.propAt(cell) && g.command(0, GameAction::Build, -1, cell, "pantry").empty()) {
             pantry = cell;
             break;
         }
     }
-    check(pantry >= 0 && g.income(p) == beforeRate + PantryIncome[0], "pantry adds passive income");
+    check(pantry >= 0 && g.income(p) == beforeRate + testConfig()->item("pantry").levels[0].amount,
+          "pantry adds passive income");
     check(g.command(0, GameAction::Move, -1, room.nest).empty(), "stand up beside upgraded nest");
-    const int gold = p.gold, rate = g.income(p);
+    const int gold = p.wallet.at("cans");
+    const double rate = g.income(p);
     advance(g, 1);
-    check(!p.sleeping && p.gold == gold + rate && rate == beforeRate + PantryIncome[0],
+    check(!p.sleeping && p.wallet.at("cans") == gold + rate &&
+              rate == beforeRate + testConfig()->item("pantry").levels[0].amount,
           "upgraded nest and pantry keep producing while awake");
 }
 void rosterAndReconnect() {
-    Game g("ROOM", 6, 7);
+    Game g("ROOM", 6, 7, testConfig());
     g.addHuman("Host");
     check(!g.start(0).empty(), "multiplayer waits for one friend");
     g.addHuman("Friend");
@@ -241,13 +249,13 @@ void rosterAndReconnect() {
     check(g.players[0].room < 0, "disconnect grace");
     advance(g, 25);
     check(g.players[0].room >= 0 && g.players[0].sleeping, "AI takes over and physically reaches nest");
-    const int room = g.players[0].room, gold = g.players[0].gold;
+    const int room = g.players[0].room, gold = g.players[0].wallet.at("cans");
     g.setConnected(0, true);
-    check(g.players[0].room == room && g.players[0].gold == gold, "reconnect preserves state");
+    check(g.players[0].room == room && g.players[0].wallet.at("cans") == gold, "reconnect preserves state");
     const auto seed = g.map.seed;
     g.phase = "won";
     check(g.rematch(0).empty(), "rematch");
-    check(g.map.seed != seed && g.players[0].room < 0 && g.players[0].gold == 120,
+    check(g.map.seed != seed && g.players[0].room < 0 && g.players[0].wallet.at("cans") == 120,
           "rematch generates new map and resets resources");
     g.removeHuman(0);
     check(g.host == 1 && g.players[1].ready, "host transfers");
@@ -281,28 +289,31 @@ void daylightAndCapture() {
 }
 void enemyProgression() {
     Monster timed;
+    timed.hp = timed.maxHp = testConfig()->enemy.levels[0].maxHp;
     timed.hp = timed.maxHp / 2;
     for (int i = 0; i < 899; ++i) {
-        LogicProgression::advanceTime(timed, .05);
+        LogicProgression::advanceTime(timed, .05, testConfig()->enemy);
     }
     check(timed.level == 1 && timed.experience == 44, "natural XP respects whole seconds and threshold");
-    check(LogicProgression::advanceTime(timed, .05) == 1, "natural time reaches level two at 45 seconds");
+    check(LogicProgression::advanceTime(timed, .05, testConfig()->enemy) == 1,
+          "natural time reaches level two at 45 seconds");
     check(timed.level == 2 && timed.experience == 0 && timed.maxHp == 810 && timed.hp == 405,
           "level-up uses configured stats and preserves health percentage");
-    check(LogicProgression::grant(timed, 65) == 1 && timed.level == 3 && timed.experience == 5,
+    check(LogicProgression::grant(timed, 65, testConfig()->enemy) == 1 && timed.level == 3 && timed.experience == 5,
           "level-up carries excess experience forward");
     Monster alternate;
+    alternate.hp = alternate.maxHp = testConfig()->enemy.levels[0].maxHp;
     for (int i = 0; i < 180; ++i) {
-        LogicProgression::advanceTime(alternate, .25);
+        LogicProgression::advanceTime(alternate, .25, testConfig()->enemy);
     }
     check(alternate.level == 2 && alternate.experience == 0, "growth is independent of update subdivision");
     alternate.hp = 0;
-    check(LogicProgression::grant(alternate, std::numeric_limits<int>::max()) == 8,
+    check(LogicProgression::grant(alternate, std::numeric_limits<int>::max(), testConfig()->enemy) == 8,
           "large reward advances safely to level cap");
     check(alternate.level == 10 && alternate.experience == 0 && alternate.hp == 0 &&
-              alternate.maxHp == EnemyLevels.back().maxHp,
+              alternate.maxHp == testConfig()->enemy.levels.back().maxHp,
           "capped leveling neither overflows nor revives defeated enemy");
-    check(LogicProgression::grant(alternate, 100) == 0, "max-level XP is bounded");
+    check(LogicProgression::grant(alternate, 100, testConfig()->enemy) == 0, "max-level XP is bounded");
     auto waiting = solo();
     advance(waiting, 20);
     check(waiting.monster.level == 1 && waiting.monster.experience == 0, "preparation does not grant time XP");
@@ -326,7 +337,7 @@ void doorCombatAndAttackTarget() {
     g.step(.05);
     check(monster.doorHits == 1 && monster.attackSequence == 1 && monster.experience == 5,
           "one valid door hit awards XP exactly once");
-    check(room.hp == DoorHealth[0] - EnemyLevels[0].doorDamage && g.players[0].alive,
+    check(room.hp == testConfig()->door(1).health - testConfig()->enemy.levels[0].doorDamage && g.players[0].alive,
           "door damage never damages or captures a cat behind intact door");
     check(monster.attackingPlayer == 0 && monster.state == "attacking", "attack indicator identifies door owner");
     const double started = monster.attackStartedAt;
@@ -341,7 +352,7 @@ void doorCombatAndAttackTarget() {
     const double before = room.hp;
     g.step(.05);
     check(monster.level == 2 && monster.experience == 0, "door experience can trigger a level-up");
-    check(room.hp == before - EnemyLevels[0].doorDamage, "current hit uses level before its XP reward");
+    check(room.hp == before - testConfig()->enemy.levels[0].doorDamage, "current hit uses level before its XP reward");
     monster.attackCooldown = 0;
     monster.position = GridMap::center(g.map.spawn);
     const int hits = monster.doorHits, xp = monster.experience;
@@ -363,7 +374,7 @@ void doorCombatAndAttackTarget() {
     for (int step = 0; step < 200 && g.players[0].alive; ++step) {
         g.step(.05);
     }
-    check(!g.players[0].alive && GameMath::distance(monster.position, catPosition) < EnemyAttackRange,
+    check(!g.players[0].alive && GameMath::distance(monster.position, catPosition) < testConfig()->enemy.captureRange,
           "capture requires walking to cat, without cat HP or attack stage");
     check(monster.attackSequence == sequence, "capture is not a second attack event");
     const int savedExperience = monster.experience, savedHits = monster.doorHits;
@@ -385,11 +396,12 @@ void fullMatches() {
         advance(g, 331);
         check(g.phase == "won" || g.phase == "lost", "full round terminates");
         for (const auto& p : g.players) {
-            check(p.gold >= 0 && p.bed <= 3 && !g.map.wall(GridMap::cellAt(p.position)),
+            check(p.wallet.at("cans") >= 0 && p.bed <= static_cast<int>(g.config().nests.size()) &&
+                      !g.map.wall(GridMap::cellAt(p.position)),
                   "full match player invariants");
         }
         for (const auto& room : g.dorms) {
-            check(room.hp >= 0 && room.hp <= DoorHealth[room.level - 1], "door health bounds");
+            check(room.hp >= 0 && room.hp <= testConfig()->door(room.level).health, "door health bounds");
         }
     }
 }

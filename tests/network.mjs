@@ -11,11 +11,21 @@ class Client {
     this.waiters = [];
     this.state = null;
     this.sequence = 0;
+    this.catalog = null;
+    this.configMessages = 0;
     this.ws.on('message', (data) => {
       const m = JSON.parse(data);
       this.messages.push(m);
       if (this.messages.length > 300) this.messages.shift();
-      if (m.type === 'state') this.state = m;
+      if (m.type === 'config') {
+        this.catalog = m;
+        ++this.configMessages;
+      }
+      if (m.type === 'state') {
+        assert.equal(m.configVersion, this.catalog?.version, 'configuration arrives before its snapshots');
+        m.catalog = this.catalog;
+        this.state = m;
+      }
       if (m.type === 'joined') {
         this.token = m.token;
         this.code = m.code;
@@ -112,13 +122,18 @@ try {
     assert.equal(initial.monster.experience, 0);
     assert.equal(initial.monster.attackingPlayer, -1);
     assert.equal(initial.monster.maxLevel, 10);
-    assert.equal(initial.rules.enemyDoorExperience, 5);
+    assert.equal(initial.catalog.manager.doorExperience, 5);
     assert.ok(
       initial.players.every((p) => !('hp' in p) && !('maxHp' in p)),
       'cats have no health field',
     );
     assert.equal(initial.map.rows.length, 36);
     assert.equal(initial.map.rows[0].length, 44);
+    assert.equal(initial.players[0].wallet.dried_fish, 0);
+    assert.equal(initial.catalog.items.pantry.behavior, 'currency_producer');
+    assert.equal(initial.catalog.items.launcher.behavior, 'single_attack');
+    assert.equal(initial.catalog.items.repair.behavior, 'door_repair');
+    assert.equal(initial.dorms[0].doorName, '木门 1级');
     for (const room of initial.dorms) {
       assert.ok(room.props.length >= 1 && room.props.length <= 2);
       assert.equal(room.closed, false);
@@ -167,11 +182,32 @@ try {
     await host.wait((m) => m.type === 'error' && m.message.includes('走不到'));
     host.action('build', -1, settled.dorms[0].nest);
     await host.wait((m) => m.type === 'error');
+    assert.equal(settled.offers.nest.enabled, false, 'nest offer requires a stronger door');
+    assert.ok(settled.offers.nest.reason.includes('木门 2级'));
+    host.action('bed');
+    await host.wait((m) => m.type === 'error' && m.message.includes('木门 2级'));
+    host.action('door');
+    const doorUpgraded = await host.wait((m) => m.type === 'state' && m.dorms[0].level === 2);
+    assert.equal(doorUpgraded.dorms[0].doorName, '木门 2级');
+    const affordable = await host.wait((m) => m.type === 'state' && m.offers.nest.enabled);
+    host.send({
+      type: 'action',
+      action: 'build',
+      kind: 'missing_item',
+      room: 0,
+      cell: Number(
+        affordable.map.rows
+          .flatMap((row, y) => [...row].map((t, x) => (t === '0' ? y * 44 + x : -1)))
+          .find((c) => c >= 0 && c !== affordable.dorms[0].nest),
+      ),
+      seq: ++host.sequence,
+    });
+    await host.wait((m) => m.type === 'error');
     host.action('bed');
     await host.wait((m) => m.type === 'state' && m.players[0].bed === 2);
     host.send({ type: 'action', action: 'bed', seq: host.sequence });
     const funded = await host.wait(
-      (m) => m.type === 'state' && m.players[0].gold >= 65 && m.players[0].bed === 2,
+      (m) => m.type === 'state' && m.players[0].wallet.cans >= 65 && m.players[0].bed === 2,
     );
     const map = funded.map,
       room = funded.dorms[0];
@@ -215,7 +251,7 @@ try {
         m.type === 'state' &&
         m.tick > awake.tick &&
         !m.players[0].sleeping &&
-        m.players[0].gold > awake.players[0].gold,
+        m.players[0].wallet.cans > awake.players[0].wallet.cans,
     );
     assert.equal(roaming.dorms[0].closed, true, 'standing does not reopen entrance');
     host.action('nest', 0);
@@ -287,6 +323,7 @@ try {
       party[1] = resumed;
       console.log('PASS authoritative door XP, attack target, synchronized peers and combat reconnection');
     }
+    assert.equal(host.configMessages, 1, 'static catalog is not repeated each snapshot');
     for (const c of party)
       if (c.ws.readyState === WebSocket.OPEN) {
         c.send({ type: 'leave' });

@@ -4,7 +4,8 @@
 #include <json/json.h>
 namespace snackshop {
 namespace GameSnapshot {
+Json::Value catalog(const GameConfig& config);
 Json::Value encode(const Game& game, int viewer);
-}
+} // namespace GameSnapshot
 } // namespace snackshop
 #endif

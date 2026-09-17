@@ -1,0 +1,15 @@
+{
+  "target_interval_ms": 2000,
+  "minimum_target_hold_ms": 5000,
+  "target_switch_margin": 6,
+  "attack_prop_weight": 12,
+  "door_health_weight": 0.02,
+  "distance_weight": 0.35,
+  "random_weight": 4,
+  "retreat_health_percent": 25,
+  "resume_health_percent": 90,
+  "out_of_combat_delay_ms": 5000,
+  "out_of_combat_heal_percent_per_second": 3,
+  "retreat_speed_multiplier": 1.6,
+  "repath_interval_ms": 600
+}

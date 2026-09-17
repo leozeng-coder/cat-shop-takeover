@@ -1,4 +1,5 @@
 #include "logic_combat.h"
+#include "ai/logic_cat_ai.h"
 #include "common/game_math.h"
 #include "logic_progression.h"
 #include <algorithm>
@@ -6,7 +7,7 @@ namespace snackshop {
 bool LogicCombat::ready(const Game& game) {
     const auto& monster = game.monster;
     return game.phase == "running" && monster.hp > 0 && monster.attackCooldown <= 1e-9 &&
-           monster.state != "retreating" && monster.state != "resting";
+           monster.state != "retreating" && monster.state != "defeated" && monster.state != "resting";
 }
 bool LogicCombat::hitDoor(Game& game, int id) {
     if (id < 0 || id >= Seats || !ready(game)) {
@@ -17,11 +18,12 @@ bool LogicCombat::hitDoor(Game& game, int id) {
     if (!room.doorClosed() || GameMath::distance(monster.position, GridMap::center(room.entrance)) >= 2) {
         return false;
     }
-    monster.attackCooldown = EnemyAttackInterval;
-    room.hp = std::max(0.0, room.hp - LogicProgression::stats(monster).doorDamage);
+    monster.attackCooldown = game.config().enemy.attackInterval;
+    room.hp = std::max(0.0, room.hp - LogicProgression::stats(monster, game.config().enemy).doorDamage);
+    monster.lastCombatAt = game.elapsed;
     ++monster.doorHits;
     ++monster.attackSequence;
-    if (LogicProgression::grant(monster, EnemyDoorExperience) > 0) {
+    if (LogicProgression::grant(monster, game.config().enemy.doorExperience, game.config().enemy) > 0) {
         game.notify("店长敲门积累经验，升至 Lv." + std::to_string(monster.level));
     }
     if (room.hp == 0) {
@@ -39,7 +41,7 @@ bool LogicCombat::catInRange(const Game& game, int id) {
     const auto& monster = game.monster;
     const int from = GridMap::cellAt(monster.position), to = GridMap::cellAt(cat.position);
     if (!cat.alive || !GridMap::valid(from) || !game.walkable(to) ||
-        GameMath::distance(monster.position, cat.position) >= EnemyAttackRange) {
+        GameMath::distance(monster.position, cat.position) >= game.config().enemy.captureRange) {
         return false;
     }
     const auto adjacent = game.map.neighbors(from);
@@ -47,10 +49,11 @@ bool LogicCombat::catInRange(const Game& game, int id) {
 }
 bool LogicCombat::catchCat(Game& game, int id) {
     const auto& monster = game.monster;
-    if (game.phase != "running" || monster.hp <= 0 || monster.state == "retreating" || monster.state == "resting" ||
-        !catInRange(game, id)) {
+    if (game.phase != "running" || monster.hp <= 0 || monster.state == "retreating" || monster.state == "defeated" ||
+        monster.state == "resting" || !catInRange(game, id)) {
         return false;
     }
+    game.monster.lastCombatAt = game.elapsed;
     capture(game, id);
     return true;
 }
@@ -59,6 +62,7 @@ void LogicCombat::capture(Game& game, int id) {
         return;
     }
     auto& cat = game.players[id];
+    LogicCatAi::stop(game, cat);
     cat.alive = false;
     cat.sleeping = false;
     cat.path.clear();

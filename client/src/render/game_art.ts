@@ -68,6 +68,28 @@ export class GameArt {
     this.triangle([3, 0, 7, -3, 7, 3], '#fff6d1');
     c.restore();
   }
+  fishRack(x: number, y: number, level: number) {
+    const c = this.ctx;
+    c.save();
+    c.translate(x, y);
+    this.ellipse(0, 11, 14, 4, '#5a593325');
+    this.line(-10, -11, -12, 11, '#9f7852', 3);
+    this.line(10, -11, 12, 11, '#9f7852', 3);
+    this.line(-13, -11, 13, -11, '#c39b6a', 4);
+    this.line(-10, 9, 10, 9, '#c39b6a', 2);
+    const count = Math.min(level + 1, 4);
+    for (let i = 0; i < count; i++) {
+      c.save();
+      c.translate((i - (count - 1) / 2) * 6, -10);
+      c.rotate(Math.sin(this.time * 1.8 + x * 0.1 + i) * 0.06);
+      this.line(0, 0, 0, 4, '#826b51', 0.8);
+      this.triangle([-2, 3, 2, 3, 0, 6], '#91b5b5');
+      this.ellipse(0, 8, 2.4, 4, '#91b5b5');
+      this.ellipse(0.8, 9.5, 0.65, 0.65, '#405e60');
+      c.restore();
+    }
+    c.restore();
+  }
   paw(x: number, y: number, color = '#b7b895', scale = 1) {
     const c = this.ctx;
     c.save();
