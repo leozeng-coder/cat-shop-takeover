@@ -240,6 +240,22 @@ export class Renderer {
       // Door frames remain distinct from masonry in all three door states.
       for (const side of [-1, 1]) a.rect(side * 14 - 2, -10, 4, 20, '#8b704f', 1, '#705b42');
       if (room.closed) {
+        const guestExiting = g.players.some((cat) => {
+          const cell = Math.floor(cat.y / m.tileSize) * m.width + Math.floor(cat.x / m.tileSize);
+          return (
+            cat.alive &&
+            cat.id !== room.owner &&
+            roomAt(m, cell) === room.id &&
+            cat.path.includes(room.entrance) &&
+            Math.hypot(cat.x - door.x, cat.y - door.y) < 24
+          );
+        });
+        c.save();
+        if (guestExiting) {
+          c.translate(-12, 0);
+          c.rotate(-0.9);
+          c.translate(12, 0);
+        }
         a.rect(
           -12,
           -9,
@@ -256,6 +272,7 @@ export class Renderer {
           a.line(-5, -8, -1, -2, '#795d3e', 1.5);
           a.line(-1, -2, -4, 4, '#795d3e', 1.5);
         }
+        c.restore();
       } else if (room.hp > 0) {
         // The open leaf rests beside the frame, leaving the passage clear.
         a.rect(-12, -8, 5, 23, '#cba36c', 1, '#8b704f');

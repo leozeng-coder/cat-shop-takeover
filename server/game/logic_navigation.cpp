@@ -1,3 +1,4 @@
+#include "ai/logic_cat_ai.h"
 #include "common/game_math.h"
 #include "game.h"
 #include "logic_economy.h"
@@ -25,14 +26,9 @@ bool Game::walkable(int cell, int player, int startingRoom) const {
     const int room = map.roomAt(cell);
     if (room >= 0 && cell == dorms[room].door) {
         if (dorms[room].doorClosed()) {
-            return false;
-        }
-        if (player >= 0 && startingRoom != room && dorms[room].owner < 0) {
-            for (const auto& cat : players) {
-                if (cat.id != player && cat.alive && cat.nestIntent == room) {
-                    return false;
-                }
-            }
+            // A guest already inside may open the door to leave. Ownership keeps
+            // the owner inside and denies entry to outside cats and the manager.
+            return player >= 0 && startingRoom == room && dorms[room].owner != player;
         }
         return true;
     }
@@ -121,6 +117,17 @@ void Game::arrive(Player& p) {
         }
         p.room = room.id;
         room.owner = p.id;
+        for (auto& other : players) {
+            if (other.id == p.id || !other.alive ||
+                (other.nestIntent != room.id && (!other.ai.active || other.ai.targetRoom != room.id))) {
+                continue;
+            }
+            // Abort the losing task; next tick the AI can choose another unclaimed nest.
+            LogicCatAi::stop(*this, other);
+            other.nestIntent = -1;
+            other.path.clear();
+            other.decisionAt = 0;
+        }
         notify(p.name + " 占领了 " + std::to_string(room.id + 1) + " 号猫店，店门已关闭，走动也能赚罐头");
     }
     p.sleeping = true;

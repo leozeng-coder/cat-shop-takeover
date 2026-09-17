@@ -142,7 +142,7 @@ export function gridMenuView(g: State, cell: number) {
   } else if (cell === room.door) {
     description =
       (room.closed
-        ? '店门已关闭，所有角色都无法穿过。'
+        ? '店门已关闭：房主不能出去；屋内其他猫可开门出去，外面的猫和店长不能进来。'
         : room.hp <= 0
           ? '店门已被打破，店长可以进屋抓猫。'
           : '店门敞开，安家后自动关闭。') +
@@ -177,6 +177,9 @@ export function gridMenuView(g: State, cell: number) {
         !room.repairOffer.enabled,
       );
     }
+    const myCell = Math.floor(me.y / g.map.tileSize) * g.map.width + Math.floor(me.x / g.map.tileSize);
+    if (room.closed && !mine && roomAt(g.map, myCell) === rid)
+      body += action('exit-room', '开门出去', '从店门离开，出去后无法再进来', '离开', '↗');
     if (!room.closed && (room.owner < 0 || mine))
       body += action('move', '走到入口', '从入口进出猫店', '移动', '↗');
   } else if (prop && item) {

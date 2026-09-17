@@ -12,7 +12,9 @@ void LogicCatAi::update(Game& game, Player& p) {
         return;
     }
     const int danger = CatBehavior::danger(game, p);
-    const bool interrupted = p.ai.active && danger > p.ai.danger;
+    const bool targetLost = p.ai.ownsMovement && p.ai.targetRoom >= 0 && game.dorms[p.ai.targetRoom].owner >= 0 &&
+                            game.dorms[p.ai.targetRoom].owner != p.id;
+    const bool interrupted = targetLost || (p.ai.active && danger > p.ai.danger);
     if (!interrupted && game.elapsed < p.decisionAt) {
         return;
     }

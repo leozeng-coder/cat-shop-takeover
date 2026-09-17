@@ -1,10 +1,12 @@
 #include "ai/logic_cat_ai.h"
 #include "battle/logic_enemy.h"
+#include "common/game_math.h"
 #include "game/game.h"
 #include "game/logic_economy.h"
 #include "item/logic_item.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 namespace snackshop {
 Game::Game(std::string value, int size, std::uint32_t seed, std::shared_ptr<const GameConfig> rules)
@@ -188,14 +190,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
                 return "你已经有自己的猫店了";
             }
             if (p.room < 0) {
-                // Reserve the approach through nestIntent, then claim only on arrival.
-                // Do not close the door with another cat or the shopkeeper inside an unclaimed shop.
-                for (const auto& cat : players) {
-                    if (cat.id != id && cat.alive &&
-                        (cat.nestIntent == targetRoom || map.roomAt(GridMap::cellAt(cat.position)) == targetRoom)) {
-                        return "有猫正在这家店里或前往猫窝，请选择另一家猫店";
-                    }
-                }
+                // A movement intent never reserves an unclaimed nest or blocks another cat.
                 if (phase == "running" && map.roomAt(GridMap::cellAt(monster.position)) == targetRoom) {
                     return "店长已经进店，请先寻找安全的猫店";
                 }
@@ -332,16 +327,49 @@ void Game::step(double dt) {
     }
     elapsed += dt;
     for (auto& p : players) {
+        if (p.alive && (!p.human || (!p.connected && p.disconnectedFor >= balance.reconnectGrace))) {
+            LogicCatAi::update(*this, p);
+        }
+    }
+    // Move everyone against the same board, then resolve arrivals by distance
+    // traveled within this tick, not by seat order or human/AI role.
+    std::array<std::pair<double, int>, Seats> arrivals;
+    const double budget = config().catSpeed * dt;
+    for (auto& p : players) {
+        auto& arrival = arrivals[p.id];
+        arrival = {std::numeric_limits<double>::infinity(), p.id};
         if (!p.alive) {
             continue;
         }
-        if ((!p.human || (!p.connected && p.disconnectedFor >= balance.reconnectGrace))) {
-            LogicCatAi::update(*this, p);
+        if (p.nestIntent >= 0) {
+            double distance = 0;
+            Point previous = p.position;
+            for (const auto& next : p.path) {
+                distance += GameMath::distance(previous, next);
+                previous = next;
+                if (distance > budget) {
+                    break;
+                }
+            }
+            arrival.first = distance;
         }
         if (!p.path.empty()) {
-            moveAlong(p.position, p.path, config().catSpeed * dt, p.id);
+            moveAlong(p.position, p.path, budget, p.id);
         }
-        arrive(p);
+    }
+    const int firstSeat = static_cast<int>(tick % Seats);
+    std::sort(arrivals.begin(), arrivals.end(), [&](const auto& a, const auto& b) {
+        if (a.first != b.first) {
+            return a.first < b.first;
+        }
+        // Exactly simultaneous arrivals use a deterministic rotating tie-break.
+        return (a.second + Seats - firstSeat) % Seats < (b.second + Seats - firstSeat) % Seats;
+    });
+    for (const auto& arrival : arrivals) {
+        auto& p = players[arrival.second];
+        if (p.alive) {
+            arrive(p);
+        }
     }
     LogicItem::updatePassive(*this, dt);
     if (phase == "preparing" && elapsed >= balance.preparation) {

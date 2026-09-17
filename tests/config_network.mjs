@@ -344,6 +344,69 @@ try {
   console.log(
     'PASS fridge catalog, per-player uniqueness, repeated-command rejection, upgrades, peer snapshots and reconnect',
   );
+  // A visitor exits a closed shop through real movement commands, without opening it to others.
+  tables.cat_ai.start_delay_ms = 10000;
+  await fs.writeFile(path.join(directory, 'cat_ai.json'), JSON.stringify(tables.cat_ai));
+  const doorHost = new Client();
+  await doorHost.create(2);
+  const doorGuest = new Client();
+  await doorGuest.open();
+  doorGuest.send({ type: 'join', code: doorHost.code, name: 'Inside guest' });
+  await doorGuest.wait((m) => m.type === 'joined');
+  doorGuest.send({ type: 'ready', ready: true });
+  await doorHost.wait((m) => m.type === 'state' && m.players[1].human && m.players[1].ready);
+  doorHost.send({ type: 'start' });
+  const doorStart = await doorHost.wait((m) => m.type === 'state' && m.phase === 'preparing');
+  const shop = doorStart.dorms[0];
+  const cellAt = (state, id) => {
+    const cat = state.players[id],
+      map = state.map;
+    return Math.floor(cat.y / map.tileSize) * map.width + Math.floor(cat.x / map.tileSize);
+  };
+  action(doorHost, 'move', -1, shop.nest);
+  action(doorGuest, 'move', -1, shop.nest);
+  const visited = await doorHost.wait(
+    (m) =>
+      m.type === 'state' &&
+      m.players.slice(0, 2).every((p) => cellAt(m, p.id) === shop.nest && p.path.length === 0),
+  );
+  assert.equal(visited.dorms[0].owner, -1, 'visiting never claims or reserves the room');
+  action(doorHost, 'nest', 0);
+  const closed = await doorGuest.wait(
+    (m) => m.type === 'state' && m.dorms[0].owner === 0 && m.dorms[0].closed,
+  );
+  assert.equal(cellAt(closed, 1), shop.nest, 'door closes while guest is still inside');
+  assert.equal(closed.players[1].room, -1);
+  action(doorHost, 'move', -1, shop.entrance);
+  await doorHost.wait((m) => m.type === 'error' && m.message.includes('走不到'));
+  action(doorGuest, 'move', -1, shop.entrance);
+  const exited = await doorGuest.wait(
+    (m) =>
+      m.type === 'state' &&
+      m.tick > closed.tick &&
+      cellAt(m, 1) === shop.entrance &&
+      m.players[1].path.length === 0,
+  );
+  assert.equal(exited.dorms[0].closed, true);
+  const ownerView = await doorHost.wait(
+    (m) =>
+      m.type === 'state' &&
+      m.tick >= exited.tick &&
+      cellAt(m, 1) === shop.entrance &&
+      m.players[1].path.length === 0,
+  );
+  assert.equal(ownerView.dorms[0].owner, 0);
+  assert.equal(ownerView.dorms[0].closed, true, 'guest exit does not globally open the door');
+  action(doorGuest, 'move', -1, shop.nest);
+  await doorGuest.wait((m) => m.type === 'error' && m.message.includes('走不到'));
+  action(doorGuest, 'nest', 1);
+  const resettled = await doorGuest.wait((m) => m.type === 'state' && m.players[1].room === 1);
+  assert.equal(resettled.dorms[0].owner, 0);
+  assert.equal(resettled.dorms[1].owner, 1);
+  assert.equal(resettled.dorms[0].closed, true);
+  console.log(
+    'PASS immediate closure, inside guest exit, owner confinement, no re-entry and synchronized peers',
+  );
   console.log(
     'PASS split-table loading, live new-match reload, peer versions, old-match isolation, atomic rollback and reconnect',
   );

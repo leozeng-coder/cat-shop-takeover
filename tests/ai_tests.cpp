@@ -160,8 +160,10 @@ void invalidTargetAndTimeout() {
     game.dorms[old].owner = 1;
     game.players[1].room = old;
     game.players[1].position = GridMap::center(game.dorms[old].nest);
-    tick(game);
-    check(cat.ai.targetRoom != old && cat.nestIntent != old, "stale occupied target releases its reservation");
+    cat.decisionAt = game.elapsed + 1000;
+    LogicCatAi::update(game, cat);
+    check(cat.ai.targetRoom != old && cat.nestIntent != old,
+          "occupied target interrupts movement despite a future decision deadline");
     cat.ai.moveDeadline = game.elapsed - 1;
     tick(game);
     check(cat.ai.moveDeadline > game.elapsed || cat.ai.tree.result == bt::Status::Failure,
@@ -175,6 +177,39 @@ void invalidTargetAndTimeout() {
     check(blocked.players[0].path.empty() && blocked.players[0].nestIntent == -1 &&
               blocked.players[0].ai.tree.result != bt::Status::Running,
           "no available nest falls back without retaining a fake running action");
+}
+void contestedNestExit() {
+    auto game = setup(false);
+    auto& cat = game.players[0];
+    tick(game);
+    const int target = cat.ai.targetRoom;
+    auto& room = game.dorms[target];
+    room.props.clear();
+    const auto center = GridMap::center(room.nest);
+    cat.position = {center.x + 12, center.y};
+    check(game.command(0, GameAction::EnterNest, target).empty(), "AI maintains its claimed movement intent");
+    cat.decisionAt = 1000;
+    auto& human = game.players[1];
+    human.human = human.connected = true;
+    human.position = {center.x + 1, center.y};
+    check(game.command(1, GameAction::EnterNest, target).empty(), "human can race the AI to its intended nest");
+    game.step(.05);
+    check(room.owner == 1 && room.doorClosed() && human.room == target,
+          "human actual arrival closes door before AI leaves");
+    check(!cat.ai.active && cat.nestIntent == -1 && cat.path.empty() && cat.room < 0,
+          "claim interrupts and clears the losing AI task immediately");
+    check(game.map.roomAt(GridMap::cellAt(cat.position)) == target,
+          "losing AI remains physically inside the closed room");
+    game.step(.05);
+    check(cat.ai.active && cat.ai.targetRoom >= 0 && cat.ai.targetRoom != target && !cat.path.empty(),
+          "AI selects another available nest next tick without waiting for old deadline");
+    for (int i = 0; i < 500 && cat.room < 0; ++i) {
+        game.step(.05);
+        check(!game.map.wall(GridMap::cellAt(cat.position)), "retargeted AI never crosses a wall");
+        check(room.doorClosed() && room.owner == 1, "AI exit preserves the human closed door");
+    }
+    check(cat.room >= 0 && cat.room != target && game.dorms[cat.room].owner == 0,
+          "AI exits the closed door and physically settles in another shop");
 }
 void economyAndLimits() {
     auto game = setup();
@@ -227,7 +262,7 @@ void controlLifecycle() {
     check(p.ai.active && p.ai.ownsMovement && !p.path.empty(), "AI takes over a disconnected human");
     game.setConnected(0, true);
     check(!p.ai.active && p.path.empty() && p.nestIntent == -1 && p.ai.tree.running < 0,
-          "reconnection cancels AI movement and reservations immediately");
+          "reconnection cancels AI movement and nest intent immediately");
     const auto goal = game.map.spawn;
     check(game.command(0, GameAction::Move, -1, goal).empty(), "reconnected player can move");
     const auto size = p.path.size();
@@ -274,6 +309,7 @@ int main() {
         treeSemantics();
         movingAndInterrupts();
         invalidTargetAndTimeout();
+        contestedNestExit();
         economyAndLimits();
         controlLifecycle();
         multiplayerAndDeterminism();

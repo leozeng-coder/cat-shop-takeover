@@ -94,7 +94,7 @@ void movementAndOwnership() {
     settle(g);
     check(room.doorClosed(), "arriving after nest interaction closes door");
     check(!g.walkable(room.door, 0, 0) && !g.walkable(room.door, 1) && !g.walkable(room.door),
-          "closed door blocks owner, guests and shopkeeper");
+          "closed door blocks owner, outside cats and shopkeeper");
     check(!g.command(1, GameAction::EnterNest, 0).empty(), "one owner per room");
     check(!g.command(0, GameAction::EnterNest, 1).empty(), "one room per player");
     const auto previous = p.position;
@@ -145,36 +145,68 @@ void movementAndOwnership() {
     check(g.income(p) == 0, "captured cats stop producing");
 }
 void competingNestClaims() {
+    // Click order, seat order and AI status do not reserve a nest.
     auto g = solo();
+    g.balance.preparation = 120;
     for (auto& p : g.players) {
         p.decisionAt = 1000;
     }
-    const auto& room = g.dorms[0];
-    // A route planned before reservation must not carry a guest into the closing shop.
-    check(g.command(1, GameAction::Move, -1, room.nest).empty(), "guest preplans a room visit");
-    check(g.command(0, GameAction::EnterNest, 0).empty(), "first cat reserves nest approach");
-    check(!g.command(1, GameAction::EnterNest, 0).empty(), "simultaneous second nest claim rejected");
-    check(g.players[0].room < 0 && !room.doorClosed() && g.income(g.players[0]) == 0,
-          "reservation does not remotely close or produce income");
+    auto& room = g.dorms[0];
+    room.props.clear();
+    const auto center = GridMap::center(room.nest);
+    g.players[0].human = false;
+    g.players[0].position = {center.x + 6, center.y};
+    g.players[1].human = g.players[1].connected = true;
+    g.players[1].position = {center.x + 2, center.y};
+    g.players[2].position = GridMap::center(room.entrance);
+    check(g.command(0, GameAction::EnterNest, 0).empty(), "first cat starts approaching the nest");
+    check(g.command(1, GameAction::EnterNest, 0).empty(), "another cat may contest the same nest");
+    check(g.command(2, GameAction::Move, -1, room.nest).empty(), "nest intent does not block room entry");
+    check(room.owner < 0 && !room.doorClosed() && g.income(g.players[0]) == 0,
+          "intent neither owns, closes nor generates income");
+    g.step(.05);
+    check(room.owner == 1 && g.players[1].room == 0 && room.doorClosed(),
+          "closer later seat wins within the same tick and immediately closes the door");
+    check(g.players[0].room < 0 && g.players[0].nestIntent < 0 && g.players[0].path.empty(),
+          "loser releases stale nest movement without becoming an owner");
+    check(g.map.roomAt(GridMap::cellAt(g.players[0].position)) == 0,
+          "closure neither waits for nor teleports a guest inside");
+    check(g.walkable(room.door, 0, 0) && !g.walkable(room.door, 0) && !g.walkable(room.door, 1, 0) &&
+              !g.walkable(room.door, -1, 0),
+          "closed door permits only an inside non-owner cat to leave");
+    check(!g.command(1, GameAction::Move, -1, room.entrance).empty(), "owner cannot exit their closed door");
+    g.players[0].human = g.players[0].connected = true;
+    check(g.command(0, GameAction::Move, -1, room.entrance).empty(), "guest can open the door and exit");
+    for (int i = 0; i < 300 && !g.players[0].path.empty(); ++i) {
+        g.step(.05);
+        check(room.doorClosed(), "guest exit never globally opens the door");
+        check(!g.map.wall(GridMap::cellAt(g.players[0].position)), "guest exits without crossing walls");
+        check(g.map.roomAt(GridMap::cellAt(g.players[2].position)) != room.id,
+              "preplanned outside route cannot enter a now-closed room");
+    }
+    check(GridMap::cellAt(g.players[0].position) == room.entrance && g.players[0].path.empty(),
+          "guest physically reaches the street");
+    check(!g.command(0, GameAction::Move, -1, room.nest).empty(), "departed guest cannot return inside");
+    check(!g.command(0, GameAction::EnterNest, 0).empty(), "departed guest cannot steal the owned nest");
+    check(g.players[0].room < 0 && g.income(g.players[0]) == 0 && g.income(g.players[1]) > 0,
+          "only the actual owner earns nest income");
+    check(g.command(0, GameAction::EnterNest, 1).empty(), "loser can choose a different room");
     advance(g, 10);
-    check(room.owner == 0 && room.doorClosed(), "first arrival claims and closes door");
-    check(g.map.roomAt(GridMap::cellAt(g.players[1].position)) != 0,
-          "outdated guest route cannot pass reserved doorway");
-    check(g.command(1, GameAction::EnterNest, 1).empty(), "losing cat can choose another nest");
-    advance(g, 10);
-    check(g.players[1].room == 1, "losing cat is not trapped");
+    check(g.players[0].room == 1 && room.owner == 1, "loser settles elsewhere without changing original ownership");
 
     auto cancel = solo();
     for (auto& p : cancel.players) {
         p.decisionAt = 1000;
     }
-    check(cancel.command(0, GameAction::EnterNest, 0).empty(), "reserve cancellable nest");
-    check(cancel.command(0, GameAction::Move, -1, cancel.map.spawn).empty(), "retarget cancels reservation");
-    check(cancel.command(1, GameAction::EnterNest, 0).empty(), "cancelled reservation releases nest");
-    cancel.players[1].nestIntent = -1;
-    cancel.players[1].path.clear();
+    check(cancel.command(0, GameAction::EnterNest, 0).empty(), "start a cancellable approach");
+    check(cancel.command(0, GameAction::Move, -1, cancel.map.spawn).empty(), "retarget cancels nest intent");
+    check(cancel.players[0].nestIntent < 0 && cancel.dorms[0].owner < 0, "cancelled movement leaves an unclaimed nest");
     cancel.players[1].position = GridMap::center(cancel.dorms[0].nest);
-    check(!cancel.command(0, GameAction::EnterNest, 0).empty(), "cannot lock a visiting cat inside");
+    check(cancel.command(0, GameAction::EnterNest, 0).empty(), "an idle visitor does not block claiming a nest");
+    advance(cancel, 10);
+    check(cancel.dorms[0].owner == 0 && cancel.dorms[0].doorClosed() &&
+              cancel.map.roomAt(GridMap::cellAt(cancel.players[1].position)) == 0,
+          "owner closes immediately with an idle visitor still inside");
 }
 void gridBuilding() {
     auto g = solo();
@@ -289,32 +321,35 @@ void daylightAndCapture() {
     check(!capture.command(0, GameAction::Move, -1, capture.map.spawn).empty(), "captured cats cannot move");
 }
 void enemyProgression() {
+    // Fixed thresholds keep numerical boundary cases independent of live balance edits.
+    auto rules = testConfig()->enemy;
+    rules.levels[0].nextRage = 45;
+    rules.levels[1].nextRage = 60;
     Monster timed;
-    timed.hp = timed.maxHp = testConfig()->enemy.levels[0].maxHp;
+    timed.hp = timed.maxHp = rules.levels[0].maxHp;
     timed.hp = timed.maxHp / 2;
     for (int i = 0; i < 899; ++i) {
-        LogicProgression::advanceTime(timed, .05, testConfig()->enemy);
+        LogicProgression::advanceTime(timed, .05, rules);
     }
     check(timed.level == 1 && timed.rage == 44, "natural rage respects whole seconds and threshold");
-    check(LogicProgression::advanceTime(timed, .05, testConfig()->enemy) == 1,
-          "natural time reaches level two at 45 seconds");
+    check(LogicProgression::advanceTime(timed, .05, rules) == 1, "natural time reaches level two at 45 seconds");
     check(timed.level == 2 && timed.rage == 0 && timed.maxHp == 810 && timed.hp == 527.5,
           "level-up heals 25 percent of new max HP without rescaling existing HP");
-    check(LogicProgression::grant(timed, 65, testConfig()->enemy) == 1 && timed.level == 3 && timed.rage == 5,
+    check(LogicProgression::grant(timed, 65, rules) == 1 && timed.level == 3 && timed.rage == 5,
           "level-up carries excess rage forward");
     Monster alternate;
-    alternate.hp = alternate.maxHp = testConfig()->enemy.levels[0].maxHp;
+    alternate.hp = alternate.maxHp = rules.levels[0].maxHp;
     for (int i = 0; i < 180; ++i) {
-        LogicProgression::advanceTime(alternate, .25, testConfig()->enemy);
+        LogicProgression::advanceTime(alternate, .25, rules);
     }
     check(alternate.level == 2 && alternate.rage == 0, "growth is independent of update subdivision");
     alternate.hp = 0;
-    check(LogicProgression::grant(alternate, std::numeric_limits<int>::max(), testConfig()->enemy) == 8,
+    check(LogicProgression::grant(alternate, std::numeric_limits<int>::max(), rules) == 8,
           "large reward advances safely to level cap");
     check(alternate.level == 10 && alternate.rage == 0 && alternate.hp == 0 &&
-              alternate.maxHp == testConfig()->enemy.levels.back().maxHp,
+              alternate.maxHp == rules.levels.back().maxHp,
           "capped leveling neither overflows nor revives defeated enemy");
-    check(LogicProgression::grant(alternate, 100, testConfig()->enemy) == 0, "max-level rage is bounded");
+    check(LogicProgression::grant(alternate, 100, rules) == 0, "max-level rage is bounded");
     check(alternate.levelUps.size() == 9, "exactly one announcement event per gained level, including cap");
     for (std::size_t i = 0; i < alternate.levelUps.size(); ++i) {
         check(alternate.levelUps[i].level == static_cast<int>(i) + 2, "event order survives multi-level gains");
@@ -327,11 +362,11 @@ void enemyProgression() {
           "every level heals independently against its own new maximum");
     Monster full;
     full.hp = full.maxHp = 650;
-    LogicProgression::grant(full, 45, testConfig()->enemy);
+    LogicProgression::grant(full, 45, rules);
     check(full.hp == 810 && full.levelUps[0].healed == 160, "healing caps at max and records actual recovery");
     const auto eventCount = full.levelUps.size();
-    check(LogicProgression::grant(full, 0, testConfig()->enemy) == 0 &&
-              LogicProgression::grant(full, -1, testConfig()->enemy) == 0 && full.levelUps.size() == eventCount,
+    check(LogicProgression::grant(full, 0, rules) == 0 && LogicProgression::grant(full, -1, rules) == 0 &&
+              full.levelUps.size() == eventCount,
           "nonpositive rage cannot heal or emit upgrade events");
     auto waiting = solo();
     advance(waiting, 20);
@@ -341,6 +376,8 @@ void incomingHitRage() {
     auto setup = [](double multiplier, double healRatio = .25, int damage = 11) {
         auto cfg = std::make_shared<GameConfig>(*testConfig());
         cfg->enemy.timeRage = 1;
+        cfg->enemy.levels[0].nextRage = 45;
+        cfg->enemy.levels[1].nextRage = 60;
         cfg->enemy.doorRage = 0;
         cfg->enemy.damageRageMultiplier = multiplier;
         cfg->enemy.levelUpHealRatio = healRatio;
@@ -482,7 +519,7 @@ void doorCombatAndAttackTarget() {
     check(monster.doorHits == 1 && monster.attackStartedAt == started, "active target survives cooldown snapshots");
     advance(g, .45);
     check(monster.doorHits == 2 && monster.attackSequence == 2, "next hit occurs at configured interval");
-    monster.rage = 40;
+    monster.rage = g.config().enemy.levels[0].nextRage - g.config().enemy.doorRage;
     monster.rageRemainder = 0;
     monster.attackCooldown = 0;
     const double before = room.hp;
