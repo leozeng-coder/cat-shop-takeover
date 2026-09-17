@@ -347,6 +347,19 @@ try {
       m.dorms[0].props.some((p) => p.kind === 'mini_fridge' && p.level === 2),
   );
   assert.deepEqual(friendView.dorms[0].props, upgradedFridge.dorms[0].props);
+  const onFridgeTile = (m) =>
+    m.type === 'state' &&
+    m.tick > upgradedFridge.tick &&
+    !m.players[0].sleeping &&
+    m.players[0].destination === -1 &&
+    Math.floor(m.players[0].y / m.map.tileSize) * m.map.width +
+      Math.floor(m.players[0].x / m.map.tileSize) === installed.cell;
+  action(fridgeHost, 'move', -1, installed.cell);
+  await fridgeHost.wait(onFridgeTile);
+  await fridgePeer.wait(onFridgeTile);
+  action(fridgeHost, 'nest', 0);
+  await fridgeHost.wait((m) => m.type === 'state' && m.tick > upgradedFridge.tick && m.players[0].sleeping);
+  console.log('PASS movement onto installed items and synchronized peer positions');
   const friendFridge = await install(fridgePeer, 1);
   assert.equal(friendFridge.state.dorms[1].props.filter((p) => p.kind === 'mini_fridge').length, 1);
   const fridgeToken = fridgePeer.token;

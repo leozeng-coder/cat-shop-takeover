@@ -169,7 +169,8 @@ void movementAndOwnership() {
         check(!g.map.wall(cell) && cell != room.door && g.map.roomAt(cell) == room.id,
               "rapid retargeting stays inside room with a closed door");
         const auto* prop = g.propAt(cell);
-        check(!prop || prop->kind == "crate", "movement never clips through furniture");
+        check(!prop || g.config().item(prop->kind).behavior != ItemBehavior::Obstacle,
+              "movement never clips through fixed obstacles");
     }
     settle(g);
     check(g.income(p) == rate, "returning to rest does not change income");
@@ -270,7 +271,7 @@ void gridBuilding() {
     }
     check(built >= 0 && p.wallet.at("cans") == 0, "place launcher on selected valid grid");
     check(g.propAt(built)->kind == "launcher", "placed item is at requested coordinate");
-    check(!g.command(0, GameAction::Move, -1, built).empty(), "built furniture blocks movement");
+    check(g.command(0, GameAction::Move, -1, built).empty(), "installed items allow movement onto their tile");
     p.wallet.at("cans") = 10000;
     check(!g.command(0, GameAction::Build, -1, room.nest).empty(), "cannot build over nest");
     check(!g.command(0, GameAction::Build, -1, room.door).empty(), "cannot build over door");
@@ -278,10 +279,10 @@ void gridBuilding() {
     check(!g.command(0, GameAction::Build, -1, built, "pantry").empty(),
           "cannot replace occupied grid with different item");
     check(g.command(0, GameAction::Build, -1, built).empty(), "existing launcher can upgrade");
-    // The floor immediately inside a single door is a critical choke point.
+    // Even the floor immediately inside the only entrance can hold a passable item.
     for (int cell : g.map.neighbors(room.door)) {
         if (g.map.tile(cell) == '0' + room.id && cell != room.nest && !g.propAt(cell)) {
-            check(!g.command(0, GameAction::Build, -1, cell).empty(), "building cannot seal the only entrance");
+            check(g.command(0, GameAction::Build, -1, cell).empty(), "doorway items do not seal the entrance");
         }
     }
     room.hp = 10;
@@ -307,6 +308,60 @@ void gridBuilding() {
     check(!p.sleeping && p.wallet.at("cans") == gold + rate &&
               rate == beforeRate + testConfig()->item("pantry").levels[0].amount,
           "upgraded nest and pantry keep producing while awake");
+}
+void itemTraversal() {
+    auto g = solo();
+    for (auto& cat : g.players) {
+        cat.decisionAt = 10000;
+    }
+    settle(g);
+    auto& cat = g.players[0];
+    auto& room = g.dorms[cat.room];
+    room.props.clear();
+    cat.wallet["cans"] = cat.wallet["dried_fish"] = 100000;
+    auto cell = room.floor.begin();
+    for (const auto& [id, item] : g.config().items) {
+        if (!item.buildable) {
+            continue;
+        }
+        while (*cell == room.nest) {
+            ++cell;
+        }
+        cat.position = GridMap::center(*cell);
+        check(g.command(cat.id, GameAction::Build, -1, *cell, id).empty(),
+              "items can be installed on a tile occupied by a cat");
+        check(g.walkable(*cell, cat.id, room.id) && g.walkable(*cell, 1, room.id) && g.walkable(*cell),
+              "every buildable item allows player, AI and manager traversal");
+        ++cell;
+    }
+    cat.position = GridMap::center(room.nest);
+    for (int floor : room.floor) {
+        if (floor != room.nest && !g.propAt(floor)) {
+            check(g.command(cat.id, GameAction::Build, -1, floor, "pantry").empty(),
+                  "all usable room tiles can hold items without reserving a corridor");
+        }
+    }
+    check(room.props.size() + 1 == room.floor.size(), "fully furnished room only leaves the nest tile vacant");
+    for (int floor : room.floor) {
+        check(!g.pathTo(cat.position, floor, cat.id).empty(), "every tile remains reachable through installed items");
+    }
+    check(g.pathTo(cat.position, room.entrance, cat.id).empty(), "passable items cannot bypass the closed door");
+    room.hp = 0;
+    auto escape = g.pathTo(cat.position, room.entrance, cat.id);
+    check(!escape.empty() && g.moveAlong(cat.position, escape, 10000, cat.id) &&
+              GridMap::cellAt(cat.position) == room.entrance,
+          "cat can physically escape through a fully furnished room after breach");
+    cat.position = GridMap::center(room.nest);
+    g.phase = "running";
+    g.monster.state = "chasing";
+    g.monster.position = GridMap::center(room.entrance);
+    g.monster.path = g.pathTo(g.monster.position, room.nest);
+    check(!g.monster.path.empty() && g.moveAlong(g.monster.position, g.monster.path, 10000) &&
+              LogicCombat::catchCat(g, cat.id),
+          "manager traverses installed items and physically catches the cat");
+    room.props.front().kind = "shelf";
+    check(!g.walkable(room.props.front().cell, 1) && !g.walkable(room.props.front().cell),
+          "fixed shelf terrain retains collision for cats and the manager");
 }
 void rosterAndReconnect() {
     Game g("ROOM", 6, 7, testConfig());
@@ -696,6 +751,7 @@ int main() {
         movementAndOwnership();
         competingNestClaims();
         gridBuilding();
+        itemTraversal();
         rosterAndReconnect();
         daylightAndCapture();
         breachEscapeOnly();

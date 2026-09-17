@@ -20,7 +20,7 @@ bool Game::walkable(int cell, int player, int startingRoom) const {
     if (map.wall(cell)) {
         return false;
     }
-    if (const auto* prop = propAt(cell); prop && config().item(prop->kind).behavior != ItemBehavior::Pickup) {
+    if (const auto* prop = propAt(cell); prop && config().item(prop->kind).behavior == ItemBehavior::Obstacle) {
         return false;
     }
     const int room = map.roomAt(cell);
@@ -63,22 +63,6 @@ bool Game::moveAlong(Point& position, std::deque<Point>& path, double distance, 
         }
     }
     return path.empty();
-}
-bool Game::buildKeepsAccess(const Dorm& room, int cell) const {
-    auto passable = [&](int next) {
-        if (map.roomAt(next) != room.id || next == cell || map.wall(next)) {
-            return false;
-        }
-        const auto* prop = propAt(next);
-        return !prop || config().item(prop->kind).behavior == ItemBehavior::Pickup;
-    };
-    const auto reachable = map.distances(room.door, passable);
-    for (int floor : room.floor) {
-        if (passable(floor) && reachable[floor] < 0) {
-            return false;
-        }
-    }
-    return true;
 }
 void Game::arrive(Player& p) {
     const int cell = GridMap::cellAt(p.position), roomId = map.roomAt(cell);

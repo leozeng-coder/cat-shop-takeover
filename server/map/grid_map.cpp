@@ -246,48 +246,18 @@ void GridMap::generate(std::uint32_t value, std::vector<Dorm>& rooms, const Game
         }
         std::shuffle(room.floor.begin(), room.floor.end(), random);
         const int wanted = pick(1, 2);
+        // Initial items are buildable props or pickups; neither blocks movement.
         for (int cell : room.floor) {
             if (static_cast<int>(room.props.size()) >= wanted) {
                 break;
             }
-            if (cell == room.nest ||
-                std::abs(cell % MapWidth - room.door % MapWidth) + std::abs(cell / MapWidth - room.door / MapWidth) <
-                    3) {
+            if (cell == room.nest) {
                 continue;
             }
-            const auto index = room.props.size();
-            const auto& kind = index == 0
+            const auto& kind = room.props.empty()
                                    ? config.initialItems[pick(0, static_cast<int>(config.initialItems.size()) - 1)]
                                    : config.pickupItem;
-            auto passable = [&](int c) {
-                if (roomAt(c) != id || wall(c) || (c == cell && config.item(kind).behavior != ItemBehavior::Pickup)) {
-                    return false;
-                }
-                return std::none_of(room.props.begin(), room.props.end(), [&](const Prop& p) {
-                    return p.cell == c && config.item(p.kind).behavior != ItemBehavior::Pickup;
-                });
-            };
-            const auto reachable = distances(room.door, passable);
-            bool connected = true;
-            for (int floor : room.floor) {
-                if (passable(floor) && reachable[floor] < 0) {
-                    connected = false;
-                    break;
-                }
-            }
-            if (connected) {
-                room.props.push_back({cell, kind});
-            }
-        }
-        // Tight shapes still receive the requested loot count without blocking a corridor.
-        for (int cell : room.floor) {
-            if (static_cast<int>(room.props.size()) >= wanted) {
-                break;
-            }
-            if (cell != room.nest && std::none_of(room.props.begin(), room.props.end(),
-                                                  [&](const Prop& prop) { return prop.cell == cell; })) {
-                room.props.push_back({cell, config.pickupItem});
-            }
+            room.props.push_back({cell, kind});
         }
     }
     // Mirror the whole street as well as varying individual shop footprints.

@@ -209,7 +209,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
         }
         auto route = pathTo(p.position, cell, id);
         if (route.empty()) {
-            return "这里走不到：墙体、关闭的店门和道具不能穿过，安家后请在屋内活动";
+            return "这里走不到：墙体、关闭的店门和固定货架不能穿过，安家后请在屋内活动";
         }
         p.path = std::move(route);
         p.sleeping = false;
@@ -262,16 +262,6 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
         const auto error = itemPurchaseError(id, item, next);
         if (!error.empty()) {
             return error;
-        }
-        if (level == 0) {
-            for (const auto& cat : players) {
-                if (cat.alive && GridMap::cellAt(cat.position) == cell) {
-                    return "猫猫正在这个格子上";
-                }
-            }
-            if (!buildKeepsAccess(room, cell)) {
-                return "安装后会堵住通道，请留出通往店门和罐头窝的路";
-            }
         }
         LogicEconomy::pay(p, target.cost);
         if (level == 0) {

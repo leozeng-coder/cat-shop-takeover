@@ -133,7 +133,7 @@ export function gridMenuView(g: State, cell: number, category: ItemCategory = 'a
           : '空地格';
   let body = '',
     description = mine
-      ? '在这个格子安装道具，记得为猫猫留出通道。'
+      ? '在这个格子安装道具，道具不会阻挡猫猫和店长通行。'
       : room.owner < 0
         ? '店长不在，找到罐头窝就能在这里安家。'
         : g.players[room.owner].name + ' 的猫店';

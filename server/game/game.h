@@ -51,7 +51,6 @@ private:
     bool validPlayer(int id) const;
     void resetBoard();
     void arrive(Player& player);
-    bool buildKeepsAccess(const Dorm& room, int cell) const;
 };
 } // namespace snackshop
 #endif
