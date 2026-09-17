@@ -139,7 +139,7 @@ export function gridMenuView(g: State, cell: number, category: ItemCategory = 'a
         : g.players[room.owner].name + ' 的猫店';
   if (cell === room.nest) {
     description = mine
-      ? '已经安家，持续产出。可以躺下休息，也可以起身在屋内活动。'
+      ? '已经安家，持续产出。升级罐头窝可以提高产量。'
       : room.owner < 0
         ? '走到罐头窝安家后，店门会自动关闭，罐头开始持续产出。'
         : g.players[room.owner].name + ' 的罐头窝';
@@ -170,7 +170,6 @@ export function gridMenuView(g: State, cell: number, category: ItemCategory = 'a
           '▱',
           !g.offers.nest.enabled,
         );
-        if (me.sleeping) body += action('move', '起身活动', '起身后点击屋内空格走动，收入不变', '起床', '↗');
       }
     }
   } else if (cell === room.door) {

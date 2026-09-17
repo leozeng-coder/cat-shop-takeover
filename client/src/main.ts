@@ -21,6 +21,7 @@ let state: State | null = null,
   busy = false,
   autoStart = false;
 let itemCategory: ItemCategory = 'attack';
+let dismissedGridOnPress = false;
 let selected = -1,
   popup = { x: 0, y: 0 },
   toastTimer = 0,
@@ -270,6 +271,7 @@ function render() {
 }
 renderer.onCamera = closeGrid;
 renderer.onCell = (cell, x, y) => {
+  if (dismissedGridOnPress) return;
   if (!state || !['preparing', 'running'].includes(state.phase) || !state.players[state.you].alive) return;
   const g = state,
     me = g.players[g.you],
@@ -375,7 +377,7 @@ app.addEventListener('click', async (event) => {
     const room = roomAt(state.map, selected);
     const kind = button.dataset.kind ?? '';
     act(op as Action, room, selected, kind);
-    if (op === 'move' || op === 'nest') closeGrid();
+    closeGrid();
   } else if (op === 'help') {
     el('modal').innerHTML =
       '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><div class="eyebrow">A LITTLE MIDNIGHT ADVENTURE</div><h2 id="help-title">今晚，猫猫来营业</h2><ol><li>夜间有 ' +
@@ -385,6 +387,10 @@ app.addEventListener('click', async (event) => {
       '，含准备阶段）。</li></ol><p>滚轮缩放，拖动地图，◎ 定位自己的猫。多人模式邀请好友加入，剩余位置自动补 AI。</p><button class="primary wide" data-do="close-help">知道啦，去找罐头 ↗</button></div>';
     el('modal').classList.remove('hidden');
   } else if (op === 'close-help') el('modal').classList.add('hidden');
+});
+document.addEventListener('pointerdown', (event) => {
+  dismissedGridOnPress = selected >= 0 && !el('grid-menu').contains(event.target as Node);
+  if (dismissedGridOnPress) closeGrid();
 });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
