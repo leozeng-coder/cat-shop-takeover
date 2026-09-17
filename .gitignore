@@ -1,0 +1,11 @@
+build/
+node_modules/
+client/dist/
+tools/vcpkg/
+vcpkg_installed/
+.run/
+*.log
+uploads/tmp/
+.env
+.env.*
+!.env.example
