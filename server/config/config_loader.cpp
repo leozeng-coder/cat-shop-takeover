@@ -166,7 +166,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     }
     object(root, "config",
            {"schema_version", "version", "currencies", "match", "doors", "nests", "items", "initial_items",
-            "pickup_item", "repair", "manager", "cat_ai", "manager_ai"});
+            "pickup_item", "repair", "manager", "cat_ai", "manager_ai", "map_generation"});
     integer(root["schema_version"], "schema_version", 1, 1);
     auto cfg = std::make_shared<GameConfig>();
     // Content identity distinguishes edits even when the author forgets to bump the display version.
@@ -194,6 +194,16 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     if (!hasCurrency(*cfg, "cans")) {
         fail("currencies", "missing primary currency cans");
     }
+    const auto& map = root["map_generation"];
+    object(map, "map_generation",
+           {"min_rooms", "max_rooms", "min_room_width", "max_room_width", "min_room_height", "max_room_height"});
+    auto& layout = cfg->mapGeneration;
+    layout.minRooms = integer(map["min_rooms"], "map_generation.min_rooms", Seats, MaxRooms);
+    layout.maxRooms = integer(map["max_rooms"], "map_generation.max_rooms", layout.minRooms, MaxRooms);
+    layout.minRoomWidth = integer(map["min_room_width"], "map_generation.min_room_width", 7, 8);
+    layout.maxRoomWidth = integer(map["max_room_width"], "map_generation.max_room_width", layout.minRoomWidth, 12);
+    layout.minRoomHeight = integer(map["min_room_height"], "map_generation.min_room_height", 7, 8);
+    layout.maxRoomHeight = integer(map["max_room_height"], "map_generation.max_room_height", layout.minRoomHeight, 10);
     const auto& match = root["match"];
     object(match, "match", {"preparation_ms", "duration_ms", "reconnect_grace_ms", "cat_speed"});
     cfg->balance.preparation = integer(match["preparation_ms"], "match.preparation_ms", 0, 3600000) / 1000.0;
@@ -498,8 +508,8 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
         }
         return text;
     };
-    const std::array<const char*, 11> names{"manifest", "currencies", "match",     "doors",  "nests",     "items",
-                                            "manager",  "repair",     "map_items", "cat_ai", "manager_ai"};
+    const std::array<const char*, 12> names{"manifest", "currencies", "match", "doors", "nests", "items",
+                                          "manager", "repair", "map_items", "cat_ai", "manager_ai", "map_generation"};
     std::map<std::string, std::string> sources;
     std::map<std::string, JsonValue> tables;
     std::size_t bytes = 0;
@@ -532,7 +542,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
     auto result = tables.at("manifest");
     object(result, "manifest.json", {"schema_version", "version"});
     for (const auto* name :
-         {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai", "manager_ai"}) {
+         {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai", "manager_ai", "map_generation"}) {
         result[name] = tables.at(name);
     }
     const auto& map = tables.at("map_items");

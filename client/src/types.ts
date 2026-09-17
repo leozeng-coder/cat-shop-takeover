@@ -160,9 +160,9 @@ export interface State {
 export function roomAt(map: GridMap, cell: number): number {
   if (cell < 0 || cell >= map.width * map.height) return -1;
   const tile = map.rows[Math.floor(cell / map.width)][cell % map.width];
-  return tile >= '0' && tile <= '5'
+  return tile >= '0' && tile <= '9'
     ? Number(tile)
-    : tile >= 'a' && tile <= 'f'
+    : tile >= 'a' && tile <= 'j'
       ? tile.charCodeAt(0) - 97
       : -1;
 }

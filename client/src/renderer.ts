@@ -2,7 +2,18 @@ import { cellCenter, roomAt, type State, type Prop } from './types';
 import { GameArt } from './render/game_art';
 import { MotionTrack } from './render/motion_track';
 import { CAT_COLORS } from './ui/portraits';
-const floorColors = ['#eee4c6', '#dee8d2', '#e8dce5', '#e7e4ca', '#d7e5dd', '#e4dccc'];
+const floorColors = [
+  '#eee4c6',
+  '#dee8d2',
+  '#e8dce5',
+  '#e7e4ca',
+  '#d7e5dd',
+  '#e4dccc',
+  '#dbe3ee',
+  '#efddd2',
+  '#e5e8ce',
+  '#dedbea',
+];
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private art: GameArt;
@@ -211,7 +222,7 @@ export class Renderer {
           a.rect(px + 1, py + 1, 30, 26, '#dde1c9', 2, '#b4bea4');
           a.line(px + 3, py + 3, px + 29, py + 3, '#f0eedc', 2);
         } else if (rid >= 0) {
-          a.rect(px, py, 32, 32, floorColors[rid]);
+          a.rect(px, py, 32, 32, floorColors[rid % floorColors.length]);
           if ((x + y) % 2 === 0) a.rect(px, py, 32, 32, '#ffffff15');
           c.strokeStyle = '#9da58838';
           c.lineWidth = 0.7;

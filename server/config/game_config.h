@@ -8,6 +8,7 @@
 #include <vector>
 namespace snackshop {
 constexpr int Seats = 6;
+constexpr int MaxRooms = 10;
 constexpr int MapWidth = 44;
 constexpr int MapHeight = 36;
 constexpr int TileSize = 32;
@@ -97,6 +98,12 @@ struct ManagerAiConfig {
     double retreatHealth = 0, resumeHealth = 0, outOfCombatDelay = 0, outOfCombatHealing = 0;
     double retreatSpeed = 0, repathInterval = 0;
 };
+struct MapGenerationConfig {
+    int minRooms = 8, maxRooms = 10;
+    // Footprint bounds include the surrounding walls.
+    int minRoomWidth = 8, maxRoomWidth = 11;
+    int minRoomHeight = 7, maxRoomHeight = 9;
+};
 struct GameConfig {
     std::string version;
     Balance balance;
@@ -111,6 +118,7 @@ struct GameConfig {
     RepairConfig repair;
     CatAiConfig catAi;
     ManagerAiConfig managerAi;
+    MapGenerationConfig mapGeneration;
     const CurrencyConfig& currency(const std::string& id) const;
     const DoorConfig& door(int stage) const;
     const NestConfig& nest(int level) const;

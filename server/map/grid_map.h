@@ -4,7 +4,7 @@
 #include <functional>
 #include <random>
 namespace snackshop {
-// '.' street, '#' wall, '0'..'5' room floor, 'a'..'f' single entrance.
+// '.' street, '#' wall, '0'..'9' room floor, 'a'..'j' single entrance.
 // Immutable terrain is shared by generation, navigation and network snapshots.
 class GridMap {
 public:
@@ -12,7 +12,7 @@ public:
     std::uint32_t seed = 0;
     int spawn = 12 * MapWidth + 22;
     int shopkeeperSpawn = 18 * MapWidth + 1;
-    void generate(std::uint32_t value, std::array<Dorm, Seats>& rooms, const GameConfig& config);
+    void generate(std::uint32_t value, std::vector<Dorm>& rooms, const GameConfig& config);
     static bool valid(int cell);
     static int cellAt(Point point);
     static Point center(int cell);

@@ -186,7 +186,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
     if (action == GameAction::Move || action == GameAction::EnterNest) {
         int intent = -1;
         if (action == GameAction::EnterNest) {
-            if (targetRoom < 0 || targetRoom >= Seats) {
+            if (!validRoom(targetRoom)) {
                 return "无效猫店";
             }
             if (dorms[targetRoom].owner >= 0 && dorms[targetRoom].owner != id) {

@@ -170,8 +170,8 @@ void invalidTargetAndTimeout() {
           "expired movement retries or fails without remaining stuck");
 
     auto blocked = setup(false);
-    for (int i = 0; i < Seats; ++i) {
-        blocked.dorms[i].owner = i;
+    for (auto& room : blocked.dorms) {
+        room.owner = room.id % Seats;
     }
     tick(blocked);
     check(blocked.players[0].path.empty() && blocked.players[0].nestIntent == -1 &&

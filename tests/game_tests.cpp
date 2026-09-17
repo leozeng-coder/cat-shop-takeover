@@ -38,10 +38,19 @@ void settle(Game& g, int room = 0) {
 }
 void generatedMaps() {
     std::set<std::string> layouts;
+    std::set<std::size_t> roomCounts;
     for (std::uint32_t seed = 0; seed < 60; ++seed) {
         Game g("MAP", 1, seed, testConfig());
         Game same("MAP", 1, seed, testConfig());
-        check(g.map.rows == same.map.rows, "seed is deterministic");
+        check(g.map.rows == same.map.rows && g.dorms.size() == same.dorms.size(), "seed is deterministic");
+        check(g.players.size() == 6 && g.dorms.size() >= 8 && g.dorms.size() <= 10,
+              "six cats choose among eight to ten rooms");
+        roomCounts.insert(g.dorms.size());
+        const auto street = g.map.distances(g.map.spawn, [&](int cell) { return g.map.tile(cell) == '.'; });
+        check(street[g.map.shopkeeperSpawn] >= 0, "shopkeeper home shares the connected public street");
+        for (const auto& cat : g.players) {
+            check(g.map.tile(GridMap::cellAt(cat.position)) == '.', "all six cats spawn on the street after mirroring");
+        }
         std::string layout;
         for (const auto& row : g.map.rows) {
             layout += row;
@@ -49,7 +58,8 @@ void generatedMaps() {
         layouts.insert(layout);
         std::set<int> sizes;
         for (const auto& room : g.dorms) {
-            check(room.floor.size() >= 8, "room has meaningful usable area");
+            check(room.floor.size() >= 12 && room.floor.size() <= 63, "compact rooms retain usable building space");
+            check(street[room.entrance] >= 0, "every door remains reachable without crossing another shop");
             check(room.props.size() >= 1 && room.props.size() <= 2, "one or two initial props besides nest");
             check(g.map.roomAt(room.nest) == room.id && !g.propAt(room.nest), "each shop has a dedicated nest");
             check(!room.doorClosed() && g.walkable(room.door), "unclaimed entrance is open to all actors");
@@ -77,6 +87,36 @@ void generatedMaps() {
         check(sizes.size() >= 3, "rooms have different sizes");
     }
     check(layouts.size() == 60, "different seeds create different layouts");
+    check(roomCounts.size() == 3, "generation varies between eight, nine and ten rooms");
+}
+void extraRoomInteractions() {
+    auto g = solo();
+    for (auto& cat : g.players) {
+        cat.decisionAt = 10000;
+    }
+    const int id = static_cast<int>(g.dorms.size()) - 1;
+    auto& room = g.dorms[id];
+    room.props.clear();
+    check(id >= Seats && g.map.roomAt(room.nest) == id && g.map.roomAt(room.door) == id,
+          "extra rooms decode floor and door IDs independently of player seats");
+    settle(g, id);
+    check(room.owner == 0 && room.doorClosed() && !g.walkable(room.door, 0, id),
+          "extra rooms support authoritative ownership and door collision");
+    g.players[0].wallet["cans"] = g.players[0].wallet["dried_fish"] = 10000;
+    check(g.command(0, GameAction::UpgradeBarricade).empty(), "extra room door can upgrade");
+    room.hp -= 150;
+    const double damaged = room.hp;
+    check(g.command(0, GameAction::Repair, id).empty() && room.hp > damaged, "extra room door can be repaired");
+    g.phase = "running";
+    g.monster.state = "attacking";
+    g.monster.position = GridMap::center(room.entrance);
+    room.hp = 1;
+    check(LogicCombat::hitDoor(g, id) && room.hp == 0 && g.isEscaping(g.players[0]),
+          "manager can breach extra room doors and trigger escape-only state");
+    check(!g.command(1, GameAction::EnterNest, static_cast<int>(g.dorms.size())).empty() &&
+              !g.repairError(0, static_cast<int>(g.dorms.size())).empty() &&
+              !LogicCombat::hitDoor(g, static_cast<int>(g.dorms.size())),
+          "room actions reject IDs beyond the generated room count");
 }
 void movementAndOwnership() {
     auto g = solo();
@@ -652,6 +692,7 @@ void fullMatches() {
 int main() {
     try {
         generatedMaps();
+        extraRoomInteractions();
         movementAndOwnership();
         competingNestClaims();
         gridBuilding();

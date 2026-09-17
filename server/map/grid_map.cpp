@@ -25,7 +25,7 @@ bool GridMap::wall(int cell) const {
 }
 int GridMap::roomAt(int cell) const {
     const auto t = tile(cell);
-    return t >= '0' && t <= '5' ? t - '0' : t >= 'a' && t <= 'f' ? t - 'a' : -1;
+    return t >= '0' && t < '0' + MaxRooms ? t - '0' : t >= 'a' && t < 'a' + MaxRooms ? t - 'a' : -1;
 }
 std::vector<int> GridMap::neighbors(int cell) const {
     std::vector<int> result;
@@ -105,7 +105,7 @@ std::vector<int> GridMap::route(int from, int to, const std::function<bool(int)>
     std::reverse(path.begin(), path.end());
     return path;
 }
-void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms, const GameConfig& config) {
+void GridMap::generate(std::uint32_t value, std::vector<Dorm>& rooms, const GameConfig& config) {
     seed = value;
     spawn = 12 * MapWidth + 22;
     shopkeeperSpawn = 18 * MapWidth + 1;
@@ -121,52 +121,90 @@ void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms, cons
             }
         }
     }
+    const auto& rules = config.mapGeneration;
+    const int roomCount = pick(rules.minRooms, rules.maxRooms);
+    rooms.assign(roomCount, Dorm{});
     struct Zone {
         int x, y, w, h;
     };
-    const std::array<Zone, Seats> zones{
-        {{2, 2, 16, 9}, {24, 2, 17, 11}, {2, 14, 12, 13}, {17, 16, 9, 10}, {30, 17, 12, 12}, {7, 30, 28, 5}}};
-    for (int id = 0; id < Seats; ++id) {
+    // Vary the number, width and offset of shops along three staggered street blocks.
+    // Keep continuous exterior lanes so closing any shop never seals a public route.
+    std::array<int, 3> counts{roomCount / 3, roomCount / 3, roomCount / 3};
+    for (int i = 0; i < roomCount % 3; ++i) {
+        ++counts[i];
+    }
+    std::shuffle(counts.begin(), counts.end(), random);
+    const std::array<int, 2> gaps{pick(2, 3), pick(2, 3)};
+    const int availableHeight = MapHeight - 4 - gaps[0] - gaps[1];
+    std::vector<Zone> zones;
+    int bandY = 2;
+    for (int row = 0; row < 3; ++row) {
+        const int h = availableHeight / 3 + (row < availableHeight % 3 ? 1 : 0);
+        const int gap = pick(1, 2);
+        const int availableWidth = MapWidth - 4 - gap * (counts[row] - 1);
+        int x = 2;
+        for (int column = 0; column < counts[row]; ++column) {
+            const int w = availableWidth / counts[row] + (column < availableWidth % counts[row] ? 1 : 0);
+            zones.push_back({x, bandY, w, h});
+            x += w + gap;
+        }
+        if (row == 0) {
+            spawn = (bandY + h) * MapWidth + MapWidth / 2;
+        }
+        bandY += h + (row < 2 ? gaps[row] : 0);
+    }
+    std::shuffle(zones.begin(), zones.end(), random);
+    for (int id = 0; id < roomCount; ++id) {
         auto& room = rooms[id];
-        room = Dorm{};
         room.hp = config.doors.front().health;
         room.id = id;
-        auto z = zones[id];
-        z.x += pick(0, 1);
-        z.y += pick(0, 1);
-        z.w -= pick(1, 3);
-        z.h -= (id == 5 ? 1 : pick(1, 2));
-        const int shape = id == 5 ? 0 : pick(0, 3);
+        const auto plot = zones[id];
+        const int width = pick(rules.minRoomWidth, std::min(rules.maxRoomWidth, plot.w));
+        const int height = pick(rules.minRoomHeight, std::min(rules.maxRoomHeight, plot.h));
+        const Zone z{plot.x + pick(0, plot.w - width), plot.y + pick(0, plot.h - height), width, height};
+        const int shape = pick(0, 5);
         const bool mirrorX = pick(0, 1), mirrorY = pick(0, 1);
-        std::vector<int> footprint;
+        const int floorWidth = z.w - 2, floorHeight = z.h - 2;
         auto inside = [&](int x, int y) {
-            if (x < 0 || y < 0 || x >= z.w || y >= z.h) {
+            const int xx = mirrorX ? floorWidth - 1 - x : x;
+            const int yy = mirrorY ? floorHeight - 1 - y : y;
+            // Rectangle, L, corner recess, stepped, T and U footprints.
+            if (shape == 1 && xx >= floorWidth / 2 && yy >= floorHeight / 2) {
                 return false;
             }
-            const int xx = mirrorX ? z.w - 1 - x : x;
-            const int yy = mirrorY ? z.h - 1 - y : y;
-            if (shape == 1 && xx >= z.w / 2 && yy >= z.h / 2) {
+            if (shape == 2 && xx >= floorWidth - 2 && yy >= floorHeight - 2) {
                 return false;
             }
-            if (shape == 2 && xx >= z.w - 3 && yy >= z.h - 3) {
+            if (shape == 3 && ((xx < 2 && yy < 2) || (xx >= floorWidth - 2 && yy >= floorHeight - 2))) {
                 return false;
             }
-            if (shape == 3 && z.w >= 10 && xx >= 4 && xx < z.w - 4 && yy < z.h / 2) {
+            if (shape == 4 && yy >= 2 && (xx < 1 || xx >= floorWidth - 1)) {
+                return false;
+            }
+            if (shape == 5 && xx >= 2 && xx < floorWidth - 2 && yy < floorHeight - 2) {
                 return false;
             }
             return true;
         };
-        for (int y = 0; y < z.h; ++y) {
-            for (int x = 0; x < z.w; ++x) {
-                if (!inside(x, y)) {
-                    continue;
-                }
-                const int cell = (z.y + y) * MapWidth + z.x + x;
-                footprint.push_back(cell);
-                const bool boundary = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
-                rows[z.y + y][z.x + x] = boundary ? '#' : static_cast<char>('0' + id);
-                if (!boundary) {
+        // Carve a connected floor first, then wrap it in walls; narrow corners stay walkable.
+        for (int y = 0; y < floorHeight; ++y) {
+            for (int x = 0; x < floorWidth; ++x) {
+                if (inside(x, y)) {
+                    const int cell = (z.y + y + 1) * MapWidth + z.x + x + 1;
                     room.floor.push_back(cell);
+                    rows[cell / MapWidth][cell % MapWidth] = static_cast<char>('0' + id);
+                }
+            }
+        }
+        std::vector<int> footprint;
+        for (int cell : room.floor) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int boundary = cell + dy * MapWidth + dx;
+                    if (tile(boundary) == '.') {
+                        rows[boundary / MapWidth][boundary % MapWidth] = '#';
+                        footprint.push_back(boundary);
+                    }
                 }
             }
         }
@@ -264,8 +302,9 @@ void GridMap::generate(std::uint32_t value, std::array<Dorm, Seats>& rooms, cons
         const int target = transform(cell);
         rows[target / MapWidth][target % MapWidth] = original[cell / MapWidth][cell % MapWidth];
     }
-    spawn = transform(12 * MapWidth + 22);
-    shopkeeperSpawn = transform(18 * MapWidth + 1);
+    // The six cats occupy a 3-by-2 patch; preserve both rows when mirroring.
+    spawn = transform(spawn) - (flipY ? MapWidth : 0);
+    shopkeeperSpawn = transform(shopkeeperSpawn);
     for (auto& room : rooms) {
         room.door = transform(room.door);
         room.entrance = transform(room.entrance);

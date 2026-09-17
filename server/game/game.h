@@ -11,7 +11,7 @@ public:
     std::string phase = "lobby";
     GridMap map;
     std::array<Player, Seats> players;
-    std::array<Dorm, Seats> dorms;
+    std::vector<Dorm> dorms;
     Monster monster;
     std::deque<Notice> notices;
     double elapsed = 0, lobbyAge = 0;
@@ -30,6 +30,7 @@ public:
     void notify(const std::string& message);
     double income(const Player& player, const std::string& currency = "cans") const;
     bool isEscaping(const Player& player) const;
+    bool validRoom(int id) const { return id >= 0 && id < static_cast<int>(dorms.size()); }
     const GameConfig& config() const { return *m_config; }
     std::string purchaseError(int player, const Cost& cost, const Requirements& requirements = {}) const;
     std::string itemPurchaseError(int player, const ItemConfig& item, int level) const;

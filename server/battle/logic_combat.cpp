@@ -11,7 +11,7 @@ bool LogicCombat::active(const Game& game) {
            monster.state != "resting";
 }
 bool LogicCombat::hitDoor(Game& game, int id) {
-    if (id < 0 || id >= Seats || !active(game)) {
+    if (!game.validRoom(id) || !active(game)) {
         return false;
     }
     auto& room = game.dorms[id];

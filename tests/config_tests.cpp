@@ -28,8 +28,8 @@ Json::Value document() {
         return data;
     };
     auto data = read("manifest");
-    for (const auto* name :
-         {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai", "manager_ai"}) {
+    for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
+                             "manager_ai", "map_generation"}) {
         data[name] = read(name);
     }
     const auto map = read("map_items");
@@ -49,8 +49,8 @@ void saveTables(const std::filesystem::path& directory, const Json::Value& data)
     map["pickup_item"] = data["pickup_item"];
     save("manifest", manifest);
     save("map_items", map);
-    for (const auto* name :
-         {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai", "manager_ai"}) {
+    for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
+                             "manager_ai", "map_generation"}) {
         save(name, data[name]);
     }
 }
@@ -108,6 +108,10 @@ void validation() {
     rejects([](auto& d) { d["items"][0]["levels"][2]["appearance"] = "missing_skin"; },
             "unknown level appearance rejected");
     rejects([](auto& d) { d["items"][0]["levels"][2]["name"] = ""; }, "empty level name rejected");
+    rejects([](auto& d) { d["map_generation"]["min_rooms"] = 5; }, "map must offer at least one room per cat");
+    rejects([](auto& d) { d["map_generation"]["max_rooms"] = 11; }, "room count respects the map tile encoding");
+    rejects([](auto& d) { d["map_generation"]["max_rooms"] = 7; }, "room count range cannot be inverted");
+    rejects([](auto& d) { d["map_generation"]["min_room_width"] = 9; }, "minimum room width must fit dense blocks");
     rejects([](auto& d) { d["schema_version"] = 2; }, "unsupported schema rejected");
     rejects([](auto& d) { d["extra"] = 1; }, "unknown fields rejected");
     rejects([](auto& d) { d["currencies"].append(d["currencies"][0]); }, "duplicate currencies rejected");
@@ -585,7 +589,7 @@ void snapshots() {
         ~Cleanup() {
             std::error_code error;
             for (const auto* name : {"manifest", "currencies", "match", "doors", "nests", "items", "manager", "repair",
-                                     "map_items", "cat_ai", "manager_ai"}) {
+                                     "map_items", "cat_ai", "manager_ai", "map_generation"}) {
                 std::filesystem::remove(path / (std::string(name) + ".json"), error);
             }
             std::filesystem::remove(path, error);

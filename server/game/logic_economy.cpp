@@ -98,7 +98,7 @@ std::string Game::doorUpgradeError(int id) const {
     return purchaseError(id, level.cost, level.requirements);
 }
 std::string Game::repairError(int id, int targetRoom) const {
-    if (targetRoom < 0 || targetRoom >= Seats) {
+    if (!validRoom(targetRoom)) {
         return "请选择店门";
     }
     const auto& room = dorms[targetRoom];

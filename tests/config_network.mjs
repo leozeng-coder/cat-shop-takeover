@@ -24,6 +24,7 @@ const names = [
   'manager',
   'repair',
   'map_items',
+  'map_generation',
   'cat_ai',
   'manager_ai',
 ];
@@ -274,6 +275,14 @@ try {
   const claimed = await fridgeHost.wait(
     (m) => m.type === 'state' && m.players[0].room === 0 && m.players[1].room === 1,
   );
+  assert.equal(claimed.players.length, 6);
+  assert.ok(claimed.dorms.length >= 8 && claimed.dorms.length <= 10);
+  const mapPeer = await fridgePeer.wait((m) => m.type === 'state' && m.map.seed === claimed.map.seed);
+  assert.deepEqual(mapPeer.map, claimed.map);
+  assert.deepEqual(
+    mapPeer.dorms.map((r) => [r.id, r.nest, r.door, r.area]),
+    claimed.dorms.map((r) => [r.id, r.nest, r.door, r.area]),
+  );
   function buildCells(state, roomId) {
     const room = state.dorms[roomId],
       map = state.map;
@@ -468,10 +477,11 @@ try {
   assert.equal(ownerView.dorms[0].closed, true, 'guest exit does not globally open the door');
   action(doorGuest, 'move', -1, shop.nest);
   await doorGuest.wait((m) => m.type === 'error' && m.message.includes('走不到'));
-  action(doorGuest, 'nest', 1);
-  const resettled = await doorGuest.wait((m) => m.type === 'state' && m.players[1].room === 1);
+  const extraRoom = doorStart.dorms.length - 1;
+  action(doorGuest, 'nest', extraRoom);
+  const resettled = await doorGuest.wait((m) => m.type === 'state' && m.players[1].room === extraRoom);
   assert.equal(resettled.dorms[0].owner, 0);
-  assert.equal(resettled.dorms[1].owner, 1);
+  assert.equal(resettled.dorms[extraRoom].owner, 1);
   assert.equal(resettled.dorms[0].closed, true);
   console.log(
     'PASS immediate closure, inside guest exit, owner confinement, no re-entry and synchronized peers',
