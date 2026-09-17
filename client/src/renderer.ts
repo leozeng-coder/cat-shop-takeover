@@ -164,13 +164,12 @@ export class Renderer {
         '#a3844d',
         'center',
       );
-    } else if (prop.appearance === 'launcher') {
-      a.ellipse(p.x, p.y + 5, 13, 10, '#a7bd95', '#748868');
-      a.line(p.x - 7, p.y + 4, p.x - 7, p.y - 10, '#af8e63', 4);
-      a.line(p.x + 7, p.y + 4, p.x + 7, p.y - 10, '#af8e63', 4);
-      a.line(p.x - 7, p.y - 9, p.x, p.y - 3, '#705b4e', 2);
-      a.line(p.x + 7, p.y - 9, p.x, p.y - 3, '#705b4e', 2);
-      a.ellipse(p.x, p.y - 6, 6, 6, '#db9276');
+    } else if (
+      prop.appearance === 'launcher' ||
+      prop.appearance === 'launcher_dual' ||
+      prop.appearance === 'launcher_cannon'
+    ) {
+      a.launcher(p.x, p.y, prop.appearance, Math.max(0, 1 - (this.state!.elapsed - prop.lastShot) / 0.18));
       if (this.state!.elapsed - prop.lastShot < 0.18) {
         const target = this.state!.monster;
         c.save();

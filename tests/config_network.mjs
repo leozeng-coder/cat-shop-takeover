@@ -266,8 +266,8 @@ try {
   fridgeHost.send({ type: 'start' });
   await fridgeHost.wait((m) => m.type === 'state' && m.phase === 'preparing');
   let fridgeSequence = 0;
-  function action(client, name, room = -1, cell = -1) {
-    client.send({ type: 'action', action: name, room, cell, kind: 'mini_fridge', seq: ++fridgeSequence });
+  function action(client, name, room = -1, cell = -1, kind = 'mini_fridge') {
+    client.send({ type: 'action', action: name, room, cell, kind, seq: ++fridgeSequence });
   }
   action(fridgeHost, 'nest', 0);
   action(fridgePeer, 'nest', 1);
@@ -293,13 +293,13 @@ try {
     const score = (cell) => [cell - 1, cell + 1, cell - map.width, cell + map.width].filter(free).length;
     return cells.sort((a, b) => score(b) - score(a));
   }
-  async function install(client, player) {
+  async function install(client, player, kind = 'mini_fridge') {
     for (const cell of buildCells(claimed, player)) {
-      action(client, 'build', -1, cell);
+      action(client, 'build', -1, cell, kind);
       const result = await client.wait(
         (m) =>
           m.type === 'error' ||
-          (m.type === 'state' && m.dorms[player].props.some((p) => p.kind === 'mini_fridge')),
+          (m.type === 'state' && m.dorms[player].props.some((p) => p.kind === kind && p.cell === cell)),
       );
       if (result.type === 'state') return { cell, state: result };
     }
@@ -389,6 +389,29 @@ try {
   assert.equal(steelCatalog.maxHp, steelRow.health);
   assert.deepEqual(steelCatalog.cost, steelRow.cost);
   console.log('PASS steel prerequisites, authoritative upgrade, catalog and synchronized peer appearance');
+
+  const weapon = await install(fridgeHost, 0, 'launcher');
+  const launcherTable = tables.items.find((item) => item.id === 'launcher');
+  for (const row of launcherTable.levels) {
+    const catalog = fridgeHost.catalog.items.launcher.levels[row.level - 1];
+    assert.equal(catalog.name, row.name ?? launcherTable.name);
+    assert.equal(catalog.appearance, row.appearance ?? launcherTable.appearance);
+    if (row.level === 1) continue;
+    action(fridgeHost, 'build', -1, weapon.cell, 'launcher');
+    const evolved = await fridgeHost.wait(
+      (m) =>
+        m.type === 'state' && m.dorms[0].props.some((p) => p.cell === weapon.cell && p.level === row.level),
+    );
+    const own = evolved.dorms[0].props.find((p) => p.cell === weapon.cell);
+    assert.equal(own.kind, 'launcher');
+    assert.equal(own.appearance, catalog.appearance);
+    const peer = await rejoinedFridge.wait(
+      (m) =>
+        m.type === 'state' && m.dorms[0].props.some((p) => p.cell === weapon.cell && p.level === row.level),
+    );
+    assert.equal(peer.dorms[0].props.find((p) => p.cell === weapon.cell).appearance, own.appearance);
+  }
+  console.log('PASS configured item evolution names, upgraded appearances and peer synchronization');
 
   // A visitor exits a closed shop through real movement commands, without opening it to others.
   tables.cat_ai.start_delay_ms = 10000;

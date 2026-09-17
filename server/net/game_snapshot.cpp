@@ -86,7 +86,10 @@ Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
         row["unique"] = item.unique;
         row["levels"] = Json::Value(Json::arrayValue);
         for (const auto& l : item.levels) {
-            row["levels"].append(level(cfg, l));
+            auto entry = level(cfg, l);
+            entry["name"] = l.name;
+            entry["appearance"] = l.appearance;
+            row["levels"].append(entry);
         }
         value["items"][id] = row;
     }
@@ -133,6 +136,7 @@ Json::Value GameSnapshot::encode(const Game& g, int viewer) {
         j["bot"] = !p.human || (!p.connected && p.disconnectedFor >= g.balance.reconnectGrace);
         j["alive"] = p.alive;
         j["sleeping"] = p.sleeping;
+        j["escaping"] = g.isEscaping(p);
         j["room"] = p.room;
         for (const auto& [currency, amount] : p.wallet) {
             j["wallet"][currency] = amount;
@@ -174,7 +178,7 @@ Json::Value GameSnapshot::encode(const Game& g, int viewer) {
             prop["cell"] = p.cell;
             prop["kind"] = p.kind;
             prop["level"] = p.level;
-            prop["appearance"] = cfg.item(p.kind).appearance;
+            prop["appearance"] = cfg.item(p.kind).levels[p.level - 1].appearance;
             prop["lastShot"] = p.lastShot;
             j["props"].append(prop);
         }

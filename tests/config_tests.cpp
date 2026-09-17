@@ -99,6 +99,15 @@ void validation() {
     check(cfg->nest(2).requirements.doorStage == 2 && cfg->nest(3).requirements.doorStage == 3,
           "stable door IDs resolve prerequisites");
     check(cfg->currency("dried_fish").initial == 0, "second currency starts empty");
+    const auto& launcher = cfg->item("launcher");
+    check(launcher.levels[0].name == launcher.name && launcher.levels[0].appearance == launcher.appearance,
+          "item levels inherit base presentation when no override is configured");
+    check(launcher.levels[2].name == "双发毛线机" && launcher.levels[2].appearance == "launcher_dual" &&
+              launcher.levels[4].name == "喵喵毛线炮" && launcher.levels[4].appearance == "launcher_cannon",
+          "configured evolution changes item presentation without changing its behavior");
+    rejects([](auto& d) { d["items"][0]["levels"][2]["appearance"] = "missing_skin"; },
+            "unknown level appearance rejected");
+    rejects([](auto& d) { d["items"][0]["levels"][2]["name"] = ""; }, "empty level name rejected");
     rejects([](auto& d) { d["schema_version"] = 2; }, "unsupported schema rejected");
     rejects([](auto& d) { d["extra"] = 1; }, "unknown fields rejected");
     rejects([](auto& d) { d["currencies"].append(d["currencies"][0]); }, "duplicate currencies rejected");

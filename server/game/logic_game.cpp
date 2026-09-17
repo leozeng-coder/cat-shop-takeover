@@ -151,6 +151,9 @@ void Game::resetBoard() {
     }
     notify("新街区已经准备好，猫店形状和物资都变了");
 }
+bool Game::isEscaping(const Player& player) const {
+    return player.alive && player.room >= 0 && dorms[player.room].hp <= 0;
+}
 double Game::income(const Player& player, const std::string& currency) const {
     if (!player.alive || player.room < 0 || dorms[player.room].owner != player.id) {
         return 0;
@@ -176,6 +179,9 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
     auto& p = players[id];
     if (!p.alive) {
         return "你被店长抱走了，可以继续观战";
+    }
+    if (isEscaping(p) && action != GameAction::Move) {
+        return "店门已被打破，现在只能移动逃跑";
     }
     if (action == GameAction::Move || action == GameAction::EnterNest) {
         int intent = -1;

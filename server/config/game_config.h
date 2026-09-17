@@ -45,11 +45,14 @@ struct NestConfig : LevelConfig {
     std::string currency;
 };
 enum class ItemBehavior { Obstacle, Pickup, CurrencyProducer, SingleAttack, DoorRepair, DoorAttackDelay };
+struct ItemLevelConfig : LevelConfig {
+    std::string name, appearance;
+};
 struct ItemConfig {
     std::string id, name, category, appearance, currency;
     ItemBehavior behavior = ItemBehavior::Obstacle;
     bool buildable = false, unique = false;
-    std::vector<LevelConfig> levels;
+    std::vector<ItemLevelConfig> levels;
 };
 struct EnemyLevelStats {
     int maxHp = 0, doorDamage = 0;

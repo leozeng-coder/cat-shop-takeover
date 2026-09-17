@@ -245,7 +245,10 @@ int CatBehavior::danger(const Game& game, const Player& p) {
     if (room >= 0 && game.dorms[room].doorClosed() && game.map.roomAt(GridMap::cellAt(m.position)) != room) {
         return m.target == room ? 1 : 0;
     }
-    return m.prey == p.id || GameMath::distance(p.position, m.position) < game.config().catAi.dangerRadius ? 2 : 0;
+    return game.isEscaping(p) || m.prey == p.id ||
+                   GameMath::distance(p.position, m.position) < game.config().catAi.dangerRadius
+               ? 2
+               : 0;
 }
 const bt::Tree<CatAiContext>& CatBehavior::tree() {
     static const auto definition = [] {

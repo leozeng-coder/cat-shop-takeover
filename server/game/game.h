@@ -29,6 +29,7 @@ public:
     void step(double dt);
     void notify(const std::string& message);
     double income(const Player& player, const std::string& currency = "cans") const;
+    bool isEscaping(const Player& player) const;
     const GameConfig& config() const { return *m_config; }
     std::string purchaseError(int player, const Cost& cost, const Requirements& requirements = {}) const;
     std::string itemPurchaseError(int player, const ItemConfig& item, int level) const;

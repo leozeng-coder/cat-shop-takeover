@@ -320,6 +320,68 @@ void daylightAndCapture() {
     check(capture.income(capture.players[0]) == 0, "captured cat stops earning");
     check(!capture.command(0, GameAction::Move, -1, capture.map.spawn).empty(), "captured cats cannot move");
 }
+void breachEscapeOnly() {
+    auto game = solo();
+    for (auto& p : game.players) {
+        p.decisionAt = 10000;
+    }
+    settle(game);
+    auto& cat = game.players[0];
+    auto& room = game.dorms[0];
+    room.props.clear();
+    cat.wallet["cans"] = cat.wallet["dried_fish"] = 10000;
+    int installed = -1, empty = -1;
+    for (int cell : room.floor) {
+        if (game.command(0, GameAction::Build, -1, cell, "pantry").empty()) {
+            installed = cell;
+            break;
+        }
+    }
+    for (int cell : room.floor) {
+        if (cell != room.nest && cell != room.door && !game.propAt(cell)) {
+            empty = cell;
+            break;
+        }
+    }
+    check(installed >= 0 && empty >= 0, "breach fixture has existing and empty build tiles");
+    auto& friendRoom = game.dorms[1];
+    friendRoom.owner = 1;
+    friendRoom.hp = 100;
+    game.players[1].room = 1;
+    room.hp = 1;
+    game.phase = "running";
+    game.monster.state = "attacking";
+    game.monster.position = GridMap::center(room.entrance);
+    const auto position = cat.position;
+    check(LogicCombat::hitDoor(game, room.id) && game.isEscaping(cat) && !cat.sleeping && cat.nestIntent == -1 &&
+              cat.path.empty(),
+          "breach wakes the human without selecting an automatic escape route");
+    const auto wallet = cat.wallet;
+    for (auto action : {GameAction::EnterNest, GameAction::UpgradeNest, GameAction::UpgradeBarricade, GameAction::Build,
+                        GameAction::Repair}) {
+        check(!game.command(0, action, 1, empty, "pantry").empty() && cat.wallet == wallet,
+              "escape-only state rejects non-movement commands without charging");
+    }
+    check(!game.command(0, GameAction::Build, -1, installed, "pantry").empty() && game.propAt(installed)->level == 1 &&
+              cat.wallet == wallet,
+          "existing items cannot upgrade after the owner's door breaks");
+    check(!game.nestUpgradeError(0).empty() && !game.itemPurchaseError(0, game.config().item("pantry"), 1).empty() &&
+              !game.repairError(0, 1).empty() && friendRoom.hp == 100,
+          "offers also disable purchases and repairs to a friend's door");
+    game.step(.05);
+    check(cat.position.x == position.x && cat.position.y == position.y && cat.path.empty(),
+          "connected human remains still until a movement command");
+    check(game.command(0, GameAction::Move, -1, room.door).empty(), "broken door allows manual escape movement");
+    game.step(.05);
+    check(GameMath::distance(cat.position, position) > 0 && !cat.sleeping && cat.nestIntent == -1,
+          "manual movement starts after breach and cannot return the cat to sleep");
+    game.setConnected(0, false);
+    game.setConnected(0, true);
+    check(game.isEscaping(cat) && !game.command(0, GameAction::UpgradeNest).empty(),
+          "reconnection preserves escape-only restrictions");
+    game.phase = "won";
+    check(game.rematch(0).empty() && !game.isEscaping(game.players[0]), "new matches reset escape state");
+}
 void enemyProgression() {
     // Fixed thresholds keep numerical boundary cases independent of live balance edits.
     auto rules = testConfig()->enemy;
@@ -595,6 +657,7 @@ int main() {
         gridBuilding();
         rosterAndReconnect();
         daylightAndCapture();
+        breachEscapeOnly();
         enemyProgression();
         incomingHitRage();
         doorCombatAndAttackTarget();

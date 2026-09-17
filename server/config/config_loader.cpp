@@ -109,12 +109,11 @@ Requirements requirements(const JsonValue& v, const GameConfig& cfg, const std::
     }
     return result;
 }
-LevelConfig level(const JsonValue& row, const GameConfig& cfg, const std::string& at, int ordinal, int count,
-                  int nestCount, bool isNest = false) {
+LevelConfig level(const JsonValue& row, const GameConfig& cfg, const std::string& at, int ordinal, int count, int nestCount, bool isNest = false) {
     if (isNest) {
         object(row, at, {"level", "next_level", "cost", "conditions", "amount", "interval_ms", "range", "currency"});
     } else {
-        object(row, at, {"level", "next_level", "cost", "conditions", "amount", "interval_ms", "range"});
+        object(row, at, {"level", "next_level", "cost", "conditions", "amount", "interval_ms", "range", "name", "appearance"});
     }
     LevelConfig result;
     result.level = integer(row["level"], at + ".level", ordinal, ordinal);
@@ -283,7 +282,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         }
         item.appearance = string(row["appearance"], item.id + ".appearance");
         const std::set<std::string> appearances{"shelf",  "crate",     "launcher",   "pantry",
-                                                "repair", "fish_rack", "mini_fridge"};
+                                                "repair", "fish_rack", "mini_fridge", "launcher_dual", "launcher_cannon"};
         if (!appearances.contains(item.appearance)) {
             fail(item.id, "unknown appearance");
         }
@@ -304,8 +303,14 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         const auto& levels = array(row["levels"], item.id + ".levels", 1, terrain ? 1 : 64);
         for (const auto& data : levels) {
             const int ordinal = static_cast<int>(item.levels.size()) + 1;
-            auto l = level(data, *cfg, item.id + ".levels[" + std::to_string(ordinal) + "]", ordinal, levels.size(),
-                           nests.size());
+            const auto at = item.id + ".levels[" + std::to_string(ordinal) + "]";
+            ItemLevelConfig l;
+            static_cast<LevelConfig&>(l) = level(data, *cfg, at, ordinal, levels.size(), nests.size());
+            l.name = data.isMember("name") ? string(data["name"], at + ".name") : item.name;
+            l.appearance = data.isMember("appearance") ? string(data["appearance"], at + ".appearance") : item.appearance;
+            if (!appearances.contains(l.appearance)) {
+                fail(at, "unknown level appearance");
+            }
             if (item.buildable && l.cost.empty()) {
                 fail(item.id, "purchasable levels require a price");
             }

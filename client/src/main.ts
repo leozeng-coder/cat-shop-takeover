@@ -2,7 +2,7 @@ import './style.css';
 import { APP_SHELL } from './ui/shell';
 import { updateHtml } from './ui/dom_patch';
 import { lobbyView } from './ui/lobby';
-import { gridMenuView } from './ui/grid_menu';
+import { gridMenuView, ITEM_CATEGORIES, type ItemCategory } from './ui/grid_menu';
 import { combatStatusView } from './ui/combat_status';
 import { ManagerAnnouncement } from './ui/manager_announcement';
 import { clock, escapeHtml } from './ui/format';
@@ -20,6 +20,7 @@ let state: State | null = null,
   sequence = 0,
   busy = false,
   autoStart = false;
+let itemCategory: ItemCategory = 'attack';
 let selected = -1,
   popup = { x: 0, y: 0 },
   toastTimer = 0,
@@ -78,6 +79,7 @@ function clearSession() {
   connection.forgetSession();
   managerAnnouncement.reset();
   state = null;
+  itemCategory = 'attack';
   sequence = 0;
   busy = false;
   autoStart = false;
@@ -112,6 +114,10 @@ const connection = new GameConnection({
       beginLoading();
     if (previous?.map.seed !== next.map.seed) closeGrid();
     state = next;
+    if (next.players[next.you].escaping) {
+      closeGrid();
+      if (!previous?.players[previous.you].escaping) toast('店门被打破了！点击地图逃跑');
+    }
     managerAnnouncement.update(next);
     renderer.setState(next);
     render();
@@ -146,7 +152,11 @@ function renderGrid() {
     panel.classList.add('hidden');
     return;
   }
-  const html = gridMenuView(state, selected);
+  if (state.players[state.you].escaping) {
+    closeGrid();
+    return;
+  }
+  const html = gridMenuView(state, selected, itemCategory);
   if (!html) {
     closeGrid();
     return;
@@ -181,7 +191,11 @@ function render() {
     ' 位 AI';
   el('phase-label').textContent = night ? '☾ 夜间准备' : '☀ 白天守店';
   el('timer').textContent = clock(night ? g.preparation - g.elapsed : g.duration + g.preparation - g.elapsed);
-  el('phase-description').textContent = night ? '店长不在，找猫窝安家' : '坚持到店长放弃';
+  el('phase-description').textContent = me.escaping
+    ? '店门已破，点击地图逃跑'
+    : night
+      ? '店长不在，找猫窝安家'
+      : '坚持到店长放弃';
   el('day-badge').textContent = night ? 'MOONLIGHT DISTRICT' : 'SUNRISE · THE OWNER IS BACK';
   updateHtml(el('combat-status'), combatStatusView(g));
   updateHtml(
@@ -220,18 +234,21 @@ function render() {
     ' / 6</strong> 只猫留守 · ' +
     (!me.alive
       ? '你正在观战'
-      : me.sleeping
-        ? '窝里休息 · 持续赚罐头'
-        : me.room >= 0
-          ? '自由活动 · 持续赚罐头'
-          : '还没有猫窝');
+      : me.escaping
+        ? '正在逃跑 · 点击地图移动'
+        : me.sleeping
+          ? '窝里休息 · 持续赚罐头'
+          : me.room >= 0
+            ? '自由活动 · 持续赚罐头'
+            : '还没有猫窝');
   el('notice').textContent = g.notices[0]?.text ?? '';
   el('game-tip').textContent = !me.alive
     ? '你已被店长抱走 · 继续观战队友'
-    : me.room >= 0
-      ? (g.dorms[me.room].closed ? '店门已关闭 · ' : '店门已破，留意店长 · ') +
-        '点屋内空格走动或建造 · 点窝休息 / 升级 · 罐头持续增加'
-      : '点街道移动 · 点罐头窝安家并关门 · 滚轮缩放 / 拖动地图';
+    : me.escaping
+      ? '现在只能逃跑 · 点击地图移动 · 安装、升级、修门和回窝已禁用'
+      : me.room >= 0
+        ? '店门已关闭 · 点屋内空格建造 · 点窝休息 / 升级 · 罐头持续增加'
+        : '点街道移动 · 点罐头窝安家并关门 · 滚轮缩放 / 拖动地图';
   el('result').classList.toggle('hidden', !finished);
   if (finished) {
     closeGrid();
@@ -261,7 +278,12 @@ renderer.onCell = (cell, x, y) => {
   const tile = g.map.rows[Math.floor(cell / g.map.width)][cell % g.map.width];
   if (tile === '#') {
     closeGrid();
-    toast('这里是墙，猫猫要从店门进入');
+    toast('这里是墙，猫猫不能穿过');
+    return;
+  }
+  if (me.escaping) {
+    closeGrid();
+    act('move', -1, cell);
     return;
   }
   if (room && cell === room.nest && (room.owner < 0 || room.owner === g.you) && !me.sleeping) {
@@ -329,6 +351,12 @@ app.addEventListener('click', async (event) => {
     } catch {
       toast('邀请码：' + state.code);
     }
+  } else if (op === 'filter-items') {
+    const category = ITEM_CATEGORIES.find((c) => c.id === button.dataset.category);
+    if (category) {
+      itemCategory = category.id;
+      renderGrid();
+    }
   } else if (op === 'close-grid') closeGrid();
   else if (op === 'fit') renderer.fit();
   else if (op === 'locate') renderer.locate();
@@ -339,6 +367,11 @@ app.addEventListener('click', async (event) => {
     if (room) act('move', -1, room.entrance);
     closeGrid();
   } else if (['move', 'nest', 'bed', 'door', 'repair', 'build'].includes(op) && state && selected >= 0) {
+    if (state.players[state.you].escaping && op !== 'move') {
+      closeGrid();
+      toast('店门已破，现在只能点击地图逃跑');
+      return;
+    }
     const room = roomAt(state.map, selected);
     const kind = button.dataset.kind ?? '';
     act(op as Action, room, selected, kind);
@@ -347,7 +380,7 @@ app.addEventListener('click', async (event) => {
     el('modal').innerHTML =
       '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><div class="eyebrow">A LITTLE MIDNIGHT ADVENTURE</div><h2 id="help-title">今晚，猫猫来营业</h2><ol><li>夜间有 ' +
       (state?.preparation ?? 30) +
-      ' 秒准备。点击街道移动，猫猫会绕过墙和货架，从店门进入。</li><li>每家猫店都有一个罐头窝，额外随机放 1–2 个道具。点击空店的窝，猫会走过去安家，谁先到达谁安家，选中猫窝不会提前占位。安家后立即关门，房主不能出门；屋内其他猫可开门出去，出去后不能再进，店长也不能进来。</li><li>点自家空格，选择弹射器、储藏柜或修补台。点已有道具、罐头窝或店门，可以升级和修补。</li><li>安家后持续赚罐头，数量显示在右上角。可以躺在窝里，也可以点屋内空格选择走动，收入不变；走到罐头箱上还能拾取物资。</li><li>白天店长回来：先敲门、破门，再进店追猫。店长会随时间、敲门和受击积累怒气值，升级时回复部分生命值，并向全体猫猫播报。左上角显示全员头像和店长等级、血量。店长正在敲门的猫店，其主人头像右下角会出现店长，每 2 秒撞击一次头像，提醒你及时防守。店门被打破后，店长会走进房间，接触到猫才会把它抓走；猫没有生命值或扣血阶段。倒计时结束时仍有猫留守就获胜（整局 ' +
+      ' 秒准备。点击街道移动，猫猫会绕过墙和货架，从店门进入。</li><li>每家猫店都有一个罐头窝，额外随机放 1–2 个道具。点击空店的窝，猫会走过去安家，谁先到达谁安家，选中猫窝不会提前占位。安家后立即关门，房主不能出门；屋内其他猫可开门出去，出去后不能再进，店长也不能进来。</li><li>点自家空格，选择弹射器、储藏柜或修补台。点已有道具、罐头窝或店门，可以升级和修补。</li><li>安家后持续赚罐头，数量显示在右上角。起身后收入保持不变；走到罐头箱上还能拾取物资。</li><li>白天店长回来：先敲门、破门，再进店追猫。店长会随时间、敲门和受击积累怒气值，升级时回复部分生命值，并向全体猫猫播报。左上角显示全员头像和店长等级、血量。店长正在敲门的猫店，其主人头像右下角会出现店长，每 2 秒撞击一次头像，提醒你及时防守。店门被打破后，猫猫自动起身，真人点击地图控制逃跑，AI 自动避让；此时无法安装、升级、修门或回窝。店长会走进房间，接触到猫才会把它抓走；猫没有生命值或扣血阶段。倒计时结束时仍有猫留守就获胜（整局 ' +
       clock((state?.preparation ?? 30) + (state?.duration ?? 570)) +
       '，含准备阶段）。</li></ol><p>滚轮缩放，拖动地图，◎ 定位自己的猫。多人模式邀请好友加入，剩余位置自动补 AI。</p><button class="primary wide" data-do="close-help">知道啦，去找罐头 ↗</button></div>';
     el('modal').classList.remove('hidden');

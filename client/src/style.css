@@ -1031,6 +1031,36 @@ input {
   line-height: 1.6;
   margin: 7px 0 12px;
 }
+.item-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 4px;
+  margin: 12px 0 8px;
+  border: 1px solid #dde4cd;
+  border-radius: 10px;
+  background: #eef2e2;
+}
+.item-filters button {
+  padding: 8px 2px;
+  border-radius: 7px;
+  background: transparent;
+  color: #7b8b69;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.item-filters button:hover {
+  background: #e0e9ce;
+}
+.item-filters button[aria-pressed='true'] {
+  background: #526d48;
+  color: #fffbed;
+  box-shadow: 0 2px 5px #31472420;
+}
+.item-filters button:focus-visible {
+  outline: 2px solid #b48b4d;
+  outline-offset: 2px;
+}
 .grid-action {
   display: flex;
   align-items: center;

@@ -33,6 +33,16 @@ bool LogicCombat::hitDoor(Game& game, int id) {
         game.notify("店长敲门积累怒气值，升至 Lv." + std::to_string(monster.level));
     }
     if (room.hp == 0) {
+        auto& owner = game.players[room.owner];
+        const bool returningToNest = owner.nestIntent >= 0;
+        LogicCatAi::stop(game, owner);
+        owner.sleeping = false;
+        owner.nestIntent = -1;
+        owner.decisionAt = 0;
+        if (returningToNest) {
+            owner.path.clear();
+        }
+        // Connected humans keep control; bots choose their escape on the next AI tick.
         game.notify(std::to_string(room.id + 1) + " 号猫店的店门被打破了，店长正在进屋抓猫");
         monster.repathAt = 0;
         monster.state = "chasing";

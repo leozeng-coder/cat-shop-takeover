@@ -58,7 +58,9 @@
         ],
         "amount": 34,
         "interval_ms": 850,
-        "range": 235
+        "range": 235,
+        "name": "双发毛线机",
+        "appearance": "launcher_dual"
       },
       {
         "level": 4,
@@ -81,7 +83,9 @@
         ],
         "amount": 70,
         "interval_ms": 850,
-        "range": 235
+        "range": 235,
+        "name": "双发毛线机",
+        "appearance": "launcher_dual"
       },
       {
         "level": 5,
@@ -104,7 +108,9 @@
         ],
         "amount": 105,
         "interval_ms": 850,
-        "range": 235
+        "range": 235,
+        "name": "喵喵毛线炮",
+        "appearance": "launcher_cannon"
       },
       {
         "level": 6,
@@ -127,7 +133,9 @@
         ],
         "amount": 160,
         "interval_ms": 850,
-        "range": 235
+        "range": 235,
+        "name": "喵喵毛线炮",
+        "appearance": "launcher_cannon"
       }
     ]
   },

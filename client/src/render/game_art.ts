@@ -68,6 +68,50 @@ export class GameArt {
     this.triangle([3, 0, 7, -3, 7, 3], '#fff6d1');
     c.restore();
   }
+  launcher(
+    x: number,
+    y: number,
+    appearance: 'launcher' | 'launcher_dual' | 'launcher_cannon',
+    pulse: number,
+  ) {
+    const c = this.ctx;
+    c.save();
+    c.translate(x, y);
+    this.ellipse(0, 11, 14, 4, '#43544828');
+    if (appearance === 'launcher_cannon') {
+      this.rect(-13, 3, 26, 11, '#73748d', 4, '#505a6a');
+      this.rect(-10, 8, 20, 3, '#d6b76b', 1);
+      this.ellipse(0, 2, 11, 9, '#a7abc0', '#586778');
+      this.triangle([-11, -2, -10, -11, -4, -5], '#e4ca83', '#776e68');
+      this.triangle([4, -5, 10, -11, 11, -2], '#e4ca83', '#776e68');
+      this.rect(-7, -14 + pulse * 2, 14, 17, '#708693', 3, '#505e70');
+      this.rect(-9, -15 + pulse * 2, 18, 5, '#e4ca83', 2, '#9a895d');
+      this.ellipse(0, -12 + pulse * 2, 6, 3, '#465365');
+      this.ellipse(0, -12 + pulse * 2, 3, 2, '#edaf91');
+      this.paw(0, 7, '#fff0be', 0.42);
+    } else if (appearance === 'launcher_dual') {
+      this.rect(-13, 2, 26, 12, '#83aaa2', 4, '#577e79');
+      this.rect(-10, 9, 20, 3, '#d4dcc0', 1);
+      for (const side of [-1, 1]) {
+        const bx = side * 7;
+        this.rect(bx - 4, -12 + pulse, 8, 19, '#c0d8cd', 2, '#6b958e');
+        this.line(bx, -9, bx, 3, '#729890', 1);
+        this.ellipse(bx, -7 + pulse, 4, 4, '#e4a181', '#af7e68');
+        this.line(bx - 2, -9 + pulse, bx + 2, -5 + pulse, '#f6cdb0', 1);
+      }
+      this.rect(-4, 3, 8, 4, '#e6c47b', 1);
+    } else {
+      this.ellipse(0, 5, 13, 10, '#a7bd95', '#748868');
+      this.line(-7, 4, -7, -10, '#af8e63', 4);
+      this.line(7, 4, 7, -10, '#af8e63', 4);
+      this.line(-7, -9, 0, -3, '#705b4e', 2);
+      this.line(7, -9, 0, -3, '#705b4e', 2);
+      this.ellipse(0, -6, 6, 6, '#db9276');
+      this.line(-3, -9, 3, -3, '#f5c5a3', 1);
+      this.line(-4, -6, 2, -1, '#f5c5a3', 1);
+    }
+    c.restore();
+  }
   miniFridge(x: number, y: number, pulse: number) {
     const c = this.ctx;
     c.save();

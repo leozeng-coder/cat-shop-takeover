@@ -1,4 +1,13 @@
-export type Appearance = 'shelf' | 'crate' | 'launcher' | 'pantry' | 'repair' | 'fish_rack' | 'mini_fridge';
+export type Appearance =
+  | 'shelf'
+  | 'crate'
+  | 'launcher'
+  | 'launcher_dual'
+  | 'launcher_cannon'
+  | 'pantry'
+  | 'repair'
+  | 'fish_rack'
+  | 'mini_fridge';
 export interface Price {
   currency: string;
   amount: number;
@@ -16,6 +25,10 @@ export interface LevelConfig {
   intervalMs: number;
   range: number;
 }
+export interface ItemLevelConfig extends LevelConfig {
+  name: string;
+  appearance: Appearance;
+}
 export interface ItemConfig {
   id: string;
   name: string;
@@ -26,7 +39,7 @@ export interface ItemConfig {
   currency: string;
   buildable: boolean;
   unique: boolean;
-  levels: LevelConfig[];
+  levels: ItemLevelConfig[];
 }
 export interface Catalog {
   version: string;
@@ -63,6 +76,7 @@ export interface Player {
   bot: boolean;
   alive: boolean;
   sleeping: boolean;
+  escaping: boolean;
   room: number;
   wallet: Record<string, number>;
   incomes: Record<string, number>;

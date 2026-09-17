@@ -44,6 +44,9 @@ std::string Game::purchaseError(int id, const Cost& cost, const Requirements& re
     if (p.room < 0) {
         return "先走到罐头窝安家";
     }
+    if (isEscaping(p)) {
+        return "店门已被打破，现在只能移动逃跑";
+    }
     if (dorms[p.room].level < required.doorStage) {
         return "需要店门达到" + config().door(required.doorStage).displayName();
     }

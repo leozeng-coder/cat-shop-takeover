@@ -1,5 +1,30 @@
 import { roomAt, type State, type Price, type Offer, type ItemConfig, type LevelConfig } from '../types';
 import { escapeHtml as e } from './format';
+
+export const ITEM_CATEGORIES = [
+  { id: 'attack', label: '基础道具' },
+  { id: 'currency', label: '经济道具' },
+  { id: 'utility', label: '功能道具' },
+] as const;
+export type ItemCategory = (typeof ITEM_CATEGORIES)[number]['id'];
+
+function categoryFilters(selected: ItemCategory) {
+  return (
+    '<div class="item-filters" role="group" aria-label="道具分类">' +
+    ITEM_CATEGORIES.map(
+      (category) =>
+        '<button data-do="filter-items" data-category="' +
+        category.id +
+        '" aria-pressed="' +
+        (selected === category.id) +
+        '">' +
+        category.label +
+        '</button>',
+    ).join('') +
+    '</div>'
+  );
+}
+
 function action(
   doName: string,
   title: string,
@@ -60,7 +85,16 @@ function effect(g: State, item: ItemConfig, l: LevelConfig) {
   return '';
 }
 function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean) {
-  if (!target) return action('build', item.name + ' · 已满级', '已达最高等级', '满级', '✧', true, item.id);
+  if (!target)
+    return action(
+      'build',
+      item.levels[item.levels.length - 1].name + ' · 已满级',
+      '已达最高等级',
+      '满级',
+      '✧',
+      true,
+      item.id,
+    );
   const l = item.levels[target - 1],
     offer = g.offers.items[item.id][target - 1];
   const symbol =
@@ -73,7 +107,7 @@ function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean
           : '✚';
   return action(
     'build',
-    (upgrade ? '升级' : '安装') + item.name + (upgrade ? '至 ' + target + '级' : ''),
+    (upgrade ? '升级为 ' : '安装') + l.name + (upgrade ? ' · ' + target + '级' : ''),
     details(effect(g, item, l) + (item.unique ? ' · 每位玩家限一件' : ''), l.requirements, offer),
     price(g, l.cost),
     symbol,
@@ -81,11 +115,11 @@ function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean
     item.id,
   );
 }
-export function gridMenuView(g: State, cell: number) {
+export function gridMenuView(g: State, cell: number, category: ItemCategory = 'attack') {
   const rid = roomAt(g.map, cell),
     room = g.dorms[rid],
     me = g.players[g.you];
-  if (!room) return '';
+  if (!room || me.escaping) return '';
   const prop = room.props.find((p) => p.cell === cell),
     mine = room.owner === g.you;
   const item = prop ? g.catalog.items[prop.kind] : undefined;
@@ -95,7 +129,7 @@ export function gridMenuView(g: State, cell: number) {
       : cell === room.door
         ? room.doorName + (room.closed ? ' · 已关闭' : room.hp <= 0 ? ' · 已破坏' : ' · 敞开')
         : item
-          ? item.name
+          ? item.levels[prop!.level - 1].name + (item.buildable ? ' · ' + prop!.level + '级' : '')
           : '空地格';
   let body = '',
     description = mine
@@ -194,31 +228,21 @@ export function gridMenuView(g: State, cell: number) {
       body += itemButton(g, item, item.levels[prop.level - 1].nextLevel, true);
     }
   } else {
-    body += action(
-      'move',
-      '走到这里',
-      mine ? '屋内自由走动，罐头持续增加' : '自动绕过墙体和道具',
-      '移动',
-      '↗',
-    );
     if (mine) {
-      for (const [category, label] of [
-        ['currency', '货币产出型'],
-        ['attack', '攻击型'],
-        ['utility', '功能型'],
-      ]) {
-        const items = Object.values(g.catalog.items).filter((i) => i.buildable && i.category === category);
-        if (!items.length) continue;
-        body += '<div class="item-category">' + label + '</div>';
-        for (const i of items) body += itemButton(g, i, 1, false);
-      }
+      const items = Object.values(g.catalog.items).filter((i) => i.buildable && i.category === category);
+      for (const i of items) body += itemButton(g, i, 1, false);
+      if (!items.length) body += '<p class="item-empty">这类道具还在筹备中</p>';
     }
   }
   if (!me.alive) body = '';
+  const filters =
+    mine && me.alive && !prop && cell !== room.nest && cell !== room.door ? categoryFilters(category) : '';
   return (
     '<div class="grid-menu-header"><h3>' +
     e(title) +
-    '</h3><button data-do="close-grid" aria-label="关闭格子菜单">×</button></div><p>' +
+    '</h3><button data-do="close-grid" aria-label="关闭格子菜单">×</button></div>' +
+    filters +
+    '<p>' +
     e(description) +
     '</p>' +
     body +

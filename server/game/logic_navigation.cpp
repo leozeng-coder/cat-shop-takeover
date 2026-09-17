@@ -96,6 +96,11 @@ void Game::arrive(Player& p) {
                    config().currency(item.currency).name);
         }
     }
+    if (isEscaping(p)) {
+        p.sleeping = false;
+        p.nestIntent = -1;
+        return;
+    }
     if (!p.path.empty() || p.nestIntent < 0) {
         return;
     }
