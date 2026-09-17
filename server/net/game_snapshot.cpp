@@ -92,8 +92,10 @@ Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
     value["repair"]["cost"] = price(cfg.repair.cost);
     value["repair"]["amount"] = cfg.repair.amount;
     value["repair"]["cooldown"] = cfg.repair.cooldown;
-    value["manager"]["timeExperience"] = cfg.enemy.timeExperience;
-    value["manager"]["doorExperience"] = cfg.enemy.doorExperience;
+    value["manager"]["timeRage"] = cfg.enemy.timeRage;
+    value["manager"]["doorRage"] = cfg.enemy.doorRage;
+    value["manager"]["damageRageMultiplier"] = cfg.enemy.damageRageMultiplier;
+    value["manager"]["levelUpHealPercent"] = cfg.enemy.levelUpHealRatio * 100;
     return value;
 }
 Json::Value GameSnapshot::encode(const Game& g, int viewer) {
@@ -183,9 +185,17 @@ Json::Value GameSnapshot::encode(const Game& g, int viewer) {
     m["hp"] = g.monster.hp;
     m["maxHp"] = g.monster.maxHp;
     m["level"] = g.monster.level;
-    m["experience"] = g.monster.experience;
-    m["nextExperience"] = LogicProgression::stats(g.monster, cfg.enemy).nextExperience;
+    m["rage"] = g.monster.rage;
+    m["nextRage"] = LogicProgression::stats(g.monster, cfg.enemy).nextRage;
     m["maxLevel"] = static_cast<int>(cfg.enemy.levels.size());
+    m["levelUps"] = Json::Value(Json::arrayValue);
+    for (const auto& event : g.monster.levelUps) {
+        Json::Value entry;
+        entry["level"] = event.level;
+        entry["healed"] = event.healed;
+        entry["text"] = cfg.enemy.levels[event.level - 1].levelUpAnnouncement;
+        m["levelUps"].append(entry);
+    }
     m["doorHits"] = g.monster.doorHits;
     m["attackingPlayer"] = g.phase == "running" ? g.monster.attackingPlayer : -1;
     m["attackStartedAt"] = g.monster.attackStartedAt;

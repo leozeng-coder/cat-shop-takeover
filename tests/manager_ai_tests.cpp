@@ -19,8 +19,9 @@ void check(bool value, const char* message) {
 }
 std::shared_ptr<GameConfig> rules() {
     auto config = std::make_shared<GameConfig>(*testConfig());
-    config->enemy.timeExperience = 0;
-    config->enemy.doorExperience = 0;
+    config->enemy.timeRage = 0;
+    config->enemy.doorRage = 0;
+    config->enemy.damageRageMultiplier = 0;
     config->managerAi.randomWeight = 0;
     return config;
 }

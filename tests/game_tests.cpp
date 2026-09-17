@@ -2,6 +2,7 @@
 #include "battle/logic_progression.h"
 #include "common/game_math.h"
 #include "game/game.h"
+#include "item/logic_item.h"
 #include "test_config.h"
 #include <cmath>
 #include <iostream>
@@ -294,29 +295,164 @@ void enemyProgression() {
     for (int i = 0; i < 899; ++i) {
         LogicProgression::advanceTime(timed, .05, testConfig()->enemy);
     }
-    check(timed.level == 1 && timed.experience == 44, "natural XP respects whole seconds and threshold");
+    check(timed.level == 1 && timed.rage == 44, "natural rage respects whole seconds and threshold");
     check(LogicProgression::advanceTime(timed, .05, testConfig()->enemy) == 1,
           "natural time reaches level two at 45 seconds");
-    check(timed.level == 2 && timed.experience == 0 && timed.maxHp == 810 && timed.hp == 405,
-          "level-up uses configured stats and preserves health percentage");
-    check(LogicProgression::grant(timed, 65, testConfig()->enemy) == 1 && timed.level == 3 && timed.experience == 5,
-          "level-up carries excess experience forward");
+    check(timed.level == 2 && timed.rage == 0 && timed.maxHp == 810 && timed.hp == 527.5,
+          "level-up heals 25 percent of new max HP without rescaling existing HP");
+    check(LogicProgression::grant(timed, 65, testConfig()->enemy) == 1 && timed.level == 3 && timed.rage == 5,
+          "level-up carries excess rage forward");
     Monster alternate;
     alternate.hp = alternate.maxHp = testConfig()->enemy.levels[0].maxHp;
     for (int i = 0; i < 180; ++i) {
         LogicProgression::advanceTime(alternate, .25, testConfig()->enemy);
     }
-    check(alternate.level == 2 && alternate.experience == 0, "growth is independent of update subdivision");
+    check(alternate.level == 2 && alternate.rage == 0, "growth is independent of update subdivision");
     alternate.hp = 0;
     check(LogicProgression::grant(alternate, std::numeric_limits<int>::max(), testConfig()->enemy) == 8,
           "large reward advances safely to level cap");
-    check(alternate.level == 10 && alternate.experience == 0 && alternate.hp == 0 &&
+    check(alternate.level == 10 && alternate.rage == 0 && alternate.hp == 0 &&
               alternate.maxHp == testConfig()->enemy.levels.back().maxHp,
           "capped leveling neither overflows nor revives defeated enemy");
-    check(LogicProgression::grant(alternate, 100, testConfig()->enemy) == 0, "max-level XP is bounded");
+    check(LogicProgression::grant(alternate, 100, testConfig()->enemy) == 0, "max-level rage is bounded");
+    check(alternate.levelUps.size() == 9, "exactly one announcement event per gained level, including cap");
+    for (std::size_t i = 0; i < alternate.levelUps.size(); ++i) {
+        check(alternate.levelUps[i].level == static_cast<int>(i) + 2, "event order survives multi-level gains");
+        if (i > 0) {
+            check(alternate.levelUps[i].healed == 0, "defeated upgrades never advertise healing");
+        }
+    }
+    check(timed.levelUps.size() == 2 && timed.levelUps[0].healed == 202.5 && timed.levelUps[1].healed == 242.5 &&
+              timed.hp == 770,
+          "every level heals independently against its own new maximum");
+    Monster full;
+    full.hp = full.maxHp = 650;
+    LogicProgression::grant(full, 45, testConfig()->enemy);
+    check(full.hp == 810 && full.levelUps[0].healed == 160, "healing caps at max and records actual recovery");
+    const auto eventCount = full.levelUps.size();
+    check(LogicProgression::grant(full, 0, testConfig()->enemy) == 0 &&
+              LogicProgression::grant(full, -1, testConfig()->enemy) == 0 && full.levelUps.size() == eventCount,
+          "nonpositive rage cannot heal or emit upgrade events");
     auto waiting = solo();
     advance(waiting, 20);
-    check(waiting.monster.level == 1 && waiting.monster.experience == 0, "preparation does not grant time XP");
+    check(waiting.monster.level == 1 && waiting.monster.rage == 0, "preparation does not grant time rage");
+}
+void incomingHitRage() {
+    auto setup = [](double multiplier, double healRatio = .25, int damage = 11) {
+        auto cfg = std::make_shared<GameConfig>(*testConfig());
+        cfg->enemy.timeRage = 1;
+        cfg->enemy.doorRage = 0;
+        cfg->enemy.damageRageMultiplier = multiplier;
+        cfg->enemy.levelUpHealRatio = healRatio;
+        cfg->items.at("launcher").levels[0].amount = damage;
+        Game game("HITS", 1, 42, cfg);
+        game.addHuman("Test");
+        game.start(0);
+        game.phase = "running";
+        game.elapsed = 40;
+        auto& room = game.dorms[0];
+        room.owner = 0;
+        game.players[0].room = 0;
+        room.props = {{room.nest, "launcher", 1}};
+        game.monster.state = "hunting";
+        game.monster.position = GridMap::center(room.nest);
+        game.monster.hp = 100;
+        return game;
+    };
+    auto g = setup(1);
+    auto& room = g.dorms[0];
+    auto& m = g.monster;
+    m.rage = 34;
+    LogicItem::updateAttack(g, .05);
+    check(m.level == 2 && m.rage == 0 && m.hp == 291.5,
+          "actual damage times multiplier grants rage before applying level healing");
+    check(m.levelUps.size() == 1 && m.levelUps[0].level == 2 && m.levelUps[0].healed == 202.5,
+          "damage-triggered upgrade emits one event and does not count healing as damage");
+    LogicItem::updateAttack(g, .05);
+    check(m.hp == 291.5 && m.rage == 0 && m.levelUps.size() == 1,
+          "cooldown ticks cannot grant extra rage, healing or announcements");
+    room.props[0].cooldown = 0;
+    m.position = {-10000, -10000};
+    LogicItem::updateAttack(g, .05);
+    check(m.hp == 291.5 && m.rage == 0, "out-of-range attacks grant no rage");
+    m.position = GridMap::center(room.nest);
+    m.hp = 1;
+    m.rage = 59;
+    room.props.push_back({room.nest, "launcher", 1});
+    LogicItem::updateAttack(g, .05);
+    check(m.hp == 0 && m.level == 3 && m.rage == 0 && m.levelUps.size() == 2 && m.levelUps.back().healed == 0,
+          "lethal hit counts only remaining HP, cannot revive, and blocks subsequent attacks");
+
+    auto multiple = setup(10);
+    LogicItem::updateAttack(multiple, .05);
+    check(multiple.monster.level == 3 && multiple.monster.rage == 5 && multiple.monster.hp == 534 &&
+              multiple.monster.levelUps.size() == 2,
+          "one high-multiplier hit crosses thresholds without losing broadcasts or healing");
+    auto healing = setup(5, .5);
+    LogicItem::updateAttack(healing, .05);
+    check(healing.monster.level == 2 && healing.monster.rage == 10 && healing.monster.hp == 494,
+          "damage multiplier and upgrade healing both use configuration");
+    auto noHealing = setup(5, 0);
+    LogicItem::updateAttack(noHealing, .05);
+    check(noHealing.monster.level == 2 && noHealing.monster.hp == 89 && noHealing.monster.levelUps.back().healed == 0,
+          "zero recovery disables upgrade healing without rescaling HP");
+    auto disabled = setup(0);
+    LogicItem::updateAttack(disabled, .05);
+    check(disabled.monster.level == 1 && disabled.monster.hp == 89 && disabled.monster.rage == 0 &&
+              disabled.monster.levelUps.empty(),
+          "zero damage multiplier preserves damage and disables damage rage");
+    auto fractional = setup(.5);
+    LogicItem::updateAttack(fractional, .05);
+    check(fractional.monster.rage == 5 && fractional.monster.rageRemainder == .5, "fractional damage rage is retained");
+    fractional.dorms[0].props[0].cooldown = 0;
+    LogicItem::updateAttack(fractional, .05);
+    check(fractional.monster.rage == 11 && fractional.monster.rageRemainder == 0,
+          "repeated hits consume accumulated fractional rage");
+    auto overkill = setup(.5, .25, 20);
+    overkill.monster.hp = 3.5;
+    LogicItem::updateAttack(overkill, .05);
+    check(overkill.monster.hp == 0 && overkill.monster.rage == 1 && overkill.monster.rageRemainder == .75,
+          "overkill rage uses actual fractional HP loss, not nominal weapon damage");
+    auto tiny = setup(.1, 0, 1);
+    for (int i = 0; i < 9; ++i) {
+        tiny.dorms[0].props[0].cooldown = 0;
+        LogicItem::updateAttack(tiny, .05);
+    }
+    check(tiny.monster.rage == 0 && std::abs(tiny.monster.rageRemainder - .9) < 1e-9,
+          "sub-one rage hits accumulate without rounding each hit");
+    LogicProgression::advanceTime(tiny.monster, .1, tiny.config().enemy);
+    check(tiny.monster.rage == 1 && tiny.monster.rageRemainder == 0,
+          "time and damage share the same fractional rage accumulator");
+    auto crossing = setup(.1, 0);
+    crossing.monster.rage = 44;
+    crossing.monster.rageRemainder = .75;
+    LogicItem::updateAttack(crossing, .05);
+    check(crossing.monster.level == 2 && crossing.monster.rage == 0 &&
+              std::abs(crossing.monster.rageRemainder - .85) < 1e-9,
+          "fractional rage survives a level threshold");
+    const double remainder = crossing.monster.rageRemainder;
+    crossing.setConnected(0, false);
+    crossing.setConnected(0, true);
+    check(crossing.monster.rageRemainder == remainder, "reconnect preserves fractional rage");
+    crossing.phase = "won";
+    check(crossing.rematch(0).empty() && crossing.monster.rageRemainder == 0, "new match clears fractional rage");
+    auto split = setup(.25, 0, 7);
+    split.dorms[0].props.resize(4, split.dorms[0].props[0]);
+    LogicItem::updateAttack(split, .05);
+    auto single = setup(.25, 0, 28);
+    LogicItem::updateAttack(single, .05);
+    check(split.monster.hp == single.monster.hp && split.monster.rage == 7 &&
+              split.monster.rage == single.monster.rage && split.monster.rageRemainder == single.monster.rageRemainder,
+          "equal actual damage gives equal rage regardless of weapon hit count");
+    Monster huge;
+    check(LogicProgression::grant(huge, 10000000000.5, testConfig()->enemy) == 9 && huge.rage == 0 &&
+              huge.rageRemainder == 0 && huge.hp == 0,
+          "large damage rewards avoid integer overflow, clear cap remainder and cannot revive");
+    Monster invalid;
+    check(LogicProgression::grant(invalid, std::numeric_limits<double>::infinity(), testConfig()->enemy) == 0 &&
+              LogicProgression::grant(invalid, std::numeric_limits<double>::quiet_NaN(), testConfig()->enemy) == 0 &&
+              invalid.rageRemainder == 0,
+          "nonfinite rage cannot corrupt progression");
 }
 void doorCombatAndAttackTarget() {
     auto g = solo();
@@ -335,28 +471,30 @@ void doorCombatAndAttackTarget() {
     monster.prey = 0;
     monster.position = GridMap::center(room.entrance);
     g.step(.05);
-    check(monster.doorHits == 1 && monster.attackSequence == 1 && monster.experience == 5,
-          "one valid door hit awards XP exactly once");
+    check(monster.doorHits == 1 && monster.attackSequence == 1 && monster.rage == 5,
+          "one valid door hit awards rage exactly once");
     check(room.hp == testConfig()->door(1).health - testConfig()->enemy.levels[0].doorDamage && g.players[0].alive,
           "door damage never damages or captures a cat behind intact door");
     check(monster.attackingPlayer == 0 && monster.state == "attacking", "attack indicator identifies door owner");
     const double started = monster.attackStartedAt;
-    check(!LogicCombat::hitDoor(g, 0) && monster.doorHits == 1, "attack cooldown blocks duplicate hit and XP");
+    check(!LogicCombat::hitDoor(g, 0) && monster.doorHits == 1, "attack cooldown blocks duplicate hit and rage");
     advance(g, .45);
     check(monster.doorHits == 1 && monster.attackStartedAt == started, "active target survives cooldown snapshots");
     advance(g, .45);
     check(monster.doorHits == 2 && monster.attackSequence == 2, "next hit occurs at configured interval");
-    monster.experience = 40;
-    monster.experienceRemainder = 0;
+    monster.rage = 40;
+    monster.rageRemainder = 0;
     monster.attackCooldown = 0;
     const double before = room.hp;
     g.step(.05);
-    check(monster.level == 2 && monster.experience == 0, "door experience can trigger a level-up");
-    check(room.hp == before - testConfig()->enemy.levels[0].doorDamage, "current hit uses level before its XP reward");
+    check(monster.level == 2 && monster.rage == 0 && monster.levelUps.size() == 1,
+          "door rage can trigger a level-up and broadcast event");
+    check(room.hp == before - testConfig()->enemy.levels[0].doorDamage,
+          "current hit uses level before its rage reward");
     monster.attackCooldown = 0;
     monster.position = GridMap::center(g.map.spawn);
-    const int hits = monster.doorHits, xp = monster.experience;
-    check(!LogicCombat::hitDoor(g, 0) && monster.doorHits == hits && monster.experience == xp,
+    const int hits = monster.doorHits, xp = monster.rage;
+    check(!LogicCombat::hitDoor(g, 0) && monster.doorHits == hits && monster.rage == xp,
           "remote or missed door attack awards nothing");
     g.step(.05);
     check(monster.attackingPlayer == -1, "walking between targets clears portrait feedback");
@@ -377,16 +515,15 @@ void doorCombatAndAttackTarget() {
     check(!g.players[0].alive && GameMath::distance(monster.position, catPosition) < testConfig()->enemy.captureRange,
           "capture requires walking to cat, without cat HP or attack stage");
     check(monster.attackSequence == sequence, "capture is not a second attack event");
-    const int savedExperience = monster.experience, savedHits = monster.doorHits;
+    const int savedRage = monster.rage, savedHits = monster.doorHits;
     g.setConnected(0, false);
     g.setConnected(0, true);
-    check(monster.level >= level && monster.experience == savedExperience && monster.doorHits == savedHits &&
-              !g.players[0].alive,
+    check(monster.level >= level && monster.rage == savedRage && monster.doorHits == savedHits && !g.players[0].alive,
           "reconnection preserves progression and captured state");
     g.phase = "won";
     check(g.rematch(0).empty(), "combat match can reset");
-    check(g.monster.level == 1 && g.monster.experience == 0 && g.monster.doorHits == 0 &&
-              g.monster.attackingPlayer == -1 && g.players[0].alive,
+    check(g.monster.level == 1 && g.monster.rage == 0 && g.monster.doorHits == 0 && g.monster.attackingPlayer == -1 &&
+              g.monster.levelUps.empty() && g.players[0].alive,
           "rematch resets growth, attack state and captured roster");
 }
 void fullMatches() {
@@ -415,6 +552,7 @@ int main() {
         rosterAndReconnect();
         daylightAndCapture();
         enemyProgression();
+        incomingHitRage();
         doorCombatAndAttackTarget();
         fullMatches();
         std::cout << "PASS " << checks << " checks\n";

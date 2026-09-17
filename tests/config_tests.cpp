@@ -138,7 +138,33 @@ void validation() {
     rejects([](auto& d) { d["items"].append(d["items"][0]); }, "duplicate item rejected");
     rejects([](auto& d) { d["initial_items"][0] = "missing"; }, "invalid spawn item rejected");
     rejects([](auto& d) { d["pickup_item"] = "launcher"; }, "pickup behavior checked");
-    rejects([](auto& d) { d["manager"]["levels"][9]["next_experience"] = 100; }, "max-level XP terminates");
+    check(cfg->enemy.damageRageMultiplier == 1 && cfg->enemy.levelUpHealRatio == .25 &&
+              cfg->enemy.levels[1].levelUpAnnouncement == "店长生气了！",
+          "manager rage, healing and per-level announcements load from the split table");
+    rejects([](auto& d) { d["manager"]["levels"][9]["next_rage"] = 100; }, "max-level rage terminates");
+    rejects([](auto& d) { d["manager"]["levels"][0]["next_rage"] = 0; }, "nonfinal levels need positive rage");
+    rejects([](auto& d) { d["manager"]["damage_rage_multiplier"] = -1; }, "negative incoming-hit rage rejected");
+    rejects([](auto& d) { d["manager"]["damage_rage_multiplier"] = 10001; }, "damage rage multiplier is bounded");
+    rejects([](auto& d) { d["manager"]["damage_rage_multiplier"] = "0.5"; }, "damage rage multiplier must be numeric");
+    auto fractionalManager = document();
+    fractionalManager["manager"]["damage_rage_multiplier"] = 0.5;
+    check(parse(fractionalManager)->enemy.damageRageMultiplier == .5,
+          "fractional damage rage multipliers are supported");
+    rejects([](auto& d) { d["manager"]["level_up_heal_percent"] = 101; }, "upgrade healing percent bounded");
+    rejects([](auto& d) { d["manager"]["level_up_heal_percent"] = -1; }, "negative upgrade healing rejected");
+    rejects([](auto& d) { d["manager"].removeMember("damage_rage_multiplier"); }, "incoming-hit rage is required");
+    rejects([](auto& d) { d["manager"]["levels"][1]["level_up_announcement"] = ""; },
+            "every upgrade level requires a nonempty announcement");
+    rejects([](auto& d) { d["manager"]["levels"][1]["level_up_announcement"] = std::string(129, 'a'); },
+            "announcement payload is bounded");
+    auto customManager = document();
+    customManager["manager"]["damage_rage_multiplier"] = 0;
+    customManager["manager"]["level_up_heal_percent"] = 0;
+    customManager["manager"]["levels"][1]["level_up_announcement"] = "罐头呢？！";
+    auto custom = parse(customManager);
+    check(custom->enemy.damageRageMultiplier == 0 && custom->enemy.levelUpHealRatio == 0 &&
+              custom->enemy.levels[1].levelUpAnnouncement == "罐头呢？！",
+          "manager numeric rules can be disabled and announcement copy is editable");
     rejects([](auto& d) { d["repair"]["cooldown_ms"] = 0; }, "zero repair cooldown rejected");
     rejects([](auto& d) { d["cat_ai"]["danger_interval_ms"] = 0; }, "AI interval cannot busy-loop");
     rejects([](auto& d) { d["cat_ai"]["escape_candidates"] = 1000; }, "AI path search has a bounded budget");
@@ -267,6 +293,8 @@ void newItemsAndLevels() {
     attack["levels"][0]["amount"] = 77;
     attack["levels"][0]["range"] = 1000;
     data["items"].append(attack);
+    // Isolate generic item damage from manager level-up recovery.
+    data["manager"]["damage_rage_multiplier"] = 0;
     auto battle = claimed(parse(data));
     battle.players[0].wallet["cans"] = 500;
     const int cell = build(battle, "heavy_launcher");

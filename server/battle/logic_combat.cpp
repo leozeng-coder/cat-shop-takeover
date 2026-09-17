@@ -23,8 +23,8 @@ bool LogicCombat::hitDoor(Game& game, int id) {
     monster.lastCombatAt = game.elapsed;
     ++monster.doorHits;
     ++monster.attackSequence;
-    if (LogicProgression::grant(monster, game.config().enemy.doorExperience, game.config().enemy) > 0) {
-        game.notify("店长敲门积累经验，升至 Lv." + std::to_string(monster.level));
+    if (LogicProgression::grant(monster, game.config().enemy.doorRage, game.config().enemy) > 0) {
+        game.notify("店长敲门积累怒气值，升至 Lv." + std::to_string(monster.level));
     }
     if (room.hp == 0) {
         game.notify(std::to_string(room.id + 1) + " 号猫店的店门被打破了，店长正在进屋抓猫");

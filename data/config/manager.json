@@ -1,6 +1,8 @@
 {
-  "time_experience": 1,
-  "door_experience": 5,
+  "time_rage": 1,
+  "door_rage": 5,
+  "damage_rage_multiplier": 1.0,
+  "level_up_heal_percent": 25,
   "attack_interval_ms": 900,
   "capture_range": 17,
   "rest_duration_ms": 7000,
@@ -17,70 +19,80 @@
       "max_hp": 650,
       "door_damage": 28,
       "speed": 107,
-      "next_experience": 45
+      "next_rage": 45,
+      "level_up_announcement": ""
     },
     {
       "level": 2,
       "max_hp": 810,
       "door_damage": 36,
       "speed": 111,
-      "next_experience": 60
+      "next_rage": 60,
+      "level_up_announcement": "店长生气了！"
     },
     {
       "level": 3,
       "max_hp": 970,
       "door_damage": 44,
       "speed": 115,
-      "next_experience": 75
+      "next_rage": 75,
+      "level_up_announcement": "是谁又在偷罐头？！"
     },
     {
       "level": 4,
       "max_hp": 1130,
       "door_damage": 52,
       "speed": 119,
-      "next_experience": 90
+      "next_rage": 90,
+      "level_up_announcement": "店长挽起了袖子！"
     },
     {
       "level": 5,
       "max_hp": 1290,
       "door_damage": 60,
       "speed": 123,
-      "next_experience": 105
+      "next_rage": 105,
+      "level_up_announcement": "店长开始认真了！"
     },
     {
       "level": 6,
       "max_hp": 1450,
       "door_damage": 68,
       "speed": 127,
-      "next_experience": 120
+      "next_rage": 120,
+      "level_up_announcement": "这次可没那么好糊弄！"
     },
     {
       "level": 7,
       "max_hp": 1610,
       "door_damage": 76,
       "speed": 131,
-      "next_experience": 135
+      "next_rage": 135,
+      "level_up_announcement": "店长气得胡子都翘了！"
     },
     {
       "level": 8,
       "max_hp": 1770,
       "door_damage": 84,
       "speed": 135,
-      "next_experience": 150
+      "next_rage": 150,
+      "level_up_announcement": "整条猫街都听见了怒吼！"
     },
     {
       "level": 9,
       "max_hp": 1930,
       "door_damage": 92,
       "speed": 139,
-      "next_experience": 165
+      "next_rage": 165,
+      "level_up_announcement": "店长已经怒不可遏！"
     },
     {
       "level": 10,
       "max_hp": 2090,
       "door_damage": 100,
       "speed": 143,
-      "next_experience": 0
+      "next_rage": 0,
+      "level_up_announcement": "店长的怒气到达了顶点！"
     }
   ]
 }

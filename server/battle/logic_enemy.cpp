@@ -12,7 +12,7 @@ void LogicEnemy::update(Game& game, double dt) {
     auto& m = game.monster;
     const double combatTime = std::min(dt, std::max(0.0, game.elapsed - game.balance.preparation));
     if (LogicProgression::advanceTime(m, combatTime, game.config().enemy) > 0) {
-        game.notify("店长随时间成长，升至 Lv." + std::to_string(m.level));
+        game.notify("店长越等越生气，升至 Lv." + std::to_string(m.level));
     }
     m.attackCooldown = std::max(0.0, m.attackCooldown - dt);
     if (m.state != "retreating" && m.state != "defeated" && m.state != "resting") {

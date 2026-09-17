@@ -119,10 +119,13 @@ try {
     const initial = await host.create(capacity);
     seeds.add(initial.map.seed);
     assert.equal(initial.monster.level, 1);
-    assert.equal(initial.monster.experience, 0);
+    assert.equal(initial.monster.rage, 0);
     assert.equal(initial.monster.attackingPlayer, -1);
     assert.equal(initial.monster.maxLevel, 10);
-    assert.equal(initial.catalog.manager.doorExperience, 5);
+    assert.equal(initial.catalog.manager.doorRage, 5);
+    assert.equal(initial.catalog.manager.damageRageMultiplier, 1);
+    assert.equal(initial.catalog.manager.levelUpHealPercent, 25);
+    assert.deepEqual(initial.monster.levelUps, []);
     assert.ok(
       initial.players.every((p) => !('hp' in p) && !('maxHp' in p)),
       'cats have no health field',
@@ -282,9 +285,9 @@ try {
     if (humans === 6) {
       host.send({
         type: 'action',
-        action: 'gainExperience',
+        action: 'gainRage',
         seq: ++host.sequence,
-        experience: 99999,
+        rage: 99999,
         level: 99,
       });
       await host.wait((m) => m.type === 'error' && m.message.includes('未知'));
@@ -299,8 +302,8 @@ try {
       );
       assert.equal(attack.monster.attackingPlayer, attack.dorms[attack.monster.target].owner);
       assert.equal(attack.monster.attackSequence, attack.monster.doorHits, 'only valid door strikes count');
-      assert.ok(attack.monster.experience > 0 || attack.monster.level > 1);
-      assert.ok(attack.monster.level <= 10, 'client cannot award experience');
+      assert.ok(attack.monster.rage > 0 || attack.monster.level > 1);
+      assert.ok(attack.monster.level <= 10, 'client cannot award rage');
       const peer = await party[1].wait((m) => m.type === 'state' && m.tick === attack.tick);
       assert.deepEqual(
         peer.monster,
@@ -317,11 +320,10 @@ try {
       assert.ok(restored.monster.level >= attack.monster.level);
       assert.ok(restored.monster.doorHits >= attack.monster.doorHits);
       assert.ok(
-        restored.monster.level > attack.monster.level ||
-          restored.monster.experience >= attack.monster.experience,
+        restored.monster.level > attack.monster.level || restored.monster.rage >= attack.monster.rage,
       );
       party[1] = resumed;
-      console.log('PASS authoritative door XP, attack target, synchronized peers and combat reconnection');
+      console.log('PASS authoritative door rage, attack target, synchronized peers and combat reconnection');
     }
     assert.equal(host.configMessages, 1, 'static catalog is not repeated each snapshot');
     for (const c of party)

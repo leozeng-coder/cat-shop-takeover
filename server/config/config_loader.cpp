@@ -336,11 +336,13 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     cfg->repair.cooldown = integer(repair["cooldown_ms"], "repair.cooldown_ms", 50, 3600000) / 1000.0;
     const auto& manager = root["manager"];
     object(manager, "manager",
-           {"time_experience", "door_experience", "attack_interval_ms", "capture_range", "rest_duration_ms",
-            "recovery_duration_ms", "retreat_reward", "levels"});
+           {"time_rage", "door_rage", "damage_rage_multiplier", "level_up_heal_percent", "attack_interval_ms",
+            "capture_range", "rest_duration_ms", "recovery_duration_ms", "retreat_reward", "levels"});
     auto& m = cfg->enemy;
-    m.timeExperience = integer(manager["time_experience"], "manager.time_experience", 0, 1000);
-    m.doorExperience = integer(manager["door_experience"], "manager.door_experience", 0, 10000);
+    m.timeRage = integer(manager["time_rage"], "manager.time_rage", 0, 1000);
+    m.doorRage = integer(manager["door_rage"], "manager.door_rage", 0, 10000);
+    m.damageRageMultiplier = number(manager["damage_rage_multiplier"], "manager.damage_rage_multiplier", 0, 10000);
+    m.levelUpHealRatio = number(manager["level_up_heal_percent"], "manager.level_up_heal_percent", 0, 100) / 100.0;
     m.attackInterval = integer(manager["attack_interval_ms"], "manager.attack_interval_ms", 50, 60000) / 1000.0;
     m.captureRange = number(manager["capture_range"], "manager.capture_range", 1, TileSize);
     m.restDuration = integer(manager["rest_duration_ms"], "manager.rest_duration_ms", 50, 3600000) / 1000.0;
@@ -348,17 +350,19 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     m.retreatReward = cost(manager["retreat_reward"], *cfg, "manager.retreat_reward");
     const auto& enemyLevels = array(manager["levels"], "manager.levels", 1, 100);
     for (const auto& row : enemyLevels) {
-        object(row, "manager.levels", {"level", "max_hp", "door_damage", "speed", "next_experience"});
+        object(row, "manager.levels",
+               {"level", "max_hp", "door_damage", "speed", "next_rage", "level_up_announcement"});
         const int ordinal = static_cast<int>(m.levels.size()) + 1;
         integer(row["level"], "manager.level", ordinal, ordinal);
         EnemyLevelStats l;
+        l.levelUpAnnouncement = string(row["level_up_announcement"], "manager.level_up_announcement", ordinal == 1);
         l.maxHp = integer(row["max_hp"], "manager.max_hp", 1);
         l.doorDamage = integer(row["door_damage"], "manager.door_damage", 1);
         l.speed = number(row["speed"], "manager.speed", 1, 1000);
-        l.nextExperience = integer(row["next_experience"], "manager.next_experience",
-                                   ordinal < static_cast<int>(enemyLevels.size()) ? 1 : 0);
-        if (ordinal == static_cast<int>(enemyLevels.size()) && l.nextExperience != 0) {
-            fail("manager", "max level must have zero next experience");
+        l.nextRage =
+            integer(row["next_rage"], "manager.next_rage", ordinal < static_cast<int>(enemyLevels.size()) ? 1 : 0);
+        if (ordinal == static_cast<int>(enemyLevels.size()) && l.nextRage != 0) {
+            fail("manager", "max level must have zero next rage");
         }
         m.levels.push_back(l);
     }

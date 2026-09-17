@@ -54,10 +54,12 @@ struct ItemConfig {
 struct EnemyLevelStats {
     int maxHp = 0, doorDamage = 0;
     double speed = 0;
-    int nextExperience = 0;
+    int nextRage = 0;
+    std::string levelUpAnnouncement;
 };
 struct EnemyConfig {
-    int timeExperience = 0, doorExperience = 0;
+    int timeRage = 0, doorRage = 0;
+    double damageRageMultiplier = 0, levelUpHealRatio = 0;
     double attackInterval = 0, captureRange = 0, restDuration = 0, recoveryDuration = 0;
     Cost retreatReward;
     std::vector<EnemyLevelStats> levels;

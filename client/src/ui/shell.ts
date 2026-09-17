@@ -44,6 +44,7 @@ export const APP_SHELL = `
     </div>
     <footer class="game-footer"><span id="game-tip">点击街道移动 · 点击罐头窝安家 · 点击自家网格安装道具</span><span id="notice"></span><button data-do="help" class="text-button">?</button></footer>
   </section>
+  <div id="manager-announcement" class="manager-announcement hidden" role="status" aria-live="polite" aria-atomic="true"></div>
   <div id="loading" class="loading-overlay hidden" role="status"><div class="loading-paw">🐾</div><h2>小猫正在溜进街区…</h2><p>打开随机猫店，清点今晚的罐头。</p><div class="loading-track"><i></i></div></div>
   <div id="offline" class="offline hidden">连接中断，正在重新连接；离线 5 秒后 AI 会暂时照顾你的猫。</div>
   <div id="modal" class="modal-backdrop hidden"></div><div id="toast" class="toast hidden" role="status"></div>

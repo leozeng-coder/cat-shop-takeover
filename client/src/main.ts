@@ -4,6 +4,7 @@ import { updateHtml } from './ui/dom_patch';
 import { lobbyView } from './ui/lobby';
 import { gridMenuView } from './ui/grid_menu';
 import { combatStatusView } from './ui/combat_status';
+import { ManagerAnnouncement } from './ui/manager_announcement';
 import { clock, escapeHtml } from './ui/format';
 import { roomAt, type State } from './types';
 import { Renderer } from './renderer';
@@ -13,6 +14,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = APP_SHELL;
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const renderer = new Renderer(el<HTMLCanvasElement>('board'));
+const managerAnnouncement = new ManagerAnnouncement(el('manager-announcement'));
 let state: State | null = null,
   capacity = 1,
   sequence = 0,
@@ -74,6 +76,7 @@ function finishLoadingWhenReady() {
 }
 function clearSession() {
   connection.forgetSession();
+  managerAnnouncement.reset();
   state = null;
   sequence = 0;
   busy = false;
@@ -109,6 +112,7 @@ const connection = new GameConnection({
       beginLoading();
     if (previous?.map.seed !== next.map.seed) closeGrid();
     state = next;
+    managerAnnouncement.update(next);
     renderer.setState(next);
     render();
     finishLoadingWhenReady();
@@ -337,7 +341,7 @@ app.addEventListener('click', async (event) => {
     if (op === 'move' || op === 'nest') closeGrid();
   } else if (op === 'help') {
     el('modal').innerHTML =
-      '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><div class="eyebrow">A LITTLE MIDNIGHT ADVENTURE</div><h2 id="help-title">今晚，猫猫来营业</h2><ol><li>夜间有 30 秒准备。点击街道移动，猫猫会绕过墙和货架，从店门进入。</li><li>每家猫店都有一个罐头窝，额外随机放 1–2 个道具。点击空店的窝，猫会走过去安家，店门随即关闭，关闭的门无法穿过。</li><li>点自家空格，选择弹射器、储藏柜或修补台。点已有道具、罐头窝或店门，可以升级和修补。</li><li>安家后持续赚罐头，数量显示在右上角。可以躺在窝里，也可以点屋内空格选择走动，收入不变；走到罐头箱上还能拾取物资。</li><li>白天店长回来：先敲门、破门，再进店追猫。店长通过时间和敲门积累经验升级。左上角显示全员头像和店长等级、血量。店长正在敲门的猫店，其主人头像右下角会出现店长，每 2 秒撞击一次头像，提醒你及时防守。店门被打破后，店长会走进房间，接触到猫才会把它抓走；猫没有生命值或扣血阶段。坚持 5 分钟有猫留守就获胜。</li></ol><p>滚轮缩放，拖动地图，◎ 定位自己的猫。多人模式邀请好友加入，剩余位置自动补 AI。</p><button class="primary wide" data-do="close-help">知道啦，去找罐头 ↗</button></div>';
+      '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><div class="eyebrow">A LITTLE MIDNIGHT ADVENTURE</div><h2 id="help-title">今晚，猫猫来营业</h2><ol><li>夜间有 30 秒准备。点击街道移动，猫猫会绕过墙和货架，从店门进入。</li><li>每家猫店都有一个罐头窝，额外随机放 1–2 个道具。点击空店的窝，猫会走过去安家，店门随即关闭，关闭的门无法穿过。</li><li>点自家空格，选择弹射器、储藏柜或修补台。点已有道具、罐头窝或店门，可以升级和修补。</li><li>安家后持续赚罐头，数量显示在右上角。可以躺在窝里，也可以点屋内空格选择走动，收入不变；走到罐头箱上还能拾取物资。</li><li>白天店长回来：先敲门、破门，再进店追猫。店长会随时间、敲门和受击积累怒气值，升级时回复部分生命值，并向全体猫猫播报。左上角显示全员头像和店长等级、血量。店长正在敲门的猫店，其主人头像右下角会出现店长，每 2 秒撞击一次头像，提醒你及时防守。店门被打破后，店长会走进房间，接触到猫才会把它抓走；猫没有生命值或扣血阶段。坚持 5 分钟有猫留守就获胜。</li></ol><p>滚轮缩放，拖动地图，◎ 定位自己的猫。多人模式邀请好友加入，剩余位置自动补 AI。</p><button class="primary wide" data-do="close-help">知道啦，去找罐头 ↗</button></div>';
     el('modal').classList.remove('hidden');
   } else if (op === 'close-help') el('modal').classList.add('hidden');
 });

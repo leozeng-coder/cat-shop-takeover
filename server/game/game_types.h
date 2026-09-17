@@ -38,14 +38,20 @@ struct Player {
     std::deque<Point> path;
     double decisionAt = 0, repairAt = 0, disconnectedFor = 0;
 };
+struct ManagerLevelUp {
+    int level;
+    double healed;
+};
 struct Monster {
     bt::Runtime behavior;
     double targetDecisionAt = 0, targetHoldUntil = 0, lastCombatAt = 0;
     Point position{};
     std::deque<Point> path;
     double hp = 0, maxHp = 0;
-    double attackCooldown = 0, restUntil = 0, repathAt = 0, experienceRemainder = 0;
-    int experience = 0, doorHits = 0, attackingPlayer = -1;
+    double attackCooldown = 0, restUntil = 0, repathAt = 0, rageRemainder = 0;
+    int rage = 0, doorHits = 0, attackingPlayer = -1;
+    // One event per level, bounded by the configured level cap. Retained for snapshot catch-up.
+    std::vector<ManagerLevelUp> levelUps;
     double attackStartedAt = -1;
     std::uint64_t attackSequence = 0;
     int target = -1, prey = -1, level = 1, raids = 0, destination = -1;

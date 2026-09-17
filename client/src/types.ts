@@ -43,7 +43,7 @@ export interface Catalog {
   nests: (LevelConfig & { currency: string })[];
   items: Record<string, ItemConfig>;
   repair: { cost: Price[]; amount: number; cooldown: number };
-  manager: { timeExperience: number; doorExperience: number };
+  manager: { timeRage: number; doorRage: number; damageRageMultiplier: number; levelUpHealPercent: number };
 }
 export interface Prop {
   cell: number;
@@ -96,6 +96,11 @@ export interface GridMap {
   spawn: number;
   rows: string[];
 }
+export interface ManagerLevelUp {
+  level: number;
+  healed: number;
+  text: string;
+}
 export interface State {
   type: 'state';
   code: string;
@@ -117,8 +122,9 @@ export interface State {
     hp: number;
     maxHp: number;
     level: number;
-    experience: number;
-    nextExperience: number;
+    rage: number;
+    nextRage: number;
+    levelUps: ManagerLevelUp[];
     maxLevel: number;
     doorHits: number;
     attackingPlayer: number;

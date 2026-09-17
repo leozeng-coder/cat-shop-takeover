@@ -17,8 +17,7 @@ export function combatStatusView(g: State) {
     defeated: '被赶跑了',
     resting: '休息回血',
   };
-  const experience =
-    enemy.nextExperience > 0 ? `${enemy.experience} / ${enemy.nextExperience} 经验` : '已达最高等级';
+  const rage = enemy.nextRage > 0 ? `${enemy.rage} / ${enemy.nextRage} 怒气值` : '已达最高等级';
   const roster = g.players
     .map((p) => {
       const room = g.dorms[p.room];
@@ -50,8 +49,10 @@ export function combatStatusView(g: State) {
     <div class="enemy-heading"><strong>店长 <em>Lv.${enemy.level}</em></strong><span>${states[enemy.state] ?? '行动中'}</span></div>
     <div class="enemy-health"><span>生命值</span><b>${Math.ceil(enemy.hp)} / ${enemy.maxHp}</b></div>
     ${meter('店长生命值', enemy.hp, enemy.maxHp, 'enemy-bar')}
-    <div class="enemy-experience"><span>${experience}</span><span>敲门 ${enemy.doorHits} 次</span></div>
-    ${enemy.nextExperience > 0 ? meter('店长升级经验', enemy.experience, enemy.nextExperience, 'experience-bar') : ''}
-    <p>白天 +${g.catalog.manager.timeExperience} 经验 / 秒 · 敲门 +${g.catalog.manager.doorExperience}</p>
+    <div class="enemy-rage"><span>${rage}</span><span>敲门 ${enemy.doorHits} 次</span></div>
+    ${enemy.nextRage > 0 ? meter('店长升级怒气值', enemy.rage, enemy.nextRage, 'rage-bar') : ''}
+    <p>怒气：每秒 +${g.catalog.manager.timeRage} · 敲门 +${g.catalog.manager.doorRage}</p>
+    <p>受伤怒气 = 实际伤害 × ${g.catalog.manager.damageRageMultiplier}</p>
+    <p>升级回复 ${g.catalog.manager.levelUpHealPercent}% 最大生命值</p>
   </div><div class="roster-heading"><strong>猫猫小队</strong><span>${g.players.filter((p) => p.alive).length} / ${g.players.length} 留守</span></div><ul class="combat-roster">${roster}</ul>`;
 }

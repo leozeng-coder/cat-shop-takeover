@@ -1,4 +1,5 @@
 #include "logic_item.h"
+#include "battle/logic_progression.h"
 #include "common/game_math.h"
 #include "game/logic_economy.h"
 #include <algorithm>
@@ -80,8 +81,14 @@ void LogicItem::updateAttack(Game& game, double dt) {
             }
             prop.cooldown = level.intervalMs / 1000.0;
             prop.lastShot = game.elapsed;
+            const double hpBefore = monster.hp;
             monster.hp = std::max(0.0, monster.hp - level.amount);
+            const double damage = hpBefore - monster.hp;
             monster.lastCombatAt = game.elapsed;
+            const auto& config = game.config().enemy;
+            if (LogicProgression::grant(monster, damage * config.damageRageMultiplier, config) > 0) {
+                game.notify("店长受击后怒气上涨，升至 Lv." + std::to_string(monster.level));
+            }
         }
     }
 }

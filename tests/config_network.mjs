@@ -174,6 +174,65 @@ try {
   const [exit] = await once(invalid, 'exit');
   assert.equal(exit, 2, 'invalid first load fails startup validation');
   assert.match(log, /Config reload rejected/);
+  // An isolated accelerated match exercises coalesced upgrades through real sockets.
+  tables.items[0].behavior = 'single_attack';
+  tables.match.preparation_ms = 1000;
+  tables.match.duration_ms = 1000;
+  tables.manager.time_rage = 1000;
+  tables.manager.damage_rage_multiplier = 0.5;
+  tables.manager.level_up_heal_percent = 40;
+  for (const level of tables.manager.levels) {
+    level.speed = 1;
+    level.next_rage = level.level === tables.manager.levels.length ? 0 : 1;
+    if (level.level > 1) level.level_up_announcement = '测试怒气播报 ' + level.level;
+  }
+  for (const name of ['items', 'match', 'manager']) {
+    await fs.writeFile(path.join(directory, name + '.json'), JSON.stringify(tables[name]));
+  }
+  const rageHost = new Client();
+  await rageHost.create(6);
+  const ragePeer = new Client();
+  await ragePeer.open();
+  ragePeer.send({ type: 'join', code: rageHost.code, name: 'Rage friend' });
+  await ragePeer.wait((m) => m.type === 'joined');
+  ragePeer.send({ type: 'ready', ready: true });
+  await rageHost.wait((m) => m.type === 'state' && m.players[1].ready && m.players[1].human);
+  assert.equal(rageHost.catalog.manager.damageRageMultiplier, 0.5);
+  assert.equal(rageHost.catalog.manager.levelUpHealPercent, 40);
+  rageHost.send({ type: 'start' });
+  const upgraded = await rageHost.wait((m) => m.type === 'state' && m.monster.level === 10);
+  const peerUpgrade = await ragePeer.wait((m) => m.type === 'state' && m.tick === upgraded.tick);
+  assert.deepEqual(peerUpgrade.monster.levelUps, upgraded.monster.levelUps);
+  assert.deepEqual(
+    upgraded.monster.levelUps.map((e) => e.level),
+    [2, 3, 4, 5, 6, 7, 8, 9, 10],
+  );
+  for (const event of upgraded.monster.levelUps) {
+    assert.equal(event.text, tables.manager.levels[event.level - 1].level_up_announcement);
+    assert.ok(event.healed >= 0);
+  }
+  assert.equal(upgraded.monster.levelUps[0].healed, 160, 'event records actual capped recovery');
+  const rageResumed = new Client();
+  const rageToken = ragePeer.token;
+  ragePeer.socket.close();
+  await rageResumed.open();
+  rageResumed.send({ type: 'resume', token: rageToken });
+  const restoredRage = await rageResumed.wait((m) => m.type === 'state');
+  assert.deepEqual(
+    restoredRage.monster.levelUps,
+    upgraded.monster.levelUps,
+    'reconnect retains authoritative event history',
+  );
+  const ended = await rageHost.wait((m) => m.type === 'state' && (m.phase === 'won' || m.phase === 'lost'));
+  rageHost.send({ type: 'rematch' });
+  const reset = await rageHost.wait((m) => m.type === 'state' && m.map.seed !== ended.map.seed);
+  assert.equal(reset.monster.rage, 0);
+  assert.equal(reset.monster.level, 1);
+  assert.deepEqual(reset.monster.levelUps, []);
+  console.log(
+    'PASS configured rage/healing, ordered multi-level broadcasts, synchronized peers, reconnect and rematch reset',
+  );
+
   console.log(
     'PASS split-table loading, live new-match reload, peer versions, old-match isolation, atomic rollback and reconnect',
   );
