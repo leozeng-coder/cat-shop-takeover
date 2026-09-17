@@ -118,6 +118,39 @@ void weightedTargets() {
     }
     check(selected.size() == 2, "random targeting component actually varies equally weighted candidates");
 }
+void movingPreyChase() {
+    auto config = rules();
+    auto game = setup(config);
+    for (auto& row : game.map.rows) {
+        row.assign(MapWidth, '#');
+    }
+    const int left = 2, right = MapWidth - 3, top = 2, bottom = MapHeight - 3;
+    for (int x = left; x <= right; ++x) {
+        game.map.rows[top][x] = game.map.rows[bottom][x] = '.';
+    }
+    for (int y = top; y <= bottom; ++y) {
+        game.map.rows[y][left] = game.map.rows[y][right] = '.';
+    }
+    auto& cat = game.players[0];
+    cat.alive = true;
+    cat.room = -1;
+    cat.position = GridMap::center(top * MapWidth + left + 3);
+    game.monster.position = GridMap::center(top * MapWidth + left);
+    game.monster.level = 4;
+    const std::array<int, 4> corners{top * MapWidth + right, bottom * MapWidth + right, bottom * MapWidth + left,
+                                     top * MapWidth + left};
+    std::size_t corner = 0;
+    for (int frame = 0; frame < 160 && cat.alive; ++frame) {
+        if (cat.path.empty()) {
+            cat.path = game.pathTo(cat.position, corners[corner], cat.id);
+            corner = (corner + 1) % corners.size();
+        }
+        game.moveAlong(cat.position, cat.path, config->catSpeed * .05, cat.id);
+        tick(game);
+        check(!game.map.wall(GridMap::cellAt(game.monster.position)), "chasing respects the corridor walls");
+    }
+    check(!cat.alive, "level-four manager catches a moving cat despite frequent target cell changes");
+}
 void retreatAndDefeat() {
     auto config = rules();
     config->managerAi.outOfCombatHealing = 0;
@@ -239,6 +272,7 @@ void fridgeDoorDefense() {
     const double cooldown = upgraded.dorms[0].doorDefenseReadyAt;
     upgraded.players[0].wallet["cans"] = 10000;
     const int cell = upgraded.dorms[0].props[0].cell;
+    check(upgraded.command(0, GameAction::UpgradeBarricade).empty(), "door meets fridge upgrade prerequisite");
     check(upgraded.command(0, GameAction::Build, -1, cell, "mini_fridge").empty(), "fridge upgrades during combat");
     check(upgraded.dorms[0].doorDefenseReadyAt == cooldown, "upgrading cannot bypass the two-second pulse cooldown");
     upgraded.monster.hp = 1;
@@ -293,7 +327,7 @@ void outOfCombatRecovery() {
     m.hp = m.maxHp / 2;
     m.lastCombatAt = game.elapsed;
     const double before = m.hp;
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < static_cast<int>(config->managerAi.outOfCombatDelay / .25); ++i) {
         tick(game, .25);
     }
     check(std::abs(m.hp - before) < 1e-6, "out-of-combat delay gives no early regeneration");
@@ -328,6 +362,7 @@ void outOfCombatRecovery() {
 int main() {
     try {
         weightedTargets();
+        movingPreyChase();
         retreatAndDefeat();
         outOfCombatRecovery();
         fridgeDoorDefense();

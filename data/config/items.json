@@ -31,22 +31,101 @@
             "amount": 85
           }
         ],
-        "conditions": [],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "wood_2"
+          }
+        ],
         "amount": 20,
         "interval_ms": 850,
         "range": 235
       },
       {
         "level": 3,
-        "next_level": 0,
+        "next_level": 4,
         "cost": [
           {
             "currency": "cans",
             "amount": 150
           }
         ],
-        "conditions": [],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_1"
+          }
+        ],
         "amount": 34,
+        "interval_ms": 850,
+        "range": 235
+      },
+      {
+        "level": 4,
+        "next_level": 5,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 300
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 8
+          }
+        ],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_2"
+          }
+        ],
+        "amount": 70,
+        "interval_ms": 850,
+        "range": 235
+      },
+      {
+        "level": 5,
+        "next_level": 6,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 700
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 20
+          }
+        ],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_3"
+          }
+        ],
+        "amount": 105,
+        "interval_ms": 850,
+        "range": 235
+      },
+      {
+        "level": 6,
+        "next_level": 0,
+        "cost": [
+          {
+            "currency": "cans",
+            "amount": 1600
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 40
+          }
+        ],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_4"
+          }
+        ],
+        "amount": 160,
         "interval_ms": 850,
         "range": 235
       }
@@ -67,7 +146,7 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 65
+            "amount": 100
           }
         ],
         "conditions": [],
@@ -81,7 +160,11 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 100
+            "amount": 200
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 4
           }
         ],
         "conditions": [],
@@ -95,7 +178,11 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 170
+            "amount": 400
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 12
           }
         ],
         "conditions": [],
@@ -124,7 +211,7 @@
           }
         ],
         "conditions": [],
-        "amount": 2,
+        "amount": 3,
         "interval_ms": 1000,
         "range": 0
       },
@@ -134,11 +221,20 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 110
+            "amount": 180
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 5
           }
         ],
-        "conditions": [],
-        "amount": 4,
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_1"
+          }
+        ],
+        "amount": 7,
         "interval_ms": 1000,
         "range": 0
       },
@@ -148,11 +244,20 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 190
+            "amount": 450
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 15
           }
         ],
-        "conditions": [],
-        "amount": 6,
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_2"
+          }
+        ],
+        "amount": 14,
         "interval_ms": 1000,
         "range": 0
       }
@@ -188,6 +293,10 @@
           {
             "currency": "cans",
             "amount": 160
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 4
           }
         ],
         "conditions": [],
@@ -202,6 +311,10 @@
           {
             "currency": "cans",
             "amount": 260
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 12
           }
         ],
         "conditions": [],
@@ -281,10 +394,15 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 120
+            "amount": 160
           }
         ],
-        "conditions": [],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "wood_2"
+          }
+        ],
         "amount": 400,
         "interval_ms": 2000,
         "range": 0
@@ -295,10 +413,19 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 180
+            "amount": 360
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 6
           }
         ],
-        "conditions": [],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_1"
+          }
+        ],
         "amount": 600,
         "interval_ms": 2000,
         "range": 0
@@ -309,10 +436,19 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 260
+            "amount": 750
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 15
           }
         ],
-        "conditions": [],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_2"
+          }
+        ],
         "amount": 800,
         "interval_ms": 2000,
         "range": 0
@@ -323,10 +459,19 @@
         "cost": [
           {
             "currency": "cans",
-            "amount": 360
+            "amount": 1400
+          },
+          {
+            "currency": "dried_fish",
+            "amount": 30
           }
         ],
-        "conditions": [],
+        "conditions": [
+          {
+            "type": "door_stage",
+            "id": "iron_3"
+          }
+        ],
         "amount": 1000,
         "interval_ms": 2000,
         "range": 0

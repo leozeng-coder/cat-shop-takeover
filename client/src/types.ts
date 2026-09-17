@@ -36,7 +36,7 @@ export interface Catalog {
     id: string;
     stage: number;
     name: string;
-    appearance: 'wood' | 'iron';
+    appearance: 'wood' | 'iron' | 'steel';
     maxHp: number;
     nextStage: number;
     cost: Price[];
@@ -81,7 +81,7 @@ export interface Dorm {
   hp: number;
   maxHp: number;
   doorName: string;
-  doorAppearance: string;
+  doorAppearance: Catalog['doors'][number]['appearance'];
   repairOffer: Offer;
   door: number;
   closed: boolean;

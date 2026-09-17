@@ -217,7 +217,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         d.name = string(row["name"], d.id + ".name");
         d.displayLevel = integer(row["display_level"], d.id + ".display_level", 1, 100);
         d.appearance = string(row["appearance"], d.id + ".appearance");
-        if (d.appearance != "wood" && d.appearance != "iron") {
+        if (d.appearance != "wood" && d.appearance != "iron" && d.appearance != "steel") {
             fail(d.id, "unknown door appearance");
         }
         d.health = integer(row["health"], d.id + ".health", 1);

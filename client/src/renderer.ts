@@ -234,11 +234,15 @@ export class Renderer {
         nest = this.point(room.nest),
         horizontal = room.door - room.entrance === m.width || room.entrance - room.door === m.width;
       const mine = room.owner === g.you;
+      const steel = room.doorAppearance === 'steel';
+      const doorEdge = steel ? '#526b83' : '#795d3e';
+      const doorPanel = steel ? '#9bb6cc' : '#d7b37b';
       c.save();
       c.translate(door.x, door.y);
       if (!horizontal) c.rotate(Math.PI / 2);
       // Door frames remain distinct from masonry in all three door states.
-      for (const side of [-1, 1]) a.rect(side * 14 - 2, -10, 4, 20, '#8b704f', 1, '#705b42');
+      for (const side of [-1, 1])
+        a.rect(side * 14 - 2, -10, 4, 20, steel ? '#718aa2' : '#8b704f', 1, doorEdge);
       if (room.closed) {
         const guestExiting = g.players.some((cat) => {
           const cell = Math.floor(cat.y / m.tileSize) * m.width + Math.floor(cat.x / m.tileSize);
@@ -261,13 +265,17 @@ export class Renderer {
           -9,
           24,
           18,
-          room.doorAppearance === 'iron' ? '#97aeb3' : mine ? '#c89e60' : '#bc925b',
+          steel ? '#c3d6e5' : room.doorAppearance === 'iron' ? '#97aeb3' : mine ? '#c89e60' : '#bc925b',
           2,
-          '#795d3e',
+          doorEdge,
         );
-        a.rect(-9, -6, 8, 12, '#d7b37b', 1, '#af864f');
-        a.rect(2, -6, 7, 12, '#d7b37b', 1, '#af864f');
-        a.ellipse(8, 0, 1.6, 1.6, '#6c583c');
+        a.rect(-9, -6, 8, 12, doorPanel, 1, steel ? doorEdge : '#af864f');
+        a.rect(2, -6, 7, 12, doorPanel, 1, steel ? doorEdge : '#af864f');
+        if (steel) {
+          a.rect(-10, -2, 20, 4, '#e6f0f7', 1, doorEdge);
+          for (const x of [-9, 9]) for (const y of [-6, 6]) a.ellipse(x, y, 1, 1, '#526b83');
+        }
+        a.ellipse(8, 0, 1.6, 1.6, steel ? '#425b72' : '#6c583c');
         if (room.hp < room.maxHp * 0.5) {
           a.line(-5, -8, -1, -2, '#795d3e', 1.5);
           a.line(-1, -2, -4, 4, '#795d3e', 1.5);
@@ -275,7 +283,7 @@ export class Renderer {
         c.restore();
       } else if (room.hp > 0) {
         // The open leaf rests beside the frame, leaving the passage clear.
-        a.rect(-12, -8, 5, 23, '#cba36c', 1, '#8b704f');
+        a.rect(-12, -8, 5, 23, steel ? '#c3d6e5' : '#cba36c', 1, doorEdge);
         a.ellipse(-9.5, 10, 1, 1, '#6c583c');
       } else {
         a.line(-9, 5, 7, -4, '#b59b72', 3);

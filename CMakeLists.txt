@@ -68,3 +68,10 @@ foreach(test_target game_tests performance_tests config_tests ai_tests manager_a
   target_compile_definitions(${test_target} PRIVATE GAME_CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/config")
 endforeach()
 add_test(NAME config_rules COMMAND config_tests)
+
+# Offline seeded matches use the same authoritative simulation as the server.
+add_executable(balance_simulation tests/balance_simulation.cpp)
+target_link_libraries(balance_simulation PRIVATE game_core game_config_loader)
+if(MSVC)
+  target_compile_options(balance_simulation PRIVATE /W4 /utf-8)
+endif()

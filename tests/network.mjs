@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../client/package.json', import.meta.url));
 const WebSocket = require('ws');
+const managerBalance = require('../data/config/manager.json');
 const base = process.env.GAME_TEST_URL || 'http://127.0.0.1:8787';
 const clients = [];
 class Client {
@@ -121,10 +122,10 @@ try {
     assert.equal(initial.monster.level, 1);
     assert.equal(initial.monster.rage, 0);
     assert.equal(initial.monster.attackingPlayer, -1);
-    assert.equal(initial.monster.maxLevel, 10);
-    assert.equal(initial.catalog.manager.doorRage, 5);
-    assert.equal(initial.catalog.manager.damageRageMultiplier, 1);
-    assert.equal(initial.catalog.manager.levelUpHealPercent, 25);
+    assert.equal(initial.monster.maxLevel, managerBalance.levels.length);
+    assert.equal(initial.catalog.manager.doorRage, managerBalance.door_rage);
+    assert.equal(initial.catalog.manager.damageRageMultiplier, managerBalance.damage_rage_multiplier);
+    assert.equal(initial.catalog.manager.levelUpHealPercent, managerBalance.level_up_heal_percent);
     assert.deepEqual(initial.monster.levelUps, []);
     assert.ok(
       initial.players.every((p) => !('hp' in p) && !('maxHp' in p)),
@@ -163,6 +164,11 @@ try {
     host.send({ type: 'start' });
     const start = await host.wait((m) => m.type === 'state' && m.phase === 'preparing');
     assert.equal(start.preparation, 30);
+    assert.equal(
+      start.preparation + start.duration,
+      600,
+      'round includes preparation in its ten-minute limit',
+    );
     assert.equal(start.players.filter((p) => p.bot).length, 6 - humans);
     for (let i = 0; i < party.length; i++) party[i].action('nest', i);
     const walking = await host.wait((m) => m.type === 'state' && m.players[0].destination >= 0);
@@ -210,7 +216,10 @@ try {
     await host.wait((m) => m.type === 'state' && m.players[0].bed === 2);
     host.send({ type: 'action', action: 'bed', seq: host.sequence });
     const funded = await host.wait(
-      (m) => m.type === 'state' && m.players[0].wallet.cans >= 65 && m.players[0].bed === 2,
+      (m) =>
+        m.type === 'state' &&
+        m.players[0].wallet.cans >= host.catalog.items.pantry.levels[0].cost[0].amount &&
+        m.players[0].bed === 2,
     );
     const map = funded.map,
       room = funded.dorms[0];

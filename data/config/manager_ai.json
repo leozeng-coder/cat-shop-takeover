@@ -8,8 +8,8 @@
   "random_weight": 4,
   "retreat_health_percent": 25,
   "resume_health_percent": 90,
-  "out_of_combat_delay_ms": 5000,
-  "out_of_combat_heal_percent_per_second": 3,
+  "out_of_combat_delay_ms": 6500,
+  "out_of_combat_heal_percent_per_second": 2,
   "retreat_speed_multiplier": 1.6,
   "repath_interval_ms": 600
 }

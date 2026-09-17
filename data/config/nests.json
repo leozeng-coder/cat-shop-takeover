@@ -31,7 +31,7 @@
   },
   {
     "level": 3,
-    "next_level": 0,
+    "next_level": 4,
     "cost": [
       {
         "currency": "cans",
@@ -45,6 +45,78 @@
       }
     ],
     "amount": 19,
+    "interval_ms": 1000,
+    "range": 0,
+    "currency": "cans"
+  },
+  {
+    "level": 4,
+    "next_level": 5,
+    "cost": [
+      {
+        "currency": "cans",
+        "amount": 550
+      },
+      {
+        "currency": "dried_fish",
+        "amount": 8
+      }
+    ],
+    "conditions": [
+      {
+        "type": "door_stage",
+        "id": "iron_2"
+      }
+    ],
+    "amount": 32,
+    "interval_ms": 1000,
+    "range": 0,
+    "currency": "cans"
+  },
+  {
+    "level": 5,
+    "next_level": 6,
+    "cost": [
+      {
+        "currency": "cans",
+        "amount": 1200
+      },
+      {
+        "currency": "dried_fish",
+        "amount": 20
+      }
+    ],
+    "conditions": [
+      {
+        "type": "door_stage",
+        "id": "iron_3"
+      }
+    ],
+    "amount": 52,
+    "interval_ms": 1000,
+    "range": 0,
+    "currency": "cans"
+  },
+  {
+    "level": 6,
+    "next_level": 0,
+    "cost": [
+      {
+        "currency": "cans",
+        "amount": 2600
+      },
+      {
+        "currency": "dried_fish",
+        "amount": 40
+      }
+    ],
+    "conditions": [
+      {
+        "type": "door_stage",
+        "id": "iron_4"
+      }
+    ],
+    "amount": 80,
     "interval_ms": 1000,
     "range": 0,
     "currency": "cans"

@@ -325,6 +325,10 @@ void enemyProgression() {
     auto rules = testConfig()->enemy;
     rules.levels[0].nextRage = 45;
     rules.levels[1].nextRage = 60;
+    rules.timeRage = 1;
+    rules.levels[0].maxHp = 650;
+    rules.levels[1].maxHp = 810;
+    rules.levels[2].maxHp = 970;
     Monster timed;
     timed.hp = timed.maxHp = rules.levels[0].maxHp;
     timed.hp = timed.maxHp / 2;
@@ -378,6 +382,9 @@ void incomingHitRage() {
         cfg->enemy.timeRage = 1;
         cfg->enemy.levels[0].nextRage = 45;
         cfg->enemy.levels[1].nextRage = 60;
+        cfg->enemy.levels[0].maxHp = 650;
+        cfg->enemy.levels[1].maxHp = 810;
+        cfg->enemy.levels[2].maxHp = 970;
         cfg->enemy.doorRage = 0;
         cfg->enemy.damageRageMultiplier = multiplier;
         cfg->enemy.levelUpHealRatio = healRatio;
@@ -508,16 +515,16 @@ void doorCombatAndAttackTarget() {
     monster.prey = 0;
     monster.position = GridMap::center(room.entrance);
     g.step(.05);
-    check(monster.doorHits == 1 && monster.attackSequence == 1 && monster.rage == 5,
+    check(monster.doorHits == 1 && monster.attackSequence == 1 && monster.rage == g.config().enemy.doorRage,
           "one valid door hit awards rage exactly once");
     check(room.hp == testConfig()->door(1).health - testConfig()->enemy.levels[0].doorDamage && g.players[0].alive,
           "door damage never damages or captures a cat behind intact door");
     check(monster.attackingPlayer == 0 && monster.state == "attacking", "attack indicator identifies door owner");
     const double started = monster.attackStartedAt;
     check(!LogicCombat::hitDoor(g, 0) && monster.doorHits == 1, "attack cooldown blocks duplicate hit and rage");
-    advance(g, .45);
+    advance(g, g.config().enemy.attackInterval / 2);
     check(monster.doorHits == 1 && monster.attackStartedAt == started, "active target survives cooldown snapshots");
-    advance(g, .45);
+    advance(g, g.config().enemy.attackInterval / 2);
     check(monster.doorHits == 2 && monster.attackSequence == 2, "next hit occurs at configured interval");
     monster.rage = g.config().enemy.levels[0].nextRage - g.config().enemy.doorRage;
     monster.rageRemainder = 0;
@@ -567,7 +574,7 @@ void fullMatches() {
     for (std::uint32_t seed = 0; seed < 6; ++seed) {
         auto g = solo(seed);
         g.setConnected(0, false);
-        advance(g, 331);
+        advance(g, g.balance.preparation + g.balance.duration + 1);
         check(g.phase == "won" || g.phase == "lost", "full round terminates");
         for (const auto& p : g.players) {
             check(p.wallet.at("cans") >= 0 && p.bed <= static_cast<int>(g.config().nests.size()) &&

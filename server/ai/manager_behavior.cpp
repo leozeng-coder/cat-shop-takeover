@@ -155,7 +155,13 @@ Status hunt(Context& c) {
         roomId >= 0 && destination == c.game.dorms[roomId].entrance && c.game.dorms[roomId].doorClosed();
     m.target = roomId;
     if (c.game.elapsed >= m.repathAt || m.destination != destination) {
-        m.path = c.game.pathTo(m.position, destination);
+        // Finish the current grid segment before rerouting to a moving cat.
+        // Recentring on every prey cell change can otherwise erase the speed advantage.
+        Point origin = m.position;
+        if (!m.path.empty() && c.game.walkable(GridMap::cellAt(m.path.front()))) {
+            origin = m.path.front();
+        }
+        m.path = c.game.pathTo(origin, destination);
         m.destination = destination;
         m.repathAt = c.game.elapsed + c.game.config().managerAi.repathInterval;
         if (m.path.empty()) {

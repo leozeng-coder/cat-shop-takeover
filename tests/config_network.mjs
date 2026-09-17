@@ -221,7 +221,11 @@ try {
     assert.equal(event.text, tables.manager.levels[event.level - 1].level_up_announcement);
     assert.ok(event.healed >= 0);
   }
-  assert.equal(upgraded.monster.levelUps[0].healed, 160, 'event records actual capped recovery');
+  assert.equal(
+    upgraded.monster.levelUps[0].healed,
+    tables.manager.levels[1].max_hp - tables.manager.levels[0].max_hp,
+    'event records actual capped recovery',
+  );
   const rageResumed = new Client();
   const rageToken = ragePeer.token;
   ragePeer.socket.close();
@@ -246,7 +250,8 @@ try {
   // Real commands validate unique purchases independently for each player.
   tables.match.preparation_ms = 30000;
   tables.match.cat_speed = 1000;
-  tables.currencies.find((c) => c.id === 'cans').initial = 10000;
+  tables.currencies.find((c) => c.id === 'cans').initial = 30000;
+  tables.currencies.find((c) => c.id === 'dried_fish').initial = 1000;
   for (const name of ['match', 'currencies']) {
     await fs.writeFile(path.join(directory, name + '.json'), JSON.stringify(tables[name]));
   }
@@ -300,6 +305,8 @@ try {
     }
     throw new Error('No accessible fridge tile');
   }
+  action(fridgeHost, 'door');
+  await fridgeHost.wait((m) => m.type === 'state' && m.dorms[0].level === 2);
   const installed = await install(fridgeHost, 0);
   assert.equal(installed.state.offers.items.mini_fridge[0].enabled, false);
   assert.match(installed.state.offers.items.mini_fridge[0].reason, /已安装/);
@@ -344,6 +351,45 @@ try {
   console.log(
     'PASS fridge catalog, per-player uniqueness, repeated-command rejection, upgrades, peer snapshots and reconnect',
   );
+  // Progress to steel using only authoritative door/nest purchase commands.
+  let steelState = upgradedFridge;
+  for (let level = 3; level <= 6; ++level) {
+    const row = tables.doors.find((d) => d.stage === level);
+    const requiredNest = row.conditions.find((c) => c.type === 'nest_level')?.level ?? 1;
+    while (steelState.players[0].bed < requiredNest) {
+      const nextBed = steelState.players[0].bed + 1;
+      action(fridgeHost, 'bed');
+      steelState = await fridgeHost.wait((m) => m.type === 'state' && m.players[0].bed === nextBed);
+    }
+    action(fridgeHost, 'door');
+    steelState = await fridgeHost.wait((m) => m.type === 'state' && m.dorms[0].level === level);
+  }
+  const steelRow = tables.doors.find((d) => d.id === 'steel_1');
+  assert.equal(steelState.players[0].bed, 5);
+  assert.equal(steelState.offers.door.enabled, false);
+  action(fridgeHost, 'door');
+  await fridgeHost.wait((m) => m.type === 'error' && m.message.includes('罐头窝'));
+  action(fridgeHost, 'bed');
+  steelState = await fridgeHost.wait((m) => m.type === 'state' && m.players[0].bed === 6);
+  assert.equal(steelState.offers.door.enabled, true);
+  action(fridgeHost, 'door');
+  steelState = await fridgeHost.wait((m) => m.type === 'state' && m.dorms[0].level === steelRow.stage);
+  assert.equal(steelState.dorms[0].doorName, '钢门 1级');
+  assert.equal(steelState.dorms[0].doorAppearance, 'steel');
+  assert.equal(steelState.dorms[0].maxHp, steelRow.health);
+  assert.equal(steelState.dorms[0].hp, steelRow.health);
+  assert.equal(steelState.dorms[0].closed, true);
+  assert.equal(steelState.offers.door.enabled, false);
+  const steelPeer = await rejoinedFridge.wait(
+    (m) => m.type === 'state' && m.dorms[0].level === steelRow.stage,
+  );
+  assert.deepEqual(steelPeer.dorms[0], steelState.dorms[0]);
+  const steelCatalog = fridgeHost.catalog.doors.find((d) => d.id === steelRow.id);
+  assert.equal(steelCatalog.appearance, 'steel');
+  assert.equal(steelCatalog.maxHp, steelRow.health);
+  assert.deepEqual(steelCatalog.cost, steelRow.cost);
+  console.log('PASS steel prerequisites, authoritative upgrade, catalog and synchronized peer appearance');
+
   // A visitor exits a closed shop through real movement commands, without opening it to others.
   tables.cat_ai.start_delay_ms = 10000;
   await fs.writeFile(path.join(directory, 'cat_ai.json'), JSON.stringify(tables.cat_ai));

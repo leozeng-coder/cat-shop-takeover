@@ -1,6 +1,6 @@
 {
   "preparation_ms": 30000,
-  "duration_ms": 300000,
+  "duration_ms": 570000,
   "reconnect_grace_ms": 5000,
   "cat_speed": 155
 }
