@@ -180,6 +180,8 @@ export class Renderer {
       }
     } else if (prop.appearance === 'fish_rack') {
       a.fishRack(p.x, p.y, prop.level);
+    } else if (prop.appearance === 'mini_fridge') {
+      a.miniFridge(p.x, p.y, Math.max(0, 1 - (this.state!.elapsed - prop.lastShot) / 0.7));
     } else if (prop.appearance === 'pantry') {
       a.rect(p.x - 12, p.y - 12, 24, 25, '#a7b895', 4, '#7d9676');
       a.can(p.x - 5, p.y, '#e3b266', 0.55);

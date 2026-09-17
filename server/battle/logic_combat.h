@@ -9,7 +9,7 @@ public:
     static bool catInRange(const Game& game, int player);
 
 private:
-    static bool ready(const Game& game);
+    static bool active(const Game& game);
     static void capture(Game& game, int player);
 };
 } // namespace snackshop

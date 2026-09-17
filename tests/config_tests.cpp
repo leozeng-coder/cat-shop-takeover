@@ -83,9 +83,9 @@ Game claimed(std::shared_ptr<const GameConfig> config = testConfig()) {
     cat.position = GridMap::center(game.dorms[0].nest);
     return game;
 }
-int build(Game& game, const std::string& item) {
-    for (int cell : game.dorms[0].floor) {
-        if (!game.propAt(cell) && game.command(0, GameAction::Build, -1, cell, item).empty()) {
+int build(Game& game, const std::string& item, int player = 0) {
+    for (int cell : game.dorms[game.players[player].room].floor) {
+        if (!game.propAt(cell) && game.command(player, GameAction::Build, -1, cell, item).empty()) {
             return cell;
         }
     }
@@ -136,6 +136,26 @@ void validation() {
     rejects([](auto& d) { d["items"][0]["levels"][0]["cost"] = Json::Value(Json::arrayValue); },
             "free purchase rejected");
     rejects([](auto& d) { d["items"].append(d["items"][0]); }, "duplicate item rejected");
+    rejects([](auto& d) { d["items"][0]["unique"] = "true"; }, "unique flag must be boolean");
+    rejects(
+        [](auto& d) {
+            d["items"][0]["unique"] = true;
+            d["items"][0]["buildable"] = false;
+        },
+        "uniqueness is only defined for installable items");
+    auto fridgeRow = [](auto& data) -> Json::Value& {
+        for (auto& item : data["items"]) {
+            if (item["id"] == "mini_fridge") {
+                return item;
+            }
+        }
+        throw std::runtime_error("Missing fridge fixture");
+    };
+    rejects([&](auto& d) { fridgeRow(d)["levels"][0]["amount"] = 0; }, "zero attack delay rejected");
+    rejects([&](auto& d) { fridgeRow(d)["levels"][0]["amount"] = 2000; },
+            "attack delay cannot permanently stall attacks at every pulse");
+    rejects([&](auto& d) { fridgeRow(d)["levels"][0]["range"] = 32; }, "door defense affects its own room");
+    rejects([&](auto& d) { fridgeRow(d)["category"] = "attack"; }, "door delay uses utility behavior");
     rejects([](auto& d) { d["initial_items"][0] = "missing"; }, "invalid spawn item rejected");
     rejects([](auto& d) { d["pickup_item"] = "launcher"; }, "pickup behavior checked");
     check(cfg->enemy.damageRageMultiplier == 1 && cfg->enemy.levelUpHealRatio == .25 &&
@@ -313,6 +333,69 @@ void newItemsAndLevels() {
     check(battle.dorms[0].hp == 102, "utility dispatch restores configured durability");
 }
 
+void uniqueFridgePurchases() {
+    auto game = claimed();
+    auto& cat = game.players[0];
+    cat.wallet["cans"] = 10000;
+    const auto& fridge = game.config().item("mini_fridge");
+    check(fridge.unique && fridge.behavior == ItemBehavior::DoorAttackDelay && fridge.levels.size() == 5,
+          "fridge is configured as a unique five-level utility");
+    for (int i = 0; i < 5; ++i) {
+        check(fridge.levels[i].amount == (i + 1) * 200 && fridge.levels[i].intervalMs == 2000,
+              "fridge delay scales from 200 to 1000 ms at a 2 second pulse interval");
+    }
+    check(game.itemPurchaseError(0, fridge, 1).empty(), "first unique purchase is offered");
+    const int cell = build(game, fridge.id);
+    check(cat.wallet["cans"] == 10000 - fridge.levels[0].cost[0].amount, "initial unique purchase charges once");
+    int other = -1;
+    for (int candidate : game.dorms[0].floor) {
+        if (!game.propAt(candidate) && candidate != game.dorms[0].nest && candidate != game.dorms[0].door) {
+            other = candidate;
+            break;
+        }
+    }
+    check(other >= 0, "duplicate purchase fixture has a free tile");
+    const auto wallet = cat.wallet;
+    const auto count = game.dorms[0].props.size();
+    check(!game.itemPurchaseError(0, fridge, 1).empty() &&
+              !game.command(0, GameAction::Build, -1, other, fridge.id).empty() && cat.wallet == wallet &&
+              game.dorms[0].props.size() == count,
+          "unique duplicate is rejected before charging or placing another prop");
+    for (int level = 2; level <= 5; ++level) {
+        check(game.itemPurchaseError(0, fridge, level).empty() &&
+                  game.command(0, GameAction::Build, -1, cell, fridge.id).empty() && game.propAt(cell)->level == level,
+              "existing unique item can upgrade in place");
+    }
+    check(!game.command(0, GameAction::Build, -1, cell, fridge.id).empty(), "max-level unique item remains capped");
+    game.setConnected(0, false);
+    game.setConnected(0, true);
+    check(!game.itemPurchaseError(0, fridge, 1).empty(), "reconnect cannot reset uniqueness");
+    game.players[1].room = 1;
+    game.players[1].position = GridMap::center(game.dorms[1].nest);
+    game.players[1].wallet["cans"] = 10000;
+    game.dorms[1].owner = 1;
+    game.dorms[1].props.clear();
+    check(game.itemPurchaseError(1, fridge, 1).empty() && build(game, fridge.id, 1) >= 0,
+          "uniqueness is per player, not shared across the match");
+    auto data = document();
+    auto unique = data["items"][1];
+    unique["id"] = "unique_pantry";
+    unique["unique"] = true;
+    data["items"].append(unique);
+    auto generic = claimed(parse(data));
+    generic.players[0].wallet["cans"] = 10000;
+    build(generic, "unique_pantry");
+    check(!generic.itemPurchaseError(0, generic.config().item("unique_pantry"), 1).empty(),
+          "unique purchases use item configuration rather than fridge IDs");
+    const int first = build(generic, "pantry"), second = build(generic, "pantry");
+    check(first != second, "ordinary items without a unique flag can still be installed multiple times");
+    game.phase = "won";
+    check(game.rematch(0).empty(), "unique item match can restart");
+    for (const auto& room : game.dorms) {
+        check(room.doorDefenseReadyAt == 0 && room.attackDelayUntil == 0,
+              "rematch clears all door defense cooldowns and delayed attacks");
+    }
+}
 void fishRackProduction() {
     auto game = claimed();
     auto& p = game.players[0];
@@ -413,6 +496,7 @@ int main() {
         progressionAndMoney();
         newItemsAndLevels();
         fishRackProduction();
+        uniqueFridgePurchases();
         snapshots();
         std::cout << "PASS " << checks << " configuration/economy checks\n";
     } catch (const std::exception& e) {

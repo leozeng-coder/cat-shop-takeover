@@ -1,16 +1,17 @@
 #include "logic_combat.h"
 #include "ai/logic_cat_ai.h"
 #include "common/game_math.h"
+#include "item/logic_item.h"
 #include "logic_progression.h"
 #include <algorithm>
 namespace snackshop {
-bool LogicCombat::ready(const Game& game) {
+bool LogicCombat::active(const Game& game) {
     const auto& monster = game.monster;
-    return game.phase == "running" && monster.hp > 0 && monster.attackCooldown <= 1e-9 &&
-           monster.state != "retreating" && monster.state != "defeated" && monster.state != "resting";
+    return game.phase == "running" && monster.hp > 0 && monster.state != "retreating" && monster.state != "defeated" &&
+           monster.state != "resting";
 }
 bool LogicCombat::hitDoor(Game& game, int id) {
-    if (id < 0 || id >= Seats || !ready(game)) {
+    if (id < 0 || id >= Seats || !active(game)) {
         return false;
     }
     auto& room = game.dorms[id];
@@ -18,6 +19,11 @@ bool LogicCombat::hitDoor(Game& game, int id) {
     if (!room.doorClosed() || GameMath::distance(monster.position, GridMap::center(room.entrance)) >= 2) {
         return false;
     }
+    LogicItem::updateDoorDefense(game, room);
+    if (monster.attackCooldown > 1e-9 || game.elapsed + 1e-9 < room.attackDelayUntil) {
+        return false;
+    }
+    room.attackDelayUntil = 0;
     monster.attackCooldown = game.config().enemy.attackInterval;
     room.hp = std::max(0.0, room.hp - LogicProgression::stats(monster, game.config().enemy).doorDamage);
     monster.lastCombatAt = game.elapsed;

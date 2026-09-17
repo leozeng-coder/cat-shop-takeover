@@ -1,4 +1,4 @@
-export type Appearance = 'shelf' | 'crate' | 'launcher' | 'pantry' | 'repair' | 'fish_rack';
+export type Appearance = 'shelf' | 'crate' | 'launcher' | 'pantry' | 'repair' | 'fish_rack' | 'mini_fridge';
 export interface Price {
   currency: string;
   amount: number;
@@ -20,10 +20,12 @@ export interface ItemConfig {
   id: string;
   name: string;
   category: 'currency' | 'attack' | 'utility';
-  behavior: 'obstacle' | 'pickup' | 'currency_producer' | 'single_attack' | 'door_repair';
+  behavior:
+    'obstacle' | 'pickup' | 'currency_producer' | 'single_attack' | 'door_repair' | 'door_attack_delay';
   appearance: Appearance;
   currency: string;
   buildable: boolean;
+  unique: boolean;
   levels: LevelConfig[];
 }
 export interface Catalog {

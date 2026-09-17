@@ -142,7 +142,7 @@ bool canSpend(Context& c, const LevelConfig& level, bool emergency) {
     return true;
 }
 Status place(Context& c, const ItemConfig& item, bool emergency) {
-    if (!canSpend(c, item.levels.front(), emergency)) {
+    if (!c.game.itemPurchaseError(c.cat.id, item, 1).empty() || !canSpend(c, item.levels.front(), emergency)) {
         return Status::Failure;
     }
     auto& room = c.game.dorms[c.cat.room];
@@ -293,12 +293,16 @@ const bt::Tree<CatAiContext>& CatBehavior::tree() {
                  "home_priorities",
                  {repair, defense, continueRest, b.action("first_weapon", buildFirstAttack), cautious, prerequisite,
                   economy, aggressive, b.action("build_currency", buildCurrency), b.action("build_repair", buildRepair),
+                  b.action("build_door_delay",
+                           [](Context& c) { return buildType(c, ItemBehavior::DoorAttackDelay, 1); }),
                   b.action("upgrade_nest", upgradeNest), b.action("build_attack", buildAttack),
                   b.action("upgrade_door", upgradeDoor),
                   b.action("upgrade_attack", [](Context& c) { return upgradeType(c, ItemBehavior::SingleAttack); }),
                   b.action("upgrade_currency",
                            [](Context& c) { return upgradeType(c, ItemBehavior::CurrencyProducer); }),
                   b.action("upgrade_repair", [](Context& c) { return upgradeType(c, ItemBehavior::DoorRepair); }),
+                  b.action("upgrade_door_delay",
+                           [](Context& c) { return upgradeType(c, ItemBehavior::DoorAttackDelay); }),
                   rest})});
         const int root = b.selector("cat", {safety, settle, home, b.action("idle", idle)});
         return std::move(b).finish(root);

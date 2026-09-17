@@ -258,7 +258,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
             return "道具已经满级";
         }
         const auto& target = item.levels[next - 1];
-        const auto error = purchaseError(id, target.cost, target.requirements);
+        const auto error = itemPurchaseError(id, item, next);
         if (!error.empty()) {
             return error;
         }

@@ -183,14 +183,16 @@ void economyAndLimits() {
         tick(game);
     }
     bool cans = false, fish = false, repair = false;
-    int attacks = 0;
+    int attacks = 0, fridges = 0;
     for (const auto& prop : game.dorms[0].props) {
         const auto& item = game.config().item(prop.kind);
         cans |= item.behavior == ItemBehavior::CurrencyProducer && item.currency == "cans";
         fish |= item.behavior == ItemBehavior::CurrencyProducer && item.currency == "dried_fish";
         repair |= item.behavior == ItemBehavior::DoorRepair;
         attacks += item.behavior == ItemBehavior::SingleAttack;
+        fridges += item.behavior == ItemBehavior::DoorAttackDelay;
     }
+    check(fridges == 1, "AI installs exactly one configured door-defense item");
     check(cans && fish && repair && attacks > 0,
           "AI builds both currency producers, defense and utility through behavior types");
     check(attacks <= game.config().catAi.profiles[cat.personality].attackCount, "profile caps attack construction");

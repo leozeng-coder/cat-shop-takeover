@@ -57,6 +57,18 @@ std::string Game::purchaseError(int id, const Cost& cost, const Requirements& re
     }
     return {};
 }
+std::string Game::itemPurchaseError(int id, const ItemConfig& item, int level) const {
+    if (level == 1 && item.unique) {
+        for (const auto& room : dorms) {
+            if (room.owner == id && std::any_of(room.props.begin(), room.props.end(),
+                                                [&](const Prop& prop) { return prop.kind == item.id; })) {
+                return "已安装" + item.name + "，每位玩家限一件";
+            }
+        }
+    }
+    const auto& target = item.levels[level - 1];
+    return purchaseError(id, target.cost, target.requirements);
+}
 std::string Game::nestUpgradeError(int id) const {
     const auto& p = players.at(id);
     const int next = config().nest(p.bed).nextLevel;

@@ -33,6 +33,8 @@ const char* behaviorName(ItemBehavior behavior) {
         return "single_attack";
     case ItemBehavior::DoorRepair:
         return "door_repair";
+    case ItemBehavior::DoorAttackDelay:
+        return "door_attack_delay";
     }
     throw std::logic_error("Unregistered item behavior");
 }

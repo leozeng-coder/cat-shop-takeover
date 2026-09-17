@@ -62,6 +62,30 @@ void LogicItem::updatePassive(Game& game, double dt) {
         }
     }
 }
+void LogicItem::updateDoorDefense(Game& game, Dorm& room) {
+    if (!game.players[room.owner].alive || game.elapsed + 1e-9 < room.doorDefenseReadyAt) {
+        return;
+    }
+    Prop* source = nullptr;
+    const LevelConfig* effect = nullptr;
+    for (auto& prop : room.props) {
+        const auto& item = game.config().item(prop.kind);
+        if (item.behavior != ItemBehavior::DoorAttackDelay) {
+            continue;
+        }
+        const auto& level = item.levels[prop.level - 1];
+        if (!effect || level.amount > effect->amount) {
+            source = &prop;
+            effect = &level;
+        }
+    }
+    if (effect) {
+        room.attackDelayUntil =
+            std::max(room.attackDelayUntil, game.elapsed + game.monster.attackCooldown) + effect->amount / 1000.0;
+        room.doorDefenseReadyAt = game.elapsed + effect->intervalMs / 1000.0;
+        source->lastShot = game.elapsed;
+    }
+}
 void LogicItem::updateAttack(Game& game, double dt) {
     auto& monster = game.monster;
     for (auto& room : game.dorms) {

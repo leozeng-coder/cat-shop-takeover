@@ -68,6 +68,26 @@ export class GameArt {
     this.triangle([3, 0, 7, -3, 7, 3], '#fff6d1');
     c.restore();
   }
+  miniFridge(x: number, y: number, pulse: number) {
+    const c = this.ctx;
+    c.save();
+    c.translate(x, y);
+    this.ellipse(0, 12, 13, 3, '#456e7625');
+    this.rect(-10, -12, 21, 26, '#bce3e1', 4, '#749fa4');
+    this.rect(-8, -10, 17, 8, '#eaf8ef', 2);
+    this.line(-9, -1, 10, -1, '#749fa4', 1);
+    this.line(5, -8, 5, -5, '#739ca3', 2);
+    this.line(5, 3, 5, 8, '#739ca3', 2);
+    this.triangle([-8, -12, -8, -17, -3, -12], '#97cacb', '#749fa4');
+    this.triangle([3, -12, 8, -17, 8, -12], '#97cacb', '#749fa4');
+    this.paw(-2, 5, '#78aab5', 0.55);
+    if (pulse > 0) {
+      c.globalAlpha = pulse;
+      this.text('❄', -17 - (1 - pulse) * 8, -12, 11, '#70b8d1', 'center');
+      this.text('❄', 15 + (1 - pulse) * 6, -4, 9, '#70b8d1', 'center');
+    }
+    c.restore();
+  }
   fishRack(x: number, y: number, level: number) {
     const c = this.ctx;
     c.save();

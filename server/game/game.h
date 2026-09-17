@@ -31,6 +31,7 @@ public:
     double income(const Player& player, const std::string& currency = "cans") const;
     const GameConfig& config() const { return *m_config; }
     std::string purchaseError(int player, const Cost& cost, const Requirements& requirements = {}) const;
+    std::string itemPurchaseError(int player, const ItemConfig& item, int level) const;
     std::string nestUpgradeError(int player) const;
     std::string doorUpgradeError(int player) const;
     std::string repairError(int player, int room) const;

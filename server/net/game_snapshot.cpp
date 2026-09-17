@@ -83,6 +83,7 @@ Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
         row["appearance"] = item.appearance;
         row["currency"] = item.currency;
         row["buildable"] = item.buildable;
+        row["unique"] = item.unique;
         row["levels"] = Json::Value(Json::arrayValue);
         for (const auto& l : item.levels) {
             row["levels"].append(level(cfg, l));
@@ -226,7 +227,7 @@ Json::Value GameSnapshot::encode(const Game& g, int viewer) {
         }
         offers["items"][id] = Json::Value(Json::arrayValue);
         for (const auto& l : item.levels) {
-            offers["items"][id].append(offer(g.purchaseError(viewer, l.cost, l.requirements)));
+            offers["items"][id].append(offer(g.itemPurchaseError(viewer, item, l.level)));
         }
     }
     return value;

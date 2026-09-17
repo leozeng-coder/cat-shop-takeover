@@ -261,9 +261,11 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
                                                         {"pickup", ItemBehavior::Pickup},
                                                         {"currency_producer", ItemBehavior::CurrencyProducer},
                                                         {"single_attack", ItemBehavior::SingleAttack},
-                                                        {"door_repair", ItemBehavior::DoorRepair}};
+                                                        {"door_repair", ItemBehavior::DoorRepair},
+                                                        {"door_attack_delay", ItemBehavior::DoorAttackDelay}};
     for (const auto& row : array(root["items"], "items")) {
-        object(row, "items", {"id", "name", "category", "behavior", "appearance", "currency", "buildable", "levels"});
+        object(row, "items",
+               {"id", "name", "category", "behavior", "appearance", "currency", "buildable", "unique", "levels"});
         ItemConfig item;
         item.id = id(row["id"], "items.id");
         item.name = string(row["name"], item.id + ".name");
@@ -280,7 +282,8 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             fail(item.id, "category disagrees with behavior");
         }
         item.appearance = string(row["appearance"], item.id + ".appearance");
-        const std::set<std::string> appearances{"shelf", "crate", "launcher", "pantry", "repair", "fish_rack"};
+        const std::set<std::string> appearances{"shelf",  "crate",     "launcher",   "pantry",
+                                                "repair", "fish_rack", "mini_fridge"};
         if (!appearances.contains(item.appearance)) {
             fail(item.id, "unknown appearance");
         }
@@ -290,6 +293,10 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             fail(item.id, "invalid currency for behavior");
         }
         item.buildable = boolean(row["buildable"], item.id + ".buildable");
+        item.unique = row.isMember("unique") && boolean(row["unique"], item.id + ".unique");
+        if (item.unique && !item.buildable) {
+            fail(item.id, "only buildable items can be unique");
+        }
         const bool terrain = item.behavior == ItemBehavior::Obstacle || item.behavior == ItemBehavior::Pickup;
         if (terrain && item.buildable) {
             fail(item.id, "terrain item cannot be purchased");
@@ -307,6 +314,10 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             }
             if (item.behavior == ItemBehavior::SingleAttack ? l.range <= 0 : l.range != 0) {
                 fail(item.id, "invalid effect range");
+            }
+            // Delay amount is milliseconds; a pulse must be shorter than its interval.
+            if (item.behavior == ItemBehavior::DoorAttackDelay && l.amount >= l.intervalMs) {
+                fail(item.id, "door attack delay must be shorter than its trigger interval");
             }
             item.levels.push_back(l);
         }

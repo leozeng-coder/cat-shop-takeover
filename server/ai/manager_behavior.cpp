@@ -11,6 +11,9 @@ using Status = bt::Status;
 void setAttackingPlayer(Game& game, int player) {
     auto& m = game.monster;
     if (m.attackingPlayer != player) {
+        if (m.attackingPlayer >= 0) {
+            game.dorms[game.players[m.attackingPlayer].room].attackDelayUntil = 0;
+        }
         m.attackingPlayer = player;
         m.attackStartedAt = player >= 0 ? game.elapsed : -1;
     }

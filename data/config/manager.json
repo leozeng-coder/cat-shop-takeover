@@ -19,7 +19,7 @@
       "max_hp": 650,
       "door_damage": 28,
       "speed": 107,
-      "next_rage": 45,
+      "next_rage": 100,
       "level_up_announcement": ""
     },
     {
@@ -27,7 +27,7 @@
       "max_hp": 810,
       "door_damage": 36,
       "speed": 111,
-      "next_rage": 60,
+      "next_rage": 200,
       "level_up_announcement": "店长生气了！"
     },
     {
@@ -36,14 +36,14 @@
       "door_damage": 44,
       "speed": 115,
       "next_rage": 75,
-      "level_up_announcement": "是谁又在偷罐头？！"
+      "level_up_announcement": "店长更生气了！！"
     },
     {
       "level": 4,
       "max_hp": 1130,
       "door_damage": 52,
       "speed": 119,
-      "next_rage": 90,
+      "next_rage": 400,
       "level_up_announcement": "店长挽起了袖子！"
     },
     {
@@ -51,7 +51,7 @@
       "max_hp": 1290,
       "door_damage": 60,
       "speed": 123,
-      "next_rage": 105,
+      "next_rage": 800,
       "level_up_announcement": "店长开始认真了！"
     },
     {
@@ -59,7 +59,7 @@
       "max_hp": 1450,
       "door_damage": 68,
       "speed": 127,
-      "next_rage": 120,
+      "next_rage": 1600,
       "level_up_announcement": "这次可没那么好糊弄！"
     },
     {
@@ -67,7 +67,7 @@
       "max_hp": 1610,
       "door_damage": 76,
       "speed": 131,
-      "next_rage": 135,
+      "next_rage": 3200,
       "level_up_announcement": "店长气得胡子都翘了！"
     },
     {
@@ -75,7 +75,7 @@
       "max_hp": 1770,
       "door_damage": 84,
       "speed": 135,
-      "next_rage": 150,
+      "next_rage": 6400,
       "level_up_announcement": "整条猫街都听见了怒吼！"
     },
     {
@@ -83,7 +83,7 @@
       "max_hp": 1930,
       "door_damage": 92,
       "speed": 139,
-      "next_rage": 165,
+      "next_rage": 12800,
       "level_up_announcement": "店长已经怒不可遏！"
     },
     {

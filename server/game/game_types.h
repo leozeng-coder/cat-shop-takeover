@@ -22,6 +22,7 @@ struct Dorm {
     int id = 0, owner = -1, level = 1;
     int door = -1, entrance = -1, nest = -1;
     double hp = 0;
+    double doorDefenseReadyAt = 0, attackDelayUntil = 0;
     std::vector<int> floor;
     std::vector<Prop> props;
     bool doorClosed() const { return owner >= 0 && hp > 0; }

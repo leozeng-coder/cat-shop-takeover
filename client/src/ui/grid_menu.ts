@@ -55,6 +55,8 @@ function effect(g: State, item: ItemConfig, l: LevelConfig) {
   if (item.behavior === 'single_attack')
     return '伤害 ' + l.amount + ' · 间隔 ' + seconds + ' 秒 · 射程 ' + l.range;
   if (item.behavior === 'door_repair') return '每 ' + seconds + ' 秒恢复店门 ' + l.amount + ' 耐久';
+  if (item.behavior === 'door_attack_delay')
+    return '每 ' + seconds + ' 秒将店长下次敲自家门延后 ' + l.amount / 1000 + ' 秒';
   return '';
 }
 function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean) {
@@ -66,11 +68,13 @@ function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean
       ? '✣'
       : item.category === 'currency'
         ? g.catalog.currencies.find((c) => c.id === item.currency)!.symbol
-        : '✚';
+        : item.behavior === 'door_attack_delay'
+          ? '❄'
+          : '✚';
   return action(
     'build',
     (upgrade ? '升级' : '安装') + item.name + (upgrade ? '至 ' + target + '级' : ''),
-    details(effect(g, item, l), l.requirements, offer),
+    details(effect(g, item, l) + (item.unique ? ' · 每位玩家限一件' : ''), l.requirements, offer),
     price(g, l.cost),
     symbol,
     !offer.enabled,
@@ -183,6 +187,7 @@ export function gridMenuView(g: State, cell: number) {
     } else if (item.behavior === 'obstacle') {
       description = '货架挡住了这个格子，猫猫会绕开它行走。';
     } else if (mine) {
+      description = effect(g, item, item.levels[prop.level - 1]) + (item.unique ? ' · 每位玩家限一件' : '');
       body += itemButton(g, item, item.levels[prop.level - 1].nextLevel, true);
     }
   } else {

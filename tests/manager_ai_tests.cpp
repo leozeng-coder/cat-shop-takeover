@@ -176,6 +176,116 @@ void retreatAndDefeat() {
     }
     check(d.state == "resting", "defeated manager still moves home instead of teleporting");
 }
+void fridgeDoorDefense() {
+    auto make = [](int level) {
+        auto game = setup(rules());
+        occupy(game, 0, 0);
+        game.dorms[0].props.push_back({freeCell(game, 0), "mini_fridge", level});
+        game.monster.position = GridMap::center(game.dorms[0].entrance);
+        game.monster.prey = 0;
+        game.monster.targetDecisionAt = 1000;
+        return game;
+    };
+    for (int level = 1; level <= 5; ++level) {
+        auto game = make(level);
+        auto& room = game.dorms[0];
+        const double hp = room.hp;
+        game.monster.attackCooldown = .5;
+        check(!LogicCombat::hitDoor(game, 0), "fridge can trigger during an existing attack cooldown");
+        const double delay = level * .2;
+        check(std::abs(room.attackDelayUntil - game.elapsed - .5 - delay) < 1e-9 &&
+                  room.doorDefenseReadyAt == game.elapsed + 2 && room.props[0].lastShot == game.elapsed,
+              "configured fridge pulse extends this door's next attack and schedules 2 second cooldown");
+        const double deadline = room.attackDelayUntil;
+        game.monster.attackCooldown = 0;
+        game.elapsed = deadline - .01;
+        check(!LogicCombat::hitDoor(game, 0) && room.hp == hp && game.monster.doorHits == 0 &&
+                  room.attackDelayUntil == deadline,
+              "repeated ticks do not reapply the delay or damage the door early");
+        game.elapsed = deadline;
+        check(LogicCombat::hitDoor(game, 0) && game.monster.doorHits == 1 && room.attackDelayUntil == 0,
+              "next attack resolves once at the delayed deadline");
+        game.elapsed = 41.999;
+        game.monster.attackCooldown = 1;
+        LogicCombat::hitDoor(game, 0);
+        check(room.props[0].lastShot == 40, "fridge cannot trigger again before 2 seconds");
+        game.elapsed = 42;
+        LogicCombat::hitDoor(game, 0);
+        check(room.props[0].lastShot == 42 && room.doorDefenseReadyAt == 44,
+              "fridge triggers again exactly at its configured frequency");
+    }
+    auto game = make(5);
+    tick(game);
+    auto& room = game.dorms[0];
+    check(game.monster.attackingPlayer == 0 && game.monster.doorHits == 0,
+          "manager behavior waits for fridge instead of bypassing delayed attack");
+    const auto gate = room.doorDefenseReadyAt;
+    game.players[0].wallet["cans"] = 10000;
+    game.setConnected(0, false);
+    game.setConnected(0, true);
+    check(room.doorDefenseReadyAt == gate && room.attackDelayUntil > game.elapsed,
+          "reconnect retains active delay and pulse cooldown");
+    occupy(game, 1, 1);
+    game.monster.prey = 1;
+    game.monster.position = GridMap::center(game.dorms[1].entrance);
+    game.monster.attackCooldown = 0;
+    tick(game);
+    check(game.monster.attackingPlayer == 1 && game.monster.doorHits == 1 && game.dorms[1].attackDelayUntil == 0 &&
+              room.attackDelayUntil == 0 && room.doorDefenseReadyAt == gate,
+          "switching doors clears pending delay, preserves pulse cooldown and never slows another owner");
+
+    auto upgraded = make(1);
+    tick(upgraded);
+    const double cooldown = upgraded.dorms[0].doorDefenseReadyAt;
+    upgraded.players[0].wallet["cans"] = 10000;
+    const int cell = upgraded.dorms[0].props[0].cell;
+    check(upgraded.command(0, GameAction::Build, -1, cell, "mini_fridge").empty(), "fridge upgrades during combat");
+    check(upgraded.dorms[0].doorDefenseReadyAt == cooldown, "upgrading cannot bypass the two-second pulse cooldown");
+    upgraded.monster.hp = 1;
+    tick(upgraded);
+    check(upgraded.monster.state == "retreating" && upgraded.dorms[0].attackDelayUntil == 0,
+          "retreat clears a pending door delay");
+
+    for (const auto* state : {"retreating", "defeated", "resting"}) {
+        auto inactive = make(5);
+        inactive.monster.state = state;
+        check(!LogicCombat::hitDoor(inactive, 0) && inactive.dorms[0].doorDefenseReadyAt == 0,
+              "inactive manager cannot trigger the fridge");
+    }
+    auto broken = make(5);
+    broken.dorms[0].hp = 0;
+    check(!LogicCombat::hitDoor(broken, 0) && broken.dorms[0].doorDefenseReadyAt == 0,
+          "broken doors cannot receive fridge protection");
+    auto distant = make(5);
+    distant.monster.position = GridMap::center(distant.map.spawn);
+    check(!LogicCombat::hitDoor(distant, 0) && distant.dorms[0].doorDefenseReadyAt == 0,
+          "fridge cannot remotely delay a manager on the street");
+    auto waiting = make(5);
+    waiting.phase = "preparing";
+    check(!LogicCombat::hitDoor(waiting, 0) && waiting.dorms[0].doorDefenseReadyAt == 0,
+          "preparation does not consume defensive pulses");
+    auto customRules = rules();
+    auto& item = customRules->items.at("mini_fridge");
+    item.id = "other_freezer";
+    item.levels[0].amount = 350;
+    item.levels[0].intervalMs = 1500;
+    customRules->items.emplace(item.id, item);
+    auto custom = setup(customRules);
+    occupy(custom, 0, 0);
+    custom.monster.position = GridMap::center(custom.dorms[0].entrance);
+    custom.dorms[0].props.push_back({freeCell(custom, 0), "other_freezer", 1});
+    LogicCombat::hitDoor(custom, 0);
+    check(std::abs(custom.dorms[0].attackDelayUntil - custom.elapsed - .35) < 1e-9 &&
+              custom.dorms[0].doorDefenseReadyAt == custom.elapsed + 1.5,
+          "registered behavior uses configured amount and frequency without hardcoded fridge IDs");
+
+    auto continuous = make(5);
+    for (int i = 0; i < 100; ++i) {
+        tick(continuous);
+    }
+    check(continuous.monster.doorHits >= 2 && continuous.monster.doorHits < 6,
+          "continuous maximum-level pulses slow door attacks without permanently freezing them");
+}
 void outOfCombatRecovery() {
     auto config = rules();
     auto game = setup(config);
@@ -220,6 +330,7 @@ int main() {
         weightedTargets();
         retreatAndDefeat();
         outOfCombatRecovery();
+        fridgeDoorDefense();
         std::cout << "PASS " << checks << " manager strategy/recovery checks\n";
     } catch (const std::exception& e) {
         std::cerr << "FAIL after " << checks << " checks: " << e.what() << '\n';

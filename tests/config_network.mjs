@@ -131,6 +131,16 @@ try {
   const old = await host.create(6);
   const oldVersion = old.configVersion;
   const oldIncome = host.catalog.nests[0].amount;
+  const fridgeCatalog = host.catalog.items.mini_fridge;
+  assert.equal(fridgeCatalog.unique, true);
+  assert.equal(fridgeCatalog.behavior, 'door_attack_delay');
+  assert.equal(fridgeCatalog.appearance, 'mini_fridge');
+  assert.deepEqual(
+    fridgeCatalog.levels.map((l) => l.amount),
+    [200, 400, 600, 800, 1000],
+  );
+  assert.ok(fridgeCatalog.levels.every((l) => l.intervalMs === 2000));
+
   const peer = new Client();
   await peer.open();
   peer.send({ type: 'join', code: host.code, name: 'Friend' });
@@ -233,6 +243,107 @@ try {
     'PASS configured rage/healing, ordered multi-level broadcasts, synchronized peers, reconnect and rematch reset',
   );
 
+  // Real commands validate unique purchases independently for each player.
+  tables.match.preparation_ms = 30000;
+  tables.match.cat_speed = 1000;
+  tables.currencies.find((c) => c.id === 'cans').initial = 10000;
+  for (const name of ['match', 'currencies']) {
+    await fs.writeFile(path.join(directory, name + '.json'), JSON.stringify(tables[name]));
+  }
+  const fridgeHost = new Client();
+  await fridgeHost.create(6);
+  const fridgePeer = new Client();
+  await fridgePeer.open();
+  fridgePeer.send({ type: 'join', code: fridgeHost.code, name: 'Fridge friend' });
+  await fridgePeer.wait((m) => m.type === 'joined');
+  fridgePeer.send({ type: 'ready', ready: true });
+  await fridgeHost.wait((m) => m.type === 'state' && m.players[1].ready && m.players[1].human);
+  fridgeHost.send({ type: 'start' });
+  await fridgeHost.wait((m) => m.type === 'state' && m.phase === 'preparing');
+  let fridgeSequence = 0;
+  function action(client, name, room = -1, cell = -1) {
+    client.send({ type: 'action', action: name, room, cell, kind: 'mini_fridge', seq: ++fridgeSequence });
+  }
+  action(fridgeHost, 'nest', 0);
+  action(fridgePeer, 'nest', 1);
+  const claimed = await fridgeHost.wait(
+    (m) => m.type === 'state' && m.players[0].room === 0 && m.players[1].room === 1,
+  );
+  function buildCells(state, roomId) {
+    const room = state.dorms[roomId],
+      map = state.map;
+    const free = (cell) =>
+      cell >= 0 &&
+      cell < map.width * map.height &&
+      map.rows[Math.floor(cell / map.width)][cell % map.width] === String(roomId) &&
+      cell !== room.nest &&
+      !room.props.some((p) => p.cell === cell) &&
+      !state.players.some(
+        (p) => Math.floor(p.y / map.tileSize) * map.width + Math.floor(p.x / map.tileSize) === cell,
+      );
+    const cells = [];
+    for (let cell = 0; cell < map.width * map.height; ++cell) {
+      if (free(cell)) cells.push(cell);
+    }
+    const score = (cell) => [cell - 1, cell + 1, cell - map.width, cell + map.width].filter(free).length;
+    return cells.sort((a, b) => score(b) - score(a));
+  }
+  async function install(client, player) {
+    for (const cell of buildCells(claimed, player)) {
+      action(client, 'build', -1, cell);
+      const result = await client.wait(
+        (m) =>
+          m.type === 'error' ||
+          (m.type === 'state' && m.dorms[player].props.some((p) => p.kind === 'mini_fridge')),
+      );
+      if (result.type === 'state') return { cell, state: result };
+    }
+    throw new Error('No accessible fridge tile');
+  }
+  const installed = await install(fridgeHost, 0);
+  assert.equal(installed.state.offers.items.mini_fridge[0].enabled, false);
+  assert.match(installed.state.offers.items.mini_fridge[0].reason, /已安装/);
+  assert.equal(
+    installed.state.offers.items.mini_fridge[1].enabled,
+    true,
+    'unique item upgrades stay enabled',
+  );
+  const duplicateCell = buildCells(installed.state, 0)[0];
+  action(fridgeHost, 'build', -1, duplicateCell);
+  action(fridgeHost, 'build', -1, duplicateCell);
+  await fridgeHost.wait((m) => m.type === 'error' && m.message.includes('每位玩家限一件'));
+  await fridgeHost.wait((m) => m.type === 'error' && m.message.includes('每位玩家限一件'));
+  const afterDuplicates = await fridgeHost.wait((m) => m.type === 'state' && m.tick > installed.state.tick);
+  assert.equal(afterDuplicates.dorms[0].props.filter((p) => p.kind === 'mini_fridge').length, 1);
+  assert.ok(
+    afterDuplicates.players[0].wallet.cans >= installed.state.players[0].wallet.cans,
+    'rejected repeated commands never charge cans',
+  );
+  action(fridgeHost, 'build', -1, installed.cell);
+  const upgradedFridge = await fridgeHost.wait(
+    (m) => m.type === 'state' && m.dorms[0].props.some((p) => p.kind === 'mini_fridge' && p.level === 2),
+  );
+  // Commands may broadcast several revisions within the same simulation tick.
+  const friendView = await fridgePeer.wait(
+    (m) =>
+      m.type === 'state' &&
+      m.tick >= upgradedFridge.tick &&
+      m.dorms[0].props.some((p) => p.kind === 'mini_fridge' && p.level === 2),
+  );
+  assert.deepEqual(friendView.dorms[0].props, upgradedFridge.dorms[0].props);
+  const friendFridge = await install(fridgePeer, 1);
+  assert.equal(friendFridge.state.dorms[1].props.filter((p) => p.kind === 'mini_fridge').length, 1);
+  const fridgeToken = fridgePeer.token;
+  fridgePeer.socket.close();
+  const rejoinedFridge = new Client();
+  await rejoinedFridge.open();
+  rejoinedFridge.send({ type: 'resume', token: fridgeToken });
+  const restoredFridge = await rejoinedFridge.wait((m) => m.type === 'state');
+  assert.equal(restoredFridge.offers.items.mini_fridge[0].enabled, false);
+  assert.equal(restoredFridge.dorms[1].props.filter((p) => p.kind === 'mini_fridge').length, 1);
+  console.log(
+    'PASS fridge catalog, per-player uniqueness, repeated-command rejection, upgrades, peer snapshots and reconnect',
+  );
   console.log(
     'PASS split-table loading, live new-match reload, peer versions, old-match isolation, atomic rollback and reconnect',
   );
