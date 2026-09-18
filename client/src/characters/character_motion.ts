@@ -1,11 +1,11 @@
 import { sampleClip, walkTime } from './animation.js';
+import { MovementMotion } from './movement_motion.ts';
 import type { AnimationConfig } from './types';
 
 // One controller per actor, independent of packets, destinations and gameplay rules.
 export class CharacterMotion {
-  private previous: { x: number; y: number; sleeping: boolean } | null = null;
-  private distance = 0;
-  private direction: 'left' | 'right' | 'up' | 'down' = 'down';
+  private movement = new MovementMotion();
+  private sleeping = false;
   private wakeAt = -Infinity;
   private sleepAt = 0;
   private idleAt = 0;
@@ -17,25 +17,14 @@ export class CharacterMotion {
     now: number,
     teleportDistance: number,
   ) {
-    const previous = this.previous;
-    this.previous = { ...pose };
-    const dx = previous ? pose.x - previous.x : 0;
-    const dy = previous ? pose.y - previous.y : 0;
-    const distance = Math.hypot(dx, dy);
-    const moving = distance > 0.001 && distance < teleportDistance;
-    if (pose.sleeping && !previous?.sleeping) {
+    const { moving, distance, direction } = this.movement.sample(pose, teleportDistance);
+    if (pose.sleeping && !this.sleeping) {
       this.sleepAt = now;
       this.wakeAt = -Infinity;
     }
-    if (previous?.sleeping && !pose.sleeping) this.wakeAt = now;
+    if (this.sleeping && !pose.sleeping) this.wakeAt = now;
+    this.sleeping = pose.sleeping;
     if (moving) {
-      this.distance += distance;
-      // Retain the current axis near diagonals to avoid flickering between views.
-      const horizontal = this.direction === 'left' || this.direction === 'right';
-      const keepHorizontal = horizontal
-        ? Math.abs(dy) <= Math.abs(dx) * 1.15
-        : Math.abs(dx) > Math.abs(dy) * 1.15;
-      this.direction = keepHorizontal ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
       // Movement always wins, including escape. Never replay wake after stopping.
       this.wakeAt = -Infinity;
     }
@@ -43,7 +32,7 @@ export class CharacterMotion {
     const action = pose.sleeping
       ? 'sleep'
       : moving
-        ? (config.movementClips?.[this.direction] ?? 'move')
+        ? (config.movementClips?.[direction] ?? 'move')
         : now - this.wakeAt < wakeDuration
           ? 'wake'
           : 'idle';
@@ -52,14 +41,14 @@ export class CharacterMotion {
     const time = pose.sleeping
       ? now - this.sleepAt
       : moving
-        ? walkTime(config, this.distance, action)
+        ? walkTime(config, distance, action)
         : action === 'wake'
           ? now - this.wakeAt
           : now - this.idleAt;
     return {
       action,
       ...sampleClip(config, action, time),
-      mirror: this.direction === 'right' && config.clips[action].mirrorForRight,
+      mirror: direction === 'right' && config.clips[action].mirrorForRight,
     };
   }
 }

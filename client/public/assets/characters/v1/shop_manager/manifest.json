@@ -6,6 +6,7 @@
   "frameSize": [320, 320],
   "anchor": [160, 272],
   "referenceHeight": 200,
+  "portraitRect": [96, 64, 128, 128],
   "strideWorldUnits": 84,
   "movementClips": {
     "left": "move_left",

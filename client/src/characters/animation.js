@@ -9,6 +9,7 @@ export async function loadCharacterAnimations(manifestUrl) {
   }
   const config = {
     profile: manifest.profile ?? 'cat',
+    portraitRect: manifest.portraitRect,
     strideWorldUnits: manifest.strideWorldUnits,
     paletteUrl: new URL(manifest.palettes, url).href,
     movementClips: manifest.movementClips,
@@ -131,4 +132,20 @@ export function validateManifest(config) {
     }
   }
   if (!(config.strideWorldUnits > 0)) throw new Error('Invalid stride length');
+  if (config.portraitRect !== undefined) {
+    const rect = config.portraitRect;
+    const frame = config.atlases[config.clips.idle.atlas].frames[0].rect;
+    if (
+      !Array.isArray(rect) ||
+      rect.length !== 4 ||
+      !rect.every(Number.isFinite) ||
+      rect[0] < 0 ||
+      rect[1] < 0 ||
+      rect[2] <= 0 ||
+      rect[3] <= 0 ||
+      rect[0] + rect[2] > frame[2] ||
+      rect[1] + rect[3] > frame[3]
+    )
+      throw new Error('Invalid character portrait rectangle');
+  }
 }

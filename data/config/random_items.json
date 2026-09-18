@@ -2,13 +2,13 @@
   {
     "item": "magic_trash_bin",
     "purchase_costs": [
-      [{ "currency": "cans", "amount": 200 }],
+      [{ "currency": "cans", "amount": 100 }],
       [
-        { "currency": "cans", "amount": 350 },
+        { "currency": "cans", "amount": 150 },
         { "currency": "dried_fish", "amount": 20 }
       ],
       [
-        { "currency": "cans", "amount": 500 },
+        { "currency": "cans", "amount": 200 },
         { "currency": "dried_fish", "amount": 50 }
       ]
     ],

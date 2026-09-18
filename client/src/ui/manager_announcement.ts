@@ -9,7 +9,10 @@ export class ManagerAnnouncement {
   private pending: ManagerLevelUp[] = [];
   private timer = 0;
 
-  constructor(private readonly element: HTMLElement) {}
+  constructor(
+    private readonly element: HTMLElement,
+    private readonly portrait: () => string | undefined = () => undefined,
+  ) {}
 
   update(state: State): void {
     const round = state.code + ':' + state.map.seed;
@@ -54,7 +57,7 @@ export class ManagerAnnouncement {
     this.element.innerHTML =
       '<div class="manager-alert-flash"></div><div class="manager-alert-banner">' +
       '<div class="manager-alert-portrait" aria-hidden="true">' +
-      managerPortrait() +
+      managerPortrait(this.portrait()) +
       '</div>' +
       '<div class="manager-alert-copy"><span>全街注意 · 店长怒气升级</span>' +
       '<strong>' +

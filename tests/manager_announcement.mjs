@@ -93,6 +93,11 @@ assert.equal(element.hidden, true);
 assert.equal(timers.size, 0, 'result screen cancels pending announcements');
 announcement.reset();
 assert.equal(element.innerHTML, '');
+const withPortrait = new ManagerAnnouncement(element, () => 'blob:manager-idle');
+withPortrait.update(state(1));
+withPortrait.update(state(2));
+assert.match(element.innerHTML, /<img src="blob:manager-idle" alt=""/);
+withPortrait.reset();
 console.log(
   'PASS upgrade queue ordering, deduplication, reconnect baseline, rematch, exit, terminal state and escaped configured copy',
 );

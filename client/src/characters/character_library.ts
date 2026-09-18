@@ -90,8 +90,9 @@ export class CharacterLibrary {
           const { image } = await resource.tint.get(action, source, palette);
           this.images.set(key, image);
           if (action === 'idle') {
-            const atlas = resource.config.atlases.idle;
+            const atlas = resource.config.atlases[resource.config.clips.idle.atlas];
             const frame = atlas.frames[0];
+            const crop = resource.config.portraitRect ?? [0, 0, frame.rect[2], frame.rect[3]];
             const ratio = image.width / atlas.width;
             const canvas = document.createElement('canvas');
             canvas.width = canvas.height = 160;
@@ -99,17 +100,17 @@ export class CharacterLibrary {
               .getContext('2d')!
               .drawImage(
                 image,
-                frame.rect[0] * ratio,
-                frame.rect[1] * ratio,
-                frame.rect[2] * ratio,
-                frame.rect[3] * ratio,
+                (frame.rect[0] + crop[0]) * ratio,
+                (frame.rect[1] + crop[1]) * ratio,
+                crop[2] * ratio,
+                crop[3] * ratio,
                 0,
                 0,
                 160,
                 160,
               );
             const blob = await new Promise<Blob>((resolve, reject) =>
-              canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('无法生成猫猫头像')))),
+              canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('无法生成角色头像')))),
             );
             this.cards.set(characterKey(selection), {
               ...selection,

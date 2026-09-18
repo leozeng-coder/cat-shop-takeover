@@ -7,7 +7,7 @@ function meter(label: string, value: number, max: number, className: string) {
   const percent = max > 0 ? (100 * safe) / max : 0;
   return `<div class="combat-bar ${className}" role="progressbar" aria-label="${escapeHtml(label)}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${Math.ceil(safe)}"><i style="width:${percent.toFixed(2)}%"></i></div>`;
 }
-export function combatStatusView(g: State, expanded = false) {
+export function combatStatusView(g: State, expanded = false, managerPortraitUrl?: string) {
   const enemy = g.monster;
   const states: Record<string, string> = {
     waiting: '还未回店',
@@ -46,7 +46,7 @@ export function combatStatusView(g: State, expanded = false) {
         <span class="portrait-stage">
           <span class="cat-portrait">${characterPortrait(p.character)}</span>
           <span class="roster-badge" ${badge ? '' : 'hidden'}>${badge}</span>
-          <span class="attacker-badge" ${attacked ? '' : 'hidden'} aria-hidden="true">${managerPortrait()}</span>
+          <span class="attacker-badge" ${attacked ? '' : 'hidden'} aria-hidden="true">${managerPortrait(managerPortraitUrl)}</span>
         </span>
         <span class="roster-name">${escapeHtml(p.name)}</span>
       </button>

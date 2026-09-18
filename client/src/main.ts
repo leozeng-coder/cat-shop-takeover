@@ -1,5 +1,6 @@
 import './style.css';
 import { characterLibrary } from './characters/character_library';
+import { MANAGER_CHARACTER } from './characters/manager_motion';
 import { characterKey, type CharacterOption, type CharacterSelection } from './characters/types';
 import { characterPickerView } from './ui/character_picker';
 import { APP_SHELL } from './ui/shell';
@@ -18,7 +19,8 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = APP_SHELL;
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const renderer = new Renderer(el<HTMLCanvasElement>('board'));
-const managerAnnouncement = new ManagerAnnouncement(el('manager-announcement'));
+const managerPortraitUrl = () => characterLibrary.card(MANAGER_CHARACTER)?.portrait;
+const managerAnnouncement = new ManagerAnnouncement(el('manager-announcement'), managerPortraitUrl);
 let state: State | null = null,
   capacity = 1,
   sequence = 0,
@@ -69,7 +71,7 @@ function closeGrid() {
 function closeCombat() {
   if (!combatExpanded) return;
   combatExpanded = false;
-  if (state) updateHtml(el('combat-status'), combatStatusView(state, combatExpanded));
+  if (state) updateHtml(el('combat-status'), combatStatusView(state, combatExpanded, managerPortraitUrl()));
 }
 function updateCameraControl() {
   const follow = el<HTMLButtonElement>('camera-follow');
@@ -314,7 +316,7 @@ function render() {
       ? '店长不在，找猫窝安家'
       : '坚持到店长放弃';
   if (finished) combatExpanded = false;
-  updateHtml(el('combat-status'), combatStatusView(g, combatExpanded));
+  updateHtml(el('combat-status'), combatStatusView(g, combatExpanded, managerPortraitUrl()));
   updateHtml(
     el('wallet'),
     g.catalog.currencies
@@ -508,7 +510,7 @@ app.addEventListener('click', async (event) => {
   } else if (op === 'toggle-combat' || op === 'open-combat') {
     closeGrid();
     combatExpanded = op === 'open-combat' || !combatExpanded;
-    if (state) updateHtml(el('combat-status'), combatStatusView(state, combatExpanded));
+    if (state) updateHtml(el('combat-status'), combatStatusView(state, combatExpanded, managerPortraitUrl()));
   } else if (op === 'close-combat') closeCombat();
   else if (op === 'filter-items') {
     const category = ITEM_CATEGORIES.find((c) => c.id === button.dataset.category);

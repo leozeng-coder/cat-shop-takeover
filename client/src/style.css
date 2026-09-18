@@ -944,7 +944,8 @@ input {
   transform-origin: center;
 }
 .cat-portrait svg,
-.attacker-badge svg {
+.attacker-badge svg,
+.attacker-badge img {
   display: block;
   width: 100%;
   height: 100%;
@@ -1703,10 +1704,15 @@ input {
   background: #f4d9b6;
   border: 2px solid #dfb07c;
 }
-.manager-alert-portrait svg {
+.manager-alert-portrait svg,
+.manager-alert-portrait img {
   display: block;
   width: 100%;
   height: 100%;
+}
+.manager-alert-portrait img,
+.attacker-badge img {
+  border-radius: 50%;
 }
 .manager-alert-copy {
   min-width: 0;

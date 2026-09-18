@@ -27,6 +27,7 @@ export interface Palettes {
 }
 export interface AnimationConfig {
   profile?: 'cat' | 'shop_manager';
+  portraitRect?: [number, number, number, number];
   strideWorldUnits: number;
   movementClips?: Partial<Record<'left' | 'right' | 'up' | 'down', string>>;
   paletteUrl: string;

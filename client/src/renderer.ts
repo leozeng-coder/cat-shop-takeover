@@ -5,6 +5,7 @@ import { GameCamera } from './render/game_camera';
 import { MapTheme, type TileSurface } from './render/map_theme';
 import { characterLibrary } from './characters/character_library';
 import { CharacterMotion } from './characters/character_motion';
+import { MANAGER_CHARACTER, ManagerMotion } from './characters/manager_motion';
 import { characterKey } from './characters/types';
 const floorColors = [
   '#eee4c6',
@@ -40,6 +41,7 @@ export class Renderer {
   } | null = null;
   private tracks = new Map<string, MotionTrack>();
   private motions = new Map<number, CharacterMotion>();
+  private managerMotion = new ManagerMotion();
   private characterSet = '';
   private charactersReady: Promise<void> = Promise.resolve();
   selectedCell = -1;
@@ -123,6 +125,7 @@ export class Renderer {
     if (newMap) {
       this.tracks.clear();
       this.motions.clear();
+      this.managerMotion = new ManagerMotion();
       this.selectedCell = -1;
       this.hover = -1;
       this.press = null;
@@ -134,16 +137,19 @@ export class Renderer {
     }
     if (state) {
       const selections = [
+        MANAGER_CHARACTER,
         ...new Map(state.players.map((p) => [characterKey(p.character), p.character])).values(),
       ];
       const key = selections.map(characterKey).sort().join('|');
       if (key !== this.characterSet) {
         this.characterSet = key;
         this.charactersReady = (async () => {
-          for (const selection of selections) await characterLibrary.prepare(selection);
-        })().catch((error) => {
-          console.warn('Character art unavailable; using fallback.', error);
-        });
+          for (const selection of selections) {
+            await characterLibrary.prepare(selection).catch((error) => {
+              console.warn('Character art unavailable; using fallback.', selection.character, error);
+            });
+          }
+        })();
       }
       const received = performance.now();
       this.receivedAt = received;
@@ -441,12 +447,28 @@ export class Renderer {
       if (cell === this.selectedCell) a.rect(p.x - 14, p.y - 14, 28, 28, '#fbe09b33', 2);
     }
   }
-  private drawOwner(x: number, y: number) {
+  private drawOwner(x: number, y: number, now: number) {
     const a = this.art,
       c = this.ctx;
+    const g = this.state!;
+    const config = characterLibrary.config(MANAGER_CHARACTER.character);
+    const sample =
+      config &&
+      this.managerMotion.sample(
+        config,
+        { ...g.monster, x, y },
+        now,
+        g.map.tileSize * 3,
+        g.phase === 'running',
+      );
+    a.ellipse(x, y + 10, 13, 6, '#5a66402e');
+    a.text('店长 Lv.' + g.monster.level, x, y - 38, 10, '#ac6a4b', 'center');
+    if (sample && characterLibrary.draw(c, MANAGER_CHARACTER, sample.action, sample.frame, x, y + 10, 40)) {
+      return;
+    }
+    // Preserve a visible actor if an asset fails to load.
     c.save();
     c.translate(x, y);
-    a.ellipse(0, 10, 13, 6, '#5a66402e');
     a.rect(-10, -5, 20, 20, '#b8755c', 5, '#8b694e');
     a.rect(-7, 0, 14, 14, '#e6d5a0', 2);
     a.ellipse(0, -12, 11, 11, '#e6c195', '#9d8061');
@@ -455,7 +477,6 @@ export class Renderer {
     a.ellipse(4, -13, 1.4, 2, '#645b4b');
     a.line(9, 2, 19, 8, '#b78e68', 4);
     a.ellipse(22, 9, 8, 11, '#d7d5ab', '#8c9771');
-    a.text('店长 Lv.' + this.state!.monster.level, 0, -32, 10, '#ac6a4b', 'center');
     c.restore();
   }
   private drawSurroundings() {
@@ -570,9 +591,9 @@ export class Renderer {
       }
       if (g.phase !== 'preparing') {
         const p = this.tracks.get('owner')!.sample(now, g.map);
-        this.drawOwner(p.x, p.y);
-        a.rect(p.x - 18, p.y - 42, 36, 4, '#9a977b', 2);
-        a.rect(p.x - 18, p.y - 42, (36 * g.monster.hp) / g.monster.maxHp, 4, '#d79572', 2);
+        this.drawOwner(p.x, p.y, now);
+        a.rect(p.x - 18, p.y - 48, 36, 4, '#9a977b', 2);
+        a.rect(p.x - 18, p.y - 48, (36 * g.monster.hp) / g.monster.maxHp, 4, '#d79572', 2);
       }
     }
     requestAnimationFrame((t) => this.frame(t));
