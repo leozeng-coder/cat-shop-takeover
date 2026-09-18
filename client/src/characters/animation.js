@@ -62,6 +62,17 @@ export function walkTime(config, distance, action = 'move') {
 }
 
 export function validateManifest(config) {
+  // These states are consumed by the shared actor controller; reject incomplete art at load time.
+  for (const [name, loop] of [
+    ['move', true],
+    ['idle', true],
+    ['sleep', true],
+    ['wake', false],
+  ]) {
+    if (config.clips[name]?.loop !== loop) {
+      throw new Error(`Invalid character clip: ${name} must ${loop ? 'loop' : 'play once'}`);
+    }
+  }
   for (const [direction, action] of Object.entries(config.movementClips ?? {})) {
     if (!['left', 'right', 'up', 'down'].includes(direction) || !config.clips[action]?.loop) {
       throw new Error(`Invalid movement clip: ${direction} -> ${action}`);

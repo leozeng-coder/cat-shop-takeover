@@ -7,8 +7,9 @@ export class CharacterMotion {
   private distance = 0;
   private direction: 'left' | 'right' | 'up' | 'down' = 'down';
   private wakeAt = -Infinity;
+  private sleepAt = 0;
   private idleAt = 0;
-  private wasMoving = false;
+  private action: string | null = null;
 
   sample(
     config: AnimationConfig,
@@ -22,6 +23,10 @@ export class CharacterMotion {
     const dy = previous ? pose.y - previous.y : 0;
     const distance = Math.hypot(dx, dy);
     const moving = distance > 0.001 && distance < teleportDistance;
+    if (pose.sleeping && !previous?.sleeping) {
+      this.sleepAt = now;
+      this.wakeAt = -Infinity;
+    }
     if (previous?.sleeping && !pose.sleeping) this.wakeAt = now;
     if (moving) {
       this.distance += distance;
@@ -34,18 +39,18 @@ export class CharacterMotion {
       // Movement always wins, including escape. Never replay wake after stopping.
       this.wakeAt = -Infinity;
     }
-    if (this.wasMoving && !moving) this.idleAt = now;
-    this.wasMoving = moving;
     const wakeDuration = config.clips.wake.durationsMs.reduce((a, b) => a + b, 0);
     const action = pose.sleeping
-      ? 'wake'
+      ? 'sleep'
       : moving
         ? (config.movementClips?.[this.direction] ?? 'move')
         : now - this.wakeAt < wakeDuration
           ? 'wake'
           : 'idle';
+    if (action === 'idle' && this.action !== 'idle') this.idleAt = now;
+    this.action = action;
     const time = pose.sleeping
-      ? 0
+      ? now - this.sleepAt
       : moving
         ? walkTime(config, this.distance, action)
         : action === 'wake'

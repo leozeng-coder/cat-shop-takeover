@@ -12,7 +12,7 @@
       <header>
         <p class="eyebrow">猫猫夺店计划 / 角色动作</p>
         <h1>猫猫的动作小剧场。</h1>
-        <p>四向移动 · 每个方向 8 帧 · 待机 18 帧 · 起身 18 帧</p>
+        <p id="animation-summary">正在读取动作配置…</p>
       </header>
       <section aria-label="角色毛色">
         <div class="strip-heading">
@@ -30,14 +30,8 @@
       <section class="controls" aria-label="动画播放控制">
         <label
           >动作
-          <select id="action">
-            <option value="move">横向移动</option>
-            <option value="move_down">朝下移动 · 正面</option>
-            <option value="move_up">朝上移动 · 背面</option>
-            <option value="idle">待机</option>
-            <option value="wake">起身 · wake</option>
-          </select></label
-        >
+          <select id="action" disabled></select
+        ></label>
         <button id="pause" aria-pressed="false">暂停</button><button id="previous">← 上一帧</button
         ><button id="next">下一帧 →</button>
         <label

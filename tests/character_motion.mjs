@@ -41,6 +41,17 @@ for (const [name, clip] of Object.entries(manifest.animations)) {
   };
 }
 validateManifest(config);
+const firstIdle = new CharacterMotion();
+assert.equal(
+  firstIdle.sample(config, { x: 0, y: 0, sleeping: false }, 2030, 96).index,
+  0,
+  "first idle starts neutral regardless of page uptime",
+);
+assert.equal(
+  firstIdle.sample(config, { x: 0, y: 0, sleeping: false }, 4060, 96).index,
+  4,
+  "unchanged poses preserve the idle clock",
+);
 const walk = (fps) => {
   const motion = new CharacterMotion();
   motion.sample(config, { x: 0, y: 0, sleeping: false }, 0, 96);
@@ -88,42 +99,65 @@ assert.equal(
 );
 const rest = new CharacterMotion();
 assert.equal(
+  rest.sample(config, { x: 0, y: 0, sleeping: true }, 0, 96).action,
+  "sleep",
+);
+assert.equal(
   rest.sample(config, { x: 0, y: 0, sleeping: true }, 0, 96).index,
   0,
 );
 assert.equal(
   rest.sample(config, { x: 0, y: 0, sleeping: true }, 2000, 96).index,
-  0,
-  "sleep holds the approved prone frame",
+  5,
+  "sleep plays the breathing cycle without restarting on repeated snapshots",
 );
 assert.equal(
-  rest.sample(config, { x: 0, y: 0, sleeping: false }, 2100, 96).action,
+  rest.sample(config, { x: 0, y: 0, sleeping: true }, 3200, 96).index,
+  0,
+  "breathing loops",
+);
+assert.equal(
+  rest.sample(config, { x: 0, y: 0, sleeping: false }, 3300, 96).action,
   "wake",
 );
 assert.equal(
-  rest.sample(config, { x: 0, y: 0, sleeping: false }, 2800, 96).action,
+  rest.sample(config, { x: 0, y: 0, sleeping: false }, 3680, 96).index,
+  4,
+  "repeated awake snapshots do not restart the one-shot wake",
+);
+assert.equal(
+  rest.sample(config, { x: 0, y: 0, sleeping: false }, 4100, 96).action,
   "idle",
   "wake finishes standing",
 );
-rest.sample(config, { x: 0, y: 0, sleeping: true }, 3000, 96);
 assert.equal(
-  rest.sample(config, { x: 1, y: 0, sleeping: false }, 3016, 96).action,
+  rest.sample(config, { x: 0, y: 0, sleeping: false }, 4100, 96).index,
+  0,
+  "wake lands on idle's neutral first frame",
+);
+assert.equal(
+  rest.sample(config, { x: 0, y: 0, sleeping: true }, 4200, 96).index,
+  0,
+  "new sleep starts a fresh breath",
+);
+assert.equal(
+  rest.sample(config, { x: 1, y: 0, sleeping: false }, 4216, 96).action,
   "move",
   "escaping immediately interrupts wake",
 );
 assert.equal(
-  rest.sample(config, { x: 1, y: 0, sleeping: false }, 3032, 96).action,
+  rest.sample(config, { x: 1, y: 0, sleeping: false }, 4232, 96).action,
   "idle",
   "stopping does not replay interrupted wake",
 );
 assert.equal(
-  sampleClip(config, "idle", 2420).index,
-  11,
-  "idle preserves variable blink timings",
+  sampleClip(config, "idle", 2030).index,
+  4,
+  "idle keeps a short blink instead of uniform frame timings",
 );
 assert.equal(
   sampleClip(config, "wake", 5000).index,
-  17,
+  7,
   "one-shot clips hold the last frame",
 );
 const directions = new CharacterMotion();
@@ -173,6 +207,17 @@ assert.throws(
   () => validateManifest(invalidDirection),
   /Invalid movement clip/,
 );
+for (const name of ["move", "idle", "sleep", "wake"]) {
+  const missing = structuredClone(config);
+  delete missing.clips[name];
+  assert.throws(() => validateManifest(missing), /Invalid .*clip/);
+}
+const repeatedWake = structuredClone(config);
+repeatedWake.clips.wake.loop = true;
+assert.throws(() => validateManifest(repeatedWake), /Invalid character clip/);
+const frozenSleep = structuredClone(config);
+frozenSleep.clips.sleep.loop = false;
+assert.throws(() => validateManifest(frozenSleep), /Invalid character clip/);
 console.log(
-  "PASS character distance playback, four directions, turn phase, diagonal stability, rest and interruptible wake",
+  "PASS character distance playback, directions, looping breath, neutral idle transition and interruptible wake",
 );

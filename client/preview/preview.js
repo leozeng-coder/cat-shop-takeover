@@ -1,7 +1,14 @@
 import { clipDuration, sampleClip, loadCharacterAnimations } from '../src/characters/animation.js';
 import { loadPalettes, PaletteAtlases } from '../src/characters/palette-atlases.js';
 
-const labels = { move: '横向移动', move_down: '朝下移动', move_up: '朝上移动', idle: '待机', wake: '起身' };
+const labels = {
+  move: '横向移动',
+  move_down: '朝下移动',
+  move_up: '朝上移动',
+  idle: '待机',
+  wake: '起身',
+  sleep: '睡眠呼吸',
+};
 const isMove = (name) => name === 'move' || name === 'move_up' || name === 'move_down';
 const elements = Object.fromEntries(
   [
@@ -20,6 +27,7 @@ const elements = Object.fromEntries(
     'frame-count',
     'skins',
     'skin-status',
+    'animation-summary',
   ].map((id) => [id, document.getElementById(id)]),
 );
 let config,
@@ -247,6 +255,12 @@ function tick(now) {
 
 async function start() {
   config = await loadCharacterAnimations('../assets/characters/v1/cat_orange/manifest.json');
+  elements['animation-summary'].textContent = Object.entries(config.clips)
+    .map(([name, clip]) => `${labels[name] ?? name} ${clip.frames.length} 帧`)
+    .join(' · ');
+  elements.action.replaceChildren(
+    ...Object.keys(config.clips).map((name) => new Option(labels[name] ?? name, name)),
+  );
   palettes = await loadPalettes(config.paletteUrl);
   paletteAtlases = new PaletteAtlases(palettes);
   selectedSkin = wantedSkin = palettes.default;
@@ -292,6 +306,7 @@ async function start() {
   selectAction('move');
   void createSkinChoices();
   await selectAppearance('move', selectedSkin);
+  elements.action.disabled = false;
   lastTime = performance.now();
   requestAnimationFrame(tick);
 }
