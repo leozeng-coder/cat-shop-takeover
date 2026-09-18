@@ -111,6 +111,14 @@ struct MapProfileConfig {
 struct MapGenerationConfig {
     std::vector<MapProfileConfig> profiles;
 };
+// Selection IDs only; sprites, palettes and animation timings belong to the client.
+struct CharacterConfig {
+    std::string id;
+    std::vector<std::string> skins;
+};
+struct CharacterSelection {
+    std::string character, skin;
+};
 struct GameConfig {
     std::string version;
     Balance balance;
@@ -126,6 +134,9 @@ struct GameConfig {
     CatAiConfig catAi;
     ManagerAiConfig managerAi;
     MapGenerationConfig mapGeneration;
+    std::vector<CharacterConfig> characters;
+    bool hasCharacter(const CharacterSelection& selection) const;
+    CharacterSelection defaultCharacter(int seat = 0) const;
     const MapProfileConfig* mapProfile(const std::string& id) const;
     const CurrencyConfig& currency(const std::string& id) const;
     const DoorConfig& door(int stage) const;

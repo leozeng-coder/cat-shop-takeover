@@ -112,6 +112,13 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
     if (kind == "ping") {
         return {};
     }
+    if (kind == "characters") {
+        Json::Value value;
+        value["type"] = "characters";
+        value["characters"] = GameSnapshot::characters(*m_configs->current());
+        GameProtocol::send(connection, value);
+        return {};
+    }
     if (kind == "maps") {
         Json::Value value;
         value["type"] = "maps";
@@ -137,6 +144,17 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
             broadcast(m_matches.at(game->code));
             return {};
         }
+        const auto readSelection = [&](const GameConfig& config) {
+            const auto& value = msg["character"];
+            if (value.isNull() && !msg.isMember("character")) {
+                return config.defaultCharacter();
+            }
+            return CharacterSelection{GameProtocol::stringField(value, "character"),
+                                      GameProtocol::stringField(value, "skin")};
+        };
+        if (msg.isMember("character") && !msg["character"].isObject()) {
+            return "角色选择无效";
+        }
         std::shared_ptr<Game> game;
         if (kind == "create") {
             const int capacity = GameProtocol::intField(msg, "capacity");
@@ -157,6 +175,9 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
             if ((msg.isMember("mapId") && !msg["mapId"].isString()) || (!mapId.empty() && !config->mapProfile(mapId))) {
                 return "地图不存在或暂未开放";
             }
+            if (!config->hasCharacter(readSelection(*config))) {
+                return "角色或毛色暂未开放";
+            }
             game = std::make_shared<Game>(code, capacity, std::random_device{}(), config, mapId);
             m_matches.emplace(code, Match{game});
         } else {
@@ -169,10 +190,15 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
             }
             game = match->second.game;
         }
+        const auto selection = readSelection(game->config());
+        if (!game->config().hasCharacter(selection)) {
+            return "角色或毛色暂未开放";
+        }
         const int seat = game->addHuman(GameProtocol::playerName(msg));
         if (seat < 0) {
             return "对局已开始或真人席位已满";
         }
+        game->selectCharacter(seat, selection);
         auto session = std::make_shared<Session>();
         session->token = drogon::utils::getUuid();
         session->code = game->code;
@@ -217,6 +243,13 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
     }
     if (kind == "select_map") {
         failure = msg["mapId"].isString() ? game.selectMap(session->seat, msg["mapId"].asString()) : "地图选择无效";
+    } else if (kind == "select_character") {
+        const auto& value = msg["character"];
+        if (!value.isObject() || !value["character"].isString() || !value["skin"].isString()) {
+            failure = "角色选择无效";
+        } else {
+            failure = game.selectCharacter(session->seat, {value["character"].asString(), value["skin"].asString()});
+        }
     } else if (kind == "ready") {
         if (!msg["ready"].isBool()) {
             failure = "准备状态无效";

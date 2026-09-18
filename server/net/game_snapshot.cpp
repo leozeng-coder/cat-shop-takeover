@@ -60,12 +60,26 @@ Json::Value GameSnapshot::maps(const GameConfig& cfg) {
     }
     return rows;
 }
+Json::Value GameSnapshot::characters(const GameConfig& cfg) {
+    Json::Value rows(Json::arrayValue);
+    for (const auto& character : cfg.characters) {
+        Json::Value row;
+        row["id"] = character.id;
+        row["skins"] = Json::Value(Json::arrayValue);
+        for (const auto& skin : character.skins) {
+            row["skins"].append(skin);
+        }
+        rows.append(std::move(row));
+    }
+    return rows;
+}
 Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
     Json::Value value;
     value["type"] = "config";
     value["version"] = cfg.version;
     value["catSpeed"] = cfg.catSpeed;
     value["maps"] = maps(cfg);
+    value["characters"] = characters(cfg);
     value["currencies"] = Json::Value(Json::arrayValue);
     for (const auto& c : cfg.currencies) {
         Json::Value row;
@@ -152,6 +166,8 @@ Json::Value GameSnapshot::world(const Game& g) {
         Json::Value j;
         j["id"] = p.id;
         j["name"] = p.name;
+        j["character"]["character"] = p.character.character;
+        j["character"]["skin"] = p.character.skin;
         j["human"] = p.human;
         j["connected"] = p.connected;
         j["ready"] = p.ready;

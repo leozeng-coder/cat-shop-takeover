@@ -1,6 +1,7 @@
 import type { State } from '../types';
 import { escapeHtml } from './format';
-import { catPortrait, managerPortrait } from './portraits';
+import { managerPortrait } from './portraits';
+import { characterPortrait } from './character_picker';
 function meter(label: string, value: number, max: number, className: string) {
   const safe = Math.max(0, Math.min(max, value));
   const percent = max > 0 ? (100 * safe) / max : 0;
@@ -43,7 +44,7 @@ export function combatStatusView(g: State, expanded = false) {
       return `<li class="roster-cat ${p.id === g.you ? 'is-me' : ''} ${p.alive ? '' : 'is-captured'} ${attacked ? 'is-attacked' : ''}">
       <button class="roster-control" data-do="open-combat" aria-label="${escapeHtml(label)}，查看战况详情" aria-controls="combat-details" aria-expanded="${expanded}" title="${escapeHtml(label)}">
         <span class="portrait-stage">
-          <span class="cat-portrait">${catPortrait(p.id)}</span>
+          <span class="cat-portrait">${characterPortrait(p.character)}</span>
           <span class="roster-badge" ${badge ? '' : 'hidden'}>${badge}</span>
           <span class="attacker-badge" ${attacked ? '' : 'hidden'} aria-hidden="true">${managerPortrait()}</span>
         </span>

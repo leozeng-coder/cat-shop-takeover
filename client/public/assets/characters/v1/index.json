@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "characters": [
+    { "id": "cat_orange", "manifest": "cat_orange/manifest.json" }
+  ]
+}

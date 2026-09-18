@@ -18,6 +18,7 @@ Game::Game(std::string value, int size, std::uint32_t seed, std::shared_ptr<cons
     for (int i = 0; i < Seats; ++i) {
         LogicEconomy::initialize(players[i], config());
         players[i].id = i;
+        players[i].character = config().defaultCharacter(i);
         players[i].name = "猫队员 " + std::to_string(i + 1);
         players[i].personality = i % static_cast<int>(config().catAi.profiles.size());
         players[i].position = map.center(map.spawn + (i % 3) - 1 + (i / 3) * map.width);
@@ -111,6 +112,21 @@ std::string Game::selectMap(int id, const std::string& mapId) {
     notify("房主选择了" + map.name + "，请重新准备");
     return {};
 }
+std::string Game::selectCharacter(int id, const CharacterSelection& selection) {
+    if (!validPlayer(id) || phase != "lobby") {
+        return "只能在出发前选择自己的猫猫";
+    }
+    if (!config().hasCharacter(selection)) {
+        return "角色或毛色暂未开放";
+    }
+    auto& player = players[id];
+    if (player.character.character == selection.character && player.character.skin == selection.skin) {
+        return {};
+    }
+    player.character = selection;
+    player.ready = id == host;
+    return {};
+}
 std::string Game::start(int id) {
     if (id != host || !validPlayer(id)) {
         return "只有房主可以开始";
@@ -165,6 +181,7 @@ void Game::resetBoard() {
         LogicEconomy::initialize(p, config());
         p.id = i;
         p.name = old.name;
+        p.character = config().hasCharacter(old.character) ? old.character : config().defaultCharacter(i);
         p.human = old.human;
         p.connected = old.connected;
         p.ready = !p.human || i == host;

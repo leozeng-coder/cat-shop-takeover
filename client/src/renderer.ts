@@ -3,7 +3,9 @@ import { GameArt } from './render/game_art';
 import { MotionTrack } from './render/motion_track';
 import { GameCamera } from './render/game_camera';
 import { MapTheme, type TileSurface } from './render/map_theme';
-import { CAT_COLORS } from './ui/portraits';
+import { characterLibrary } from './characters/character_library';
+import { CharacterMotion } from './characters/character_motion';
+import { characterKey } from './characters/types';
 const floorColors = [
   '#eee4c6',
   '#dee8d2',
@@ -36,6 +38,9 @@ export class Renderer {
     dragged: boolean;
   } | null = null;
   private tracks = new Map<string, MotionTrack>();
+  private motions = new Map<number, CharacterMotion>();
+  private characterSet = '';
+  private charactersReady: Promise<void> = Promise.resolve();
   selectedCell = -1;
   onCell: (cell: number, x: number, y: number) => void = () => {};
   onCamera: () => void = () => {};
@@ -103,7 +108,7 @@ export class Renderer {
     return this.camera.following && !!this.state?.players[this.state.you].alive;
   }
   get ready(): Promise<void> {
-    return this.theme.ready;
+    return Promise.all([this.theme.ready, this.charactersReady]).then(() => {});
   }
   setState(state: State | null) {
     const previous = this.state;
@@ -116,6 +121,7 @@ export class Renderer {
     this.state = state;
     if (newMap) {
       this.tracks.clear();
+      this.motions.clear();
       this.selectedCell = -1;
       this.hover = -1;
       this.press = null;
@@ -126,6 +132,18 @@ export class Renderer {
       this.onCamera();
     }
     if (state) {
+      const selections = [
+        ...new Map(state.players.map((p) => [characterKey(p.character), p.character])).values(),
+      ];
+      const key = selections.map(characterKey).sort().join('|');
+      if (key !== this.characterSet) {
+        this.characterSet = key;
+        this.charactersReady = (async () => {
+          for (const selection of selections) await characterLibrary.prepare(selection);
+        })().catch((error) => {
+          console.warn('Character art unavailable; using fallback.', error);
+        });
+      }
       const received = performance.now();
       for (const player of state.players) {
         const key = 'cat' + player.id;
@@ -506,15 +524,35 @@ export class Renderer {
           c.stroke();
           c.restore();
         }
-        c.save();
-        c.translate(p.x, p.y);
-        c.scale(0.47, 0.47);
-        a.cat(0, 0, CAT_COLORS[cat.id], cat.sleeping);
-        c.restore();
+        const config = characterLibrary.config(cat.character.character);
+        if (!this.motions.has(cat.id)) this.motions.set(cat.id, new CharacterMotion());
+        const sample =
+          config &&
+          this.motions.get(cat.id)!.sample(config, { ...p, sleeping: cat.sleeping }, now, g.map.tileSize * 3);
+        a.ellipse(p.x, p.y + 9, 10, 4, '#66564025');
+        if (
+          !sample ||
+          !characterLibrary.draw(
+            c,
+            cat.character,
+            sample.action,
+            sample.frame,
+            p.x,
+            p.y + 10,
+            28,
+            sample.mirror,
+          )
+        ) {
+          c.save();
+          c.translate(p.x, p.y);
+          c.scale(0.47, 0.47);
+          a.cat(0, 0, characterLibrary.card(cat.character)?.color ?? '#ffb868', cat.sleeping);
+          c.restore();
+        }
         a.text(
           cat.id === g.you ? '▼ 你' : cat.bot ? 'AI' : cat.name,
           p.x,
-          p.y - 22,
+          p.y - 26,
           9,
           cat.id === g.you ? '#fff9c5' : '#667f61',
           'center',

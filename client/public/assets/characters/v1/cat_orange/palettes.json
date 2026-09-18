@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "default": "orange",
+  "source": {
+    "hueRange": [18, 54],
+    "hueFeather": 5,
+    "furSaturation": [0.28, 0.46],
+    "outlineLightness": [0.29, 0.44],
+    "furLightness": [0.53, 0.7, 0.86],
+    "paleLightness": [0.64, 0.84],
+    "paleSaturation": [0.03, 0.31]
+  },
+  "skins": [
+    {
+      "id": "orange",
+      "name": "元气橘猫",
+      "original": true,
+      "fur": "#ffb868",
+      "stripe": "#df8040",
+      "highlight": "#ffdbad",
+      "white": "#fff1df"
+    },
+    {
+      "id": "blue_gray",
+      "name": "蓝灰猫",
+      "fur": "#94a9c6",
+      "stripe": "#5c7195",
+      "highlight": "#cbd7e8",
+      "white": "#f7f8fc"
+    },
+    {
+      "id": "purple_white",
+      "name": "紫白猫",
+      "fur": "#b19ad4",
+      "stripe": "#8060ad",
+      "highlight": "#ded0ee",
+      "white": "#fffbff"
+    },
+    {
+      "id": "milk_tea",
+      "name": "奶茶猫",
+      "fur": "#cab094",
+      "stripe": "#957455",
+      "highlight": "#eadecb",
+      "white": "#fff6e8"
+    },
+    {
+      "id": "mint",
+      "name": "薄荷猫",
+      "fur": "#9fc1b0",
+      "stripe": "#648f7f",
+      "highlight": "#d5e5d9",
+      "white": "#f7fcf4"
+    },
+    {
+      "id": "rose",
+      "name": "玫瑰猫",
+      "fur": "#d3a2b2",
+      "stripe": "#a36983",
+      "highlight": "#eed2dc",
+      "white": "#fff8f8"
+    }
+  ]
+}

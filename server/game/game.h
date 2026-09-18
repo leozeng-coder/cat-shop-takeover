@@ -21,6 +21,7 @@ public:
     int humanCount() const;
     int minimumHumans() const;
     int addHuman(const std::string& name);
+    std::string selectCharacter(int id, const CharacterSelection& selection);
     void removeHuman(int id);
     void setConnected(int id, bool connected);
     std::string setReady(int id, bool ready);

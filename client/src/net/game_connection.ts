@@ -1,3 +1,4 @@
+import type { CharacterOption } from '../characters/types';
 import type { State, Catalog, MapOption } from '../types';
 import { COMMANDS, decodeMessage, encodeRequest, type ClientMessage } from './game_protocol';
 import { StateStream } from './state_stream';
@@ -5,6 +6,7 @@ export type { ClientMessage } from './game_protocol';
 
 interface ConnectionCallbacks {
   onState: (state: State) => void;
+  onCharacters: (characters: CharacterOption[]) => void;
   onMaps: (maps: MapOption[]) => void;
   onJoined: (lastSequence: number) => void;
   onStatus: (connected: boolean) => void;
@@ -113,6 +115,7 @@ export class GameConnection {
           this.reconnectAttempts = 0;
           this.callbacks.onStatus(true);
           this.send({ type: 'maps' });
+          this.send({ type: 'characters' });
           const token = sessionStorage.getItem(this.storageKey);
           if (token) this.send({ type: 'resume', token });
           break;
@@ -125,6 +128,9 @@ export class GameConnection {
           break;
         case 'config':
           this.catalog = body as unknown as Catalog;
+          break;
+        case 'characters':
+          this.callbacks.onCharacters(body.characters as CharacterOption[]);
           break;
         case 'maps':
           this.callbacks.onMaps(body.maps as MapOption[]);

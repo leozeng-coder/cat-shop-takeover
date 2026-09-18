@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>猫猫 · 毛色与动作预览</title>
+    <link rel="stylesheet" href="./preview.css" />
+    <script type="module" src="./preview.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">猫猫夺店计划 / 角色动作</p>
+        <h1>猫猫的动作小剧场。</h1>
+        <p>四向移动 · 每个方向 8 帧 · 待机 18 帧 · 起身 18 帧</p>
+      </header>
+      <section aria-label="角色毛色">
+        <div class="strip-heading">
+          <h2>选一只你的猫猫</h2>
+          <span id="skin-status" role="status" aria-label="毛色状态">六套毛色 · 同一套动作</span>
+        </div>
+        <div id="skins" class="skins"></div>
+      </section>
+      <section class="stage">
+        <canvas id="motion" aria-label="猫猫动作预览"></canvas>
+        <div class="caption">
+          <span id="status" role="status">正在加载…</span><span id="playback">连续循环</span>
+        </div>
+      </section>
+      <section class="controls" aria-label="动画播放控制">
+        <label
+          >动作
+          <select id="action">
+            <option value="move">横向移动</option>
+            <option value="move_down">朝下移动 · 正面</option>
+            <option value="move_up">朝上移动 · 背面</option>
+            <option value="idle">待机</option>
+            <option value="wake">起身 · wake</option>
+          </select></label
+        >
+        <button id="pause" aria-pressed="false">暂停</button><button id="previous">← 上一帧</button
+        ><button id="next">下一帧 →</button>
+        <label
+          >速度
+          <select id="speed">
+            <option value="1">正常</option>
+            <option value="0.5">半速</option>
+            <option value="0.25">四分之一速</option>
+          </select></label
+        >
+        <label
+          >展示
+          <select id="mode">
+            <option value="inplace">原地</option>
+            <option value="travel">行进演示</option>
+          </select></label
+        >
+        <label><input type="checkbox" id="right" /> 朝右</label>
+        <label class="scrub">逐帧 <input id="frame" type="range" min="1" max="8" value="1" /></label>
+      </section>
+      <section aria-label="完整角色帧">
+        <div class="strip-heading">
+          <h2>完整帧展开</h2>
+          <span id="frame-count">8 张</span>
+        </div>
+        <div id="frames" class="frames"></div>
+      </section>
+      <footer>
+        <span>完整角色逐帧 · 六套毛色共用动作</span>
+        <nav>
+          <a href="../assets/characters/v1/cat_orange/manifest.json">动作配置</a>
+          <a href="../assets/characters/v1/cat_orange/palettes.json">毛色配置</a>
+        </nav>
+      </footer>
+    </main>
+  </body>
+</html>

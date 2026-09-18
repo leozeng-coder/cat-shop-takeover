@@ -1,3 +1,4 @@
+import type { CharacterOption, CharacterSelection } from './characters/types';
 export type Appearance =
   | 'shelf'
   | 'crate'
@@ -54,6 +55,7 @@ export interface MapOption {
 export interface Catalog {
   version: string;
   maps: MapOption[];
+  characters: CharacterOption[];
   catSpeed: number;
   currencies: { id: string; name: string; symbol: string }[];
   doors: {
@@ -79,6 +81,7 @@ export interface Prop {
   lastShot: number;
 }
 export interface Player {
+  character: CharacterSelection;
   id: number;
   name: string;
   human: boolean;

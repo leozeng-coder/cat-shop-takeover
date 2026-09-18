@@ -439,6 +439,72 @@ h2 {
   font-size: 15px;
   color: #879977;
 }
+.character-picker {
+  margin-top: 24px;
+}
+.character-picker h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.character-picker > .muted {
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+.character-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.character-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #e0e4d4;
+  border-radius: 14px;
+  padding: 0 4px 10px;
+  background: #f7f7ee;
+  color: #667758;
+  font-size: 12px;
+  transition:
+    background 140ms,
+    border-color 140ms;
+}
+.character-option:hover {
+  background: #edf0df;
+}
+.character-option.active {
+  border-color: #728857;
+  background: #eaf0da;
+  box-shadow: inset 0 0 0 1px #728857;
+  color: #375237;
+}
+.character-option > .character-portrait {
+  width: 100%;
+  height: 86px;
+  object-fit: contain;
+}
+.character-option i {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  font-style: normal;
+  font-weight: 700;
+}
+.character-portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.character-placeholder {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+}
+.character-option .character-placeholder {
+  height: 86px;
+}
 .input-label {
   display: block;
   font-size: 12px;
@@ -577,9 +643,13 @@ input {
   background: #f2f0dd;
 }
 .avatar {
+  display: block;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
   background: #e7dfc1;
   border-radius: 10px;
-  padding: 10px;
+  padding: 0;
   font-size: 13px;
 }
 .member-name {

@@ -36,6 +36,35 @@ void settle(Game& g, int room = 0) {
     }
     check(g.players[0].sleeping && g.players[0].room == room, "physical arrival claims nest");
 }
+void characterSelection() {
+    Game game("CATS", 6, 77, testConfig());
+    check(game.players[0].character.skin != game.players[1].character.skin, "AI seats use catalog variants");
+    game.addHuman("Host");
+    game.addHuman("Friend");
+    game.setReady(1, true);
+    check(game.selectCharacter(1, {"cat_orange", "mint"}).empty(), "guest can choose own appearance");
+    check(!game.players[1].ready && game.players[0].ready, "appearance change resets only guest readiness");
+    check(!game.selectCharacter(2, {"cat_orange", "rose"}).empty(), "AI cannot issue selection commands");
+    check(!game.selectCharacter(1, {"cat_orange", "missing"}).empty() && game.players[1].character.skin == "mint",
+          "invalid appearance is rejected without changing selection");
+    check(game.selectCharacter(0, {"cat_orange", "mint"}).empty(), "matching cosmetics are allowed");
+    game.selectMap(0, "harbor_market");
+    check(game.players[1].character.skin == "mint", "map changes preserve appearance");
+    game.setReady(1, true);
+    game.start(0);
+    check(!game.selectCharacter(1, {"cat_orange", "rose"}).empty(), "appearance is locked after starting");
+    game.setConnected(1, false);
+    game.setConnected(1, true);
+    check(game.players[1].character.skin == "mint", "reconnection preserves appearance");
+    game.phase = "won";
+    game.rematch(0);
+    check(game.players[1].character.skin == "mint", "rematch preserves appearance");
+    auto next = std::make_shared<GameConfig>(*testConfig());
+    next->characters[0].skins = {"rose"};
+    game.phase = "won";
+    game.rematch(0, next);
+    check(game.players[1].character.skin == "rose", "removed cosmetics fall back on next match");
+}
 void mapSelection() {
     Game game("CHOICE", 6, 77, testConfig(), "neon_alley");
     game.addHuman("Host");
@@ -814,6 +843,7 @@ int main() {
     try {
         generatedMaps();
         mapSelection();
+        characterSelection();
         extraRoomInteractions();
         movementAndOwnership();
         competingNestClaims();

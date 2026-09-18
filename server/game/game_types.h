@@ -30,6 +30,7 @@ struct Dorm {
 struct Player {
     int id = 0;
     std::string name;
+    CharacterSelection character;
     bool human = false, connected = false, ready = true, alive = true, sleeping = false;
     int room = -1, bed = 1, personality = 0, nestIntent = -1;
     Wallet wallet;

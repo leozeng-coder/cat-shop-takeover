@@ -169,7 +169,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     }
     object(root, "config",
            {"schema_version", "version", "currencies", "match", "doors", "nests", "items", "initial_items",
-            "pickup_item", "repair", "manager", "cat_ai", "manager_ai", "map_generation"});
+            "pickup_item", "repair", "manager", "cat_ai", "manager_ai", "map_generation", "characters"});
     integer(root["schema_version"], "schema_version", 1, 1);
     auto cfg = std::make_shared<GameConfig>();
     // Content identity distinguishes edits even when the author forgets to bump the display version.
@@ -181,6 +181,24 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     revision << string(root["version"], "version") << '-' << std::hex << std::setw(16) << std::setfill('0') << hash;
     cfg->version = revision.str();
     std::set<std::string> ids;
+    for (const auto& row : array(root["characters"], "characters", 1, 32)) {
+        object(row, "characters", {"id", "skins"});
+        CharacterConfig character;
+        character.id = id(row["id"], "characters.id");
+        if (!ids.insert(character.id).second) {
+            fail("characters", "duplicate character ID");
+        }
+        std::set<std::string> skins;
+        for (const auto& value : array(row["skins"], "characters.skins", 1, 32)) {
+            auto skin = id(value, "characters.skin");
+            if (!skins.insert(skin).second) {
+                fail("characters", "duplicate skin ID");
+            }
+            character.skins.push_back(std::move(skin));
+        }
+        cfg->characters.push_back(std::move(character));
+    }
+    ids.clear();
     for (const auto& row : array(root["currencies"], "currencies", 1, 16)) {
         object(row, "currencies", {"id", "name", "symbol", "initial", "limit"});
         CurrencyConfig c;
@@ -544,8 +562,8 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
         }
         return text;
     };
-    const std::array<const char*, 12> names{"manifest", "currencies", "match", "doors", "nests", "items",
-                                          "manager", "repair", "map_items", "cat_ai", "manager_ai", "map_generation"};
+    const std::array<const char*, 13> names{"manifest", "currencies", "match", "doors", "nests", "items", "manager",
+                                          "repair", "map_items", "cat_ai", "manager_ai", "map_generation", "characters"};
     std::map<std::string, std::string> sources;
     std::map<std::string, JsonValue> tables;
     std::size_t bytes = 0;
@@ -577,8 +595,8 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
     }
     auto result = tables.at("manifest");
     object(result, "manifest.json", {"schema_version", "version"});
-    for (const auto* name :
-         {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai", "manager_ai", "map_generation"}) {
+    for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
+                             "manager_ai", "map_generation", "characters"}) {
         result[name] = tables.at(name);
     }
     const auto& map = tables.at("map_items");

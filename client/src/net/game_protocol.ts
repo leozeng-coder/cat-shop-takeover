@@ -1,3 +1,4 @@
+import type { CharacterSelection } from '../characters/types';
 // Mirrors server/net/game_protocol.h. Commands and notifications have separate ranges.
 export const PROTOCOL_VERSION = 2;
 export const COMMANDS = {
@@ -13,6 +14,8 @@ export const COMMANDS = {
   resync: 10,
   maps: 11,
   select_map: 12,
+  characters: 13,
+  select_character: 14,
 } as const;
 const NOTIFICATIONS = [
   'hello',
@@ -24,16 +27,18 @@ const NOTIFICATIONS = [
   'expired',
   'error',
   'maps',
+  'characters',
 ] as const;
 
 export type ClientMessage =
-  | { type: 'create'; capacity: number; name: string; mapId?: string }
-  | { type: 'join'; code: string; name: string }
+  | { type: 'create'; capacity: number; name: string; mapId?: string; character?: CharacterSelection }
+  | { type: 'join'; code: string; name: string; character?: CharacterSelection }
   | { type: 'resume'; token: string }
   | { type: 'ready'; ready: boolean; mapSeed?: number }
   | { type: 'start'; mapSeed?: number }
   | { type: 'select_map'; mapId: string }
-  | { type: 'leave' | 'rematch' | 'ping' | 'resync' | 'maps' }
+  | { type: 'select_character'; character: CharacterSelection }
+  | { type: 'leave' | 'rematch' | 'ping' | 'resync' | 'maps' | 'characters' }
   | {
       type: 'action';
       action: 'move' | 'nest' | 'bed' | 'door' | 'build' | 'repair';

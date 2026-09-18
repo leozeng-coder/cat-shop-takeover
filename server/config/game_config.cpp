@@ -2,6 +2,16 @@
 #include <algorithm>
 #include <stdexcept>
 namespace snackshop {
+bool GameConfig::hasCharacter(const CharacterSelection& selection) const {
+    return std::any_of(characters.begin(), characters.end(), [&](const auto& row) {
+        return row.id == selection.character &&
+               std::find(row.skins.begin(), row.skins.end(), selection.skin) != row.skins.end();
+    });
+}
+CharacterSelection GameConfig::defaultCharacter(int seat) const {
+    const auto& row = characters.front();
+    return {row.id, row.skins[seat % row.skins.size()]};
+}
 const MapProfileConfig* GameConfig::mapProfile(const std::string& id) const {
     const auto found = std::find_if(mapGeneration.profiles.begin(), mapGeneration.profiles.end(),
                                     [&](const auto& p) { return p.id == id && p.weight > 0; });

@@ -19,9 +19,11 @@ enum class Command : int {
     Action,
     Resync,
     Maps,
-    SelectMap
+    SelectMap,
+    Characters,
+    SelectCharacter
 };
-enum class Notification : int { Hello = 100, Joined, Config, Snapshot, Delta, Left, Expired, Error, Maps };
+enum class Notification : int { Hello = 100, Joined, Config, Snapshot, Delta, Left, Expired, Error, Maps, Characters };
 struct Request {
     Command command;
     std::uint32_t requestId;

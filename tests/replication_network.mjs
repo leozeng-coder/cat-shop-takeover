@@ -83,7 +83,19 @@ try {
   await host.ready();
   const ping = await host.request({ type: 'ping' });
   assert.equal(ping.command, 1);
-  await host.request({ type: 'create', capacity: 6, name: 'Delta host' });
+  await host.request({ type: 'characters' });
+  assert.equal(host.messages.find((m) => m.type === 'characters').characters[0].skins.length, 6);
+  await host.request(
+    { type: 'create', capacity: 6, name: 'Invalid', character: { character: 'cat_orange', skin: 'missing' } },
+    true,
+  );
+  await host.request({
+    type: 'create',
+    capacity: 6,
+    name: 'Delta host',
+    character: { character: 'cat_orange', skin: 'mint' },
+  });
+  assert.equal(host.state.players[0].character.skin, 'mint');
   const party = [host];
   for (let i = 1; i < 6; ++i) {
     const peer = new Client();
@@ -92,10 +104,23 @@ try {
       type: 'join',
       code: host.joined.code,
       name: 'Friend ' + i,
+      character: { character: 'cat_orange', skin: i === 2 ? 'rose' : 'blue_gray' },
     });
     await peer.request({ type: 'ready', ready: true });
     party.push(peer);
   }
+  await party[1].request({
+    type: 'select_character',
+    character: { character: 'cat_orange', skin: 'purple_white' },
+    seat: 0,
+  });
+  assert.equal(party[1].state.players[1].ready, false);
+  assert.equal(party[1].state.players[0].character.skin, 'mint', 'seat identity comes from the session');
+  await host.until(() => host.state.players[1].character.skin === 'purple_white');
+  await party[1].request(
+    { type: 'select_character', character: { character: 'missing', skin: 'orange' } },
+    true,
+  );
   // Interleave I/O commands with timer snapshots; neither may overtake the other.
   await Promise.all(
     party
@@ -106,6 +131,10 @@ try {
   );
   await host.request({ type: 'start' });
   await host.until(() => host.state?.phase === 'preparing');
+  await host.request(
+    { type: 'select_character', character: { character: 'cat_orange', skin: 'rose' } },
+    true,
+  );
   const frame = host.frames('delta').at(-1).packet.body;
   for (const [seat, peer] of party.entries()) {
     await peer.until(() => peer.frames('delta').some((f) => f.packet.body.revision === frame.revision));
@@ -141,6 +170,7 @@ try {
   await resumed.ready();
   await resumed.request({ type: 'resume', token });
   assert.equal(resumed.state.you, 2);
+  assert.equal(resumed.state.players[2].character.skin, 'rose', 'selection survives full session resume');
   assert.equal(resumed.state.code, host.state.code);
   assert.deepEqual(
     resumed.state.map,

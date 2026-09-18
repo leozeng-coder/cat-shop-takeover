@@ -30,7 +30,7 @@ Json::Value document() {
     };
     auto data = read("manifest");
     for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
-                             "manager_ai", "map_generation"}) {
+                             "manager_ai", "map_generation", "characters"}) {
         data[name] = read(name);
     }
     const auto map = read("map_items");
@@ -51,7 +51,7 @@ void saveTables(const std::filesystem::path& directory, const Json::Value& data)
     save("manifest", manifest);
     save("map_items", map);
     for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
-                             "manager_ai", "map_generation"}) {
+                             "manager_ai", "map_generation", "characters"}) {
         save(name, data[name]);
     }
 }
@@ -642,7 +642,7 @@ void snapshots() {
         ~Cleanup() {
             std::error_code error;
             for (const auto* name : {"manifest", "currencies", "match", "doors", "nests", "items", "manager", "repair",
-                                     "map_items", "cat_ai", "manager_ai", "map_generation"}) {
+                                     "map_items", "cat_ai", "manager_ai", "map_generation", "characters"}) {
                 std::filesystem::remove(path / (std::string(name) + ".json"), error);
             }
             std::filesystem::remove(path, error);
@@ -694,6 +694,9 @@ void snapshots() {
 int main() {
     try {
         validation();
+        rejects([](auto& data) { data["characters"][0]["skins"].append("orange"); }, "duplicate skin ID rejected");
+        rejects([](auto& data) { data["characters"][0]["skins"] = Json::Value(Json::arrayValue); }, "empty skin list rejected");
+        rejects([](auto& data) { data["characters"].append(data["characters"][0]); }, "duplicate character ID rejected");
         progressionAndMoney();
         extendedProgression();
         steelDoorProgression();

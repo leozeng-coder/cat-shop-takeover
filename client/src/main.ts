@@ -1,4 +1,7 @@
 import './style.css';
+import { characterLibrary } from './characters/character_library';
+import { characterKey, type CharacterOption, type CharacterSelection } from './characters/types';
+import { characterPickerView } from './ui/character_picker';
 import { APP_SHELL } from './ui/shell';
 import { updateHtml } from './ui/dom_patch';
 import { lobbyView } from './ui/lobby';
@@ -24,6 +27,25 @@ let state: State | null = null,
 let itemCategory: ItemCategory = 'attack';
 let mapOptions: MapOption[] = [];
 let selectedMap = '';
+let characterOptions: CharacterOption[] = [];
+let selectedCharacter: CharacterSelection | null = null;
+try {
+  selectedCharacter = JSON.parse(localStorage.getItem('cat-shop-character') ?? 'null');
+} catch {
+  /* Unavailable preferences do not block play. */
+}
+function rememberCharacter(selection: CharacterSelection) {
+  selectedCharacter = selection;
+  try {
+    localStorage.setItem('cat-shop-character', JSON.stringify(selection));
+  } catch {
+    /* Private browsing. */
+  }
+}
+characterLibrary.onChange = () => render();
+function loadCharacterOptions(options: CharacterOption[]) {
+  void characterLibrary.loadOptions(options).catch(() => toast('部分猫猫资源加载失败，请刷新重试'));
+}
 let dismissedPanelOnPress = false;
 let combatExpanded = false;
 let selected = -1,
@@ -109,11 +131,26 @@ function clearSession() {
   loadingScheduled = false;
   el('loading').classList.add('hidden');
   renderer.setState(null);
-  if (connection.isConnected()) connection.send({ type: 'maps' });
+  if (connection.isConnected()) {
+    connection.send({ type: 'maps' });
+    connection.send({ type: 'characters' });
+  }
   closeGrid();
   render();
 }
 const connection = new GameConnection({
+  onCharacters(options) {
+    characterOptions = options;
+    if (
+      !options.some(
+        (option) =>
+          option.id === selectedCharacter?.character && option.skins.includes(selectedCharacter.skin),
+      )
+    )
+      selectedCharacter = options.length ? { character: options[0].id, skin: options[0].skins[0] } : null;
+    loadCharacterOptions(options);
+    render();
+  },
   onMaps(maps) {
     mapOptions = maps;
     if (!maps.some((map) => map.id === selectedMap)) selectedMap = '';
@@ -144,6 +181,12 @@ const connection = new GameConnection({
       combatExpanded = false;
     }
     state = next;
+    if (
+      !selectedCharacter ||
+      characterKey(selectedCharacter) !== characterKey(next.players[next.you].character)
+    )
+      rememberCharacter(next.players[next.you].character);
+    if (previous?.configVersion !== next.configVersion) loadCharacterOptions(next.catalog.characters);
     if (next.players[next.you].escaping) {
       closeGrid();
       if (!previous?.players[previous.you].escaping) toast('店门被打破了！点击地图逃跑');
@@ -214,8 +257,17 @@ function render() {
   el('menu-screen').classList.toggle('hidden', !!state);
   el('lobby-screen').classList.toggle('hidden', !lobby);
   el('game-screen').classList.toggle('hidden', !state || !!lobby);
-  el<HTMLButtonElement>('create').disabled = busy || !connection.isConnected() || !mapOptions.length;
+  el<HTMLButtonElement>('create').disabled =
+    busy ||
+    !connection.isConnected() ||
+    !mapOptions.length ||
+    !selectedCharacter ||
+    !characterLibrary.card(selectedCharacter);
   if (!state) {
+    updateHtml(
+      el('menu-character-picker'),
+      characterPickerView(characterOptions, selectedCharacter, 'menu-character', busy),
+    );
     if (mapOptions.length)
       updateHtml(el('menu-map-picker'), mapPickerView(mapOptions, selectedMap, 'menu-map', busy));
     return;
@@ -347,13 +399,28 @@ renderer.onCell = (cell, x, y) => {
 };
 el('join-form').addEventListener('submit', (event) => {
   event.preventDefault();
+  if (busy) return;
   const code = el<HTMLInputElement>('invite-input').value.trim().toUpperCase();
   if (!/^[A-F0-9]{6}$/.test(code)) {
     toast('请输入好友的 6 位邀请码');
     return;
   }
   autoStart = false;
-  send({ type: 'join', code, name: el<HTMLInputElement>('nickname').value.trim() || '小猫' });
+  if (!selectedCharacter || !characterLibrary.card(selectedCharacter)) {
+    toast('猫猫还在梳理毛发，请稍候');
+    return;
+  }
+  if (
+    send({
+      type: 'join',
+      code,
+      name: el<HTMLInputElement>('nickname').value.trim() || '小猫',
+      character: selectedCharacter,
+    })
+  ) {
+    busy = true;
+    render();
+  }
 });
 app.addEventListener('click', async (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-do]');
@@ -367,6 +434,13 @@ app.addEventListener('click', async (event) => {
     });
     el('create').innerHTML = (capacity === 1 ? '独自出发' : '创建好友房间') + ' <span>↗</span>';
     el('join-form').classList.toggle('hidden', capacity === 1);
+  } else if (op === 'menu-character' || op === 'select-character') {
+    const selection = { character: button.dataset.character!, skin: button.dataset.skin! };
+    if (op === 'menu-character') {
+      rememberCharacter(selection);
+      render();
+    } else if (!state || characterKey(state.players[state.you].character) !== characterKey(selection))
+      send({ type: 'select_character', character: selection });
   } else if (op === 'menu-map') {
     selectedMap = button.dataset.mapId!;
     render();
@@ -381,6 +455,7 @@ app.addEventListener('click', async (event) => {
         capacity,
         name: el<HTMLInputElement>('nickname').value.trim() || '橘子',
         mapId: selectedMap,
+        character: selectedCharacter!,
       })
     ) {
       busy = true;

@@ -26,6 +26,7 @@ const names = [
   'repair',
   'map_items',
   'map_generation',
+  'characters',
   'cat_ai',
   'manager_ai',
 ];
@@ -288,7 +289,8 @@ try {
     (m) => m.type === 'state' && m.players[0].room === 0 && m.players[1].room === 1,
   );
   assert.equal(claimed.players.length, 6);
-  assert.ok(claimed.dorms.length >= 8 && claimed.dorms.length <= 10);
+  const profile = claimed.catalog.maps.find((map) => map.id === claimed.map.id);
+  assert.ok(claimed.dorms.length >= profile.minRooms && claimed.dorms.length <= profile.maxRooms);
   const mapPeer = await fridgePeer.wait((m) => m.type === 'state' && m.map.seed === claimed.map.seed);
   assert.deepEqual(mapPeer.map, claimed.map);
   assert.deepEqual(
@@ -367,7 +369,8 @@ try {
     !m.players[0].sleeping &&
     m.players[0].destination === -1 &&
     Math.floor(m.players[0].y / m.map.tileSize) * m.map.width +
-      Math.floor(m.players[0].x / m.map.tileSize) === installed.cell;
+      Math.floor(m.players[0].x / m.map.tileSize) ===
+      installed.cell;
   action(fridgeHost, 'move', -1, installed.cell);
   await fridgeHost.wait(onFridgeTile);
   await fridgePeer.wait(onFridgeTile);

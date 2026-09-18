@@ -7,10 +7,10 @@ std::optional<Request> decodeRequest(const Json::Value& value) {
         !value["id"].isUInt() || value["id"].asUInt() == 0 || !value["body"].isObject()) {
         return std::nullopt;
     }
-    static constexpr const char* names[] = {"",      "ping",    "create", "join",   "resume", "ready",     "start",
-                                            "leave", "rematch", "action", "resync", "maps",   "select_map"};
+    static constexpr const char* names[] = {"", "ping", "create", "join", "resume", "ready", "start", "leave",
+                                            "rematch", "action", "resync", "maps", "select_map", "characters", "select_character"};
     const int command = value["cmd"].asInt();
-    if (command < 1 || command > static_cast<int>(Command::SelectMap)) {
+    if (command < 1 || command > static_cast<int>(Command::SelectCharacter)) {
         return std::nullopt;
     }
     auto body = value["body"];
@@ -46,6 +46,8 @@ void send(const drogon::WebSocketConnectionPtr& connection, const Json::Value& v
         command = Notification::Error;
     } else if (type == "maps") {
         command = Notification::Maps;
+    } else if (type == "characters") {
+        command = Notification::Characters;
     } else {
         return;
     }

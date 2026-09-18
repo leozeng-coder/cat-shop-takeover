@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "id": "cat_orange",
+  "palettes": "palettes.json",
+  "frameSize": [320, 320],
+  "anchor": [160, 272],
+  "referenceHeight": 200,
+  "strideWorldUnits": 30,
+  "movementClips": {
+    "left": "move",
+    "right": "move",
+    "up": "move_up",
+    "down": "move_down"
+  },
+  "animations": {
+    "move": {
+      "src": "move.png",
+      "columns": 4,
+      "frameCount": 8,
+      "durationsMs": [100, 100, 100, 100, 100, 100, 100, 100],
+      "loop": true,
+      "facing": "left",
+      "mirrorForRight": true
+    },
+    "move_down": {
+      "src": "move_down.png",
+      "columns": 4,
+      "frameCount": 8,
+      "durationsMs": [100, 100, 100, 100, 100, 100, 100, 100],
+      "loop": true,
+      "facing": "front"
+    },
+    "move_up": {
+      "src": "move_up.png",
+      "columns": 4,
+      "frameCount": 8,
+      "durationsMs": [100, 100, 100, 100, 100, 100, 100, 100],
+      "loop": true,
+      "facing": "back"
+    },
+    "idle": {
+      "src": "idle.png",
+      "columns": 6,
+      "frameCount": 18,
+      "durationsMs": [220, 220, 220, 220, 220, 220, 220, 220, 220, 220, 220, 60, 60, 60, 60, 60, 220, 220],
+      "loop": true,
+      "facing": "front"
+    },
+    "wake": {
+      "src": "wake.png",
+      "columns": 6,
+      "frameCount": 18,
+      "durationsMs": [35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35],
+      "loop": false,
+      "facing": "front"
+    }
+  }
+}

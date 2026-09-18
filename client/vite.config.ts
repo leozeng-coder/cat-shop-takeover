@@ -6,5 +6,5 @@ export default defineConfig({
     strictPort: true,
     proxy: { '/ws': { target: 'ws://127.0.0.1:8787', ws: true }, '/api': 'http://127.0.0.1:8787' },
   },
-  build: { target: 'es2022' },
+  build: { target: 'es2022', rollupOptions: { input: ['index.html', 'preview/index.html'] } },
 });
