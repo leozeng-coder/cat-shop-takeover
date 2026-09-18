@@ -8,9 +8,7 @@
 #include <vector>
 namespace snackshop {
 constexpr int Seats = 6;
-constexpr int MaxRooms = 10;
-constexpr int MapWidth = 44;
-constexpr int MapHeight = 36;
+constexpr int MaxRooms = 16;
 constexpr int TileSize = 32;
 struct Balance {
     double preparation = 30, duration = 300, reconnectGrace = 5;
@@ -98,11 +96,20 @@ struct ManagerAiConfig {
     double retreatHealth = 0, resumeHealth = 0, outOfCombatDelay = 0, outOfCombatHealing = 0;
     double retreatSpeed = 0, repathInterval = 0;
 };
-struct MapGenerationConfig {
+struct MapProfileConfig {
+    std::string id, name, theme;
+    int weight = 1, width = 44, height = 36;
     int minRooms = 8, maxRooms = 10;
     // Footprint bounds include the surrounding walls.
     int minRoomWidth = 8, maxRoomWidth = 11;
     int minRoomHeight = 7, maxRoomHeight = 9;
+    // Area counts usable floor cells; corridor width is the minimum public lane width.
+    int minRoomArea = 18, maxRoomArea = 63;
+    // Complexity: 0 rectangles, 1 adds L/recesses, 2 adds steps/T, 3 adds U shapes.
+    int corridorWidth = 2, bands = 3, complexity = 2;
+};
+struct MapGenerationConfig {
+    std::vector<MapProfileConfig> profiles;
 };
 struct GameConfig {
     std::string version;
@@ -119,6 +126,7 @@ struct GameConfig {
     CatAiConfig catAi;
     ManagerAiConfig managerAi;
     MapGenerationConfig mapGeneration;
+    const MapProfileConfig* mapProfile(const std::string& id) const;
     const CurrencyConfig& currency(const std::string& id) const;
     const DoorConfig& door(int stage) const;
     const NestConfig& nest(int level) const;

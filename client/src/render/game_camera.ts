@@ -10,6 +10,11 @@ interface MapSize {
 type CameraMode = 'follow' | 'free' | 'overview';
 const OUTSIDE_TILES = 4;
 const FOLLOW_FREQUENCY = 12;
+// Visible tiles along the viewport's short edge, as a fraction of the map's short edge.
+const VIEW_RATIOS = {
+  desktop: { initial: 0.3, closest: 0.15 },
+  mobile: { initial: 0.24, closest: 0.12 },
+};
 
 /** Client-only camera, measured in world units and CSS pixels (independent of DPR). */
 export class GameCamera {
@@ -35,6 +40,8 @@ export class GameCamera {
   }
   resize(width: number, height: number) {
     if (width <= 0 || height <= 0) return;
+    const previousShortSide = Math.min(this.width, this.height);
+    if (previousShortSide > 0) this.scale *= Math.min(width, height) / previousShortSide;
     this.width = width;
     this.height = height;
     this.hold();
@@ -129,18 +136,17 @@ export class GameCamera {
     );
   }
   private focusScale() {
-    const compact = this.width <= 760;
-    const shortSide = Math.min(this.width, this.height);
-    const tilePixels = compact
-      ? Math.max(28, Math.min(38, shortSide / 12))
-      : Math.max(36, Math.min(48, shortSide / 18));
-    return Math.max(tilePixels / this.tileSize, this.overviewScale());
+    return this.ratioScale(this.viewRatios().initial);
+  }
+  private viewRatios() {
+    return this.width <= 760 ? VIEW_RATIOS.mobile : VIEW_RATIOS.desktop;
+  }
+  private ratioScale(ratio: number) {
+    const visibleTiles = (Math.min(this.worldWidth, this.worldHeight) / this.tileSize) * ratio;
+    return Math.max(Math.min(this.width, this.height) / (visibleTiles * this.tileSize), this.overviewScale());
   }
   private limitScale(scale: number) {
-    return Math.max(
-      this.overviewScale(),
-      Math.min(Math.max(this.focusScale() * 2, 96 / this.tileSize), scale),
-    );
+    return Math.max(this.overviewScale(), Math.min(this.ratioScale(this.viewRatios().closest), scale));
   }
   private bounded(point: Point) {
     const axis = (value: number, viewport: number, world: number) => {

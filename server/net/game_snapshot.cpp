@@ -41,11 +41,31 @@ Json::Value offer(const std::string& error) {
     return row;
 }
 } // namespace
+Json::Value GameSnapshot::maps(const GameConfig& cfg) {
+    Json::Value rows(Json::arrayValue);
+    for (const auto& profile : cfg.mapGeneration.profiles) {
+        if (profile.weight == 0) {
+            continue;
+        }
+        Json::Value row;
+        row["id"] = profile.id;
+        row["name"] = profile.name;
+        row["theme"] = profile.theme;
+        row["width"] = profile.width;
+        row["height"] = profile.height;
+        row["minRooms"] = profile.minRooms;
+        row["maxRooms"] = profile.maxRooms;
+        row["complexity"] = profile.complexity;
+        rows.append(std::move(row));
+    }
+    return rows;
+}
 Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
     Json::Value value;
     value["type"] = "config";
     value["version"] = cfg.version;
     value["catSpeed"] = cfg.catSpeed;
+    value["maps"] = maps(cfg);
     value["currencies"] = Json::Value(Json::arrayValue);
     for (const auto& c : cfg.currencies) {
         Json::Value row;
@@ -110,14 +130,18 @@ Json::Value GameSnapshot::world(const Game& g) {
     value["capacity"] = g.capacity;
     value["phase"] = g.phase;
     value["host"] = g.host;
+    value["selectedMap"] = g.selectedMap;
     value["elapsed"] = g.elapsed;
     value["duration"] = g.balance.duration;
     value["preparation"] = g.balance.preparation;
     value["minimumHumans"] = g.minimumHumans();
     value["tick"] = Json::UInt64(g.tick);
     auto& map = value["map"];
-    map["width"] = MapWidth;
-    map["height"] = MapHeight;
+    map["id"] = g.map.profileId;
+    map["name"] = g.map.name;
+    map["theme"] = g.map.theme;
+    map["width"] = g.map.width;
+    map["height"] = g.map.height;
     map["tileSize"] = TileSize;
     map["seed"] = g.map.seed;
     map["spawn"] = g.map.spawn;
@@ -147,10 +171,10 @@ Json::Value GameSnapshot::world(const Game& g) {
         j["x"] = p.position.x;
         j["y"] = p.position.y;
         j["repairCooldown"] = std::max(0.0, p.repairAt - g.elapsed);
-        j["destination"] = p.path.empty() ? -1 : GridMap::cellAt(p.path.back());
+        j["destination"] = p.path.empty() ? -1 : g.map.cellAt(p.path.back());
         j["path"] = Json::Value(Json::arrayValue);
         for (const auto& point : p.path) {
-            j["path"].append(GridMap::cellAt(point));
+            j["path"].append(g.map.cellAt(point));
         }
         value["players"].append(j);
     }
@@ -208,7 +232,7 @@ Json::Value GameSnapshot::world(const Game& g) {
     m["state"] = g.monster.state;
     m["path"] = Json::Value(Json::arrayValue);
     for (const auto& point : g.monster.path) {
-        m["path"].append(GridMap::cellAt(point));
+        m["path"].append(g.map.cellAt(point));
     }
     value["notices"] = Json::Value(Json::arrayValue);
     for (const auto& notice : g.notices) {

@@ -2,6 +2,7 @@
 #include "game/logic_economy.h"
 #include "item/logic_item.h"
 #include "test_config.h"
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -80,7 +81,7 @@ Game claimed(std::shared_ptr<const GameConfig> config = testConfig()) {
     cat.sleeping = true;
     game.dorms[0].owner = 0;
     game.dorms[0].props.clear();
-    cat.position = GridMap::center(game.dorms[0].nest);
+    cat.position = game.map.center(game.dorms[0].nest);
     return game;
 }
 int build(Game& game, const std::string& item, int player = 0) {
@@ -108,10 +109,31 @@ void validation() {
     rejects([](auto& d) { d["items"][0]["levels"][2]["appearance"] = "missing_skin"; },
             "unknown level appearance rejected");
     rejects([](auto& d) { d["items"][0]["levels"][2]["name"] = ""; }, "empty level name rejected");
-    rejects([](auto& d) { d["map_generation"]["min_rooms"] = 5; }, "map must offer at least one room per cat");
-    rejects([](auto& d) { d["map_generation"]["max_rooms"] = 11; }, "room count respects the map tile encoding");
-    rejects([](auto& d) { d["map_generation"]["max_rooms"] = 7; }, "room count range cannot be inverted");
-    rejects([](auto& d) { d["map_generation"]["min_room_width"] = 9; }, "minimum room width must fit dense blocks");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["min_rooms"] = 5; },
+            "map must offer at least one room per cat");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["max_rooms"] = MaxRooms + 1; },
+            "room count respects the map tile encoding");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["max_rooms"] = 7; },
+            "room count range cannot be inverted");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["min_room_width"] = 9; },
+            "minimum room width must fit dense blocks");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["width"] = 24; },
+            "map must fit its rooms and public lanes");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["corridor_width"] = 1; }, "spawn needs two street rows");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["min_room_area"] = 64; }, "room area range cannot invert");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["max_room_area"] = 18; },
+            "area must be feasible for every plot");
+    rejects([](auto& d) { d["map_generation"]["profiles"][0]["layout_complexity"] = 4; },
+            "unsupported complexity rejected");
+    rejects([](auto& d) { d["map_generation"]["profiles"].append(d["map_generation"]["profiles"][0]); },
+            "duplicate map ID rejected");
+    rejects(
+        [](auto& d) {
+            for (auto& p : d["map_generation"]["profiles"]) {
+                p["weight"] = 0;
+            }
+        },
+        "need an enabled map");
     rejects([](auto& d) { d["schema_version"] = 2; }, "unsupported schema rejected");
     rejects([](auto& d) { d["extra"] = 1; }, "unknown fields rejected");
     rejects([](auto& d) { d["currencies"].append(d["currencies"][0]); }, "duplicate currencies rejected");
@@ -435,7 +457,7 @@ void newItemsAndLevels() {
     auto battle = claimed(parse(data));
     battle.players[0].wallet["cans"] = 500;
     const int cell = build(battle, "heavy_launcher");
-    battle.monster.position = GridMap::center(cell);
+    battle.monster.position = battle.map.center(cell);
     const double hp = battle.monster.hp;
     LogicItem::updateAttack(battle, .05);
     check(battle.monster.hp == hp - 77, "attack dispatch uses item level amount");
@@ -498,7 +520,7 @@ void uniqueFridgePurchases() {
     game.setConnected(0, true);
     check(!game.itemPurchaseError(0, fridge, 1).empty(), "reconnect cannot reset uniqueness");
     game.players[1].room = 1;
-    game.players[1].position = GridMap::center(game.dorms[1].nest);
+    game.players[1].position = game.map.center(game.dorms[1].nest);
     game.players[1].wallet["cans"] = 10000;
     game.dorms[1].owner = 1;
     game.dorms[1].props.clear();
@@ -579,6 +601,37 @@ void fishRackProduction() {
     check(p.wallet == wallet, "captured owner receives no further income");
 }
 
+void customMapProfiles() {
+    for (int bands : {2, 4}) {
+        auto data = document();
+        auto profile = data["map_generation"]["profiles"][0];
+        profile["width"] = 64;
+        profile["height"] = 52;
+        profile["bands"] = bands;
+        profile["layout_complexity"] = 0;
+        profile["min_room_area"] = 40;
+        profile["max_room_area"] = 42;
+        data["map_generation"]["profiles"] = Json::Value(Json::arrayValue);
+        data["map_generation"]["profiles"].append(profile);
+        auto cfg = parse(data);
+        Game game("CUSTOM", 1, 17, cfg);
+        check(game.map.width == 64 && game.map.height == 52, "custom map dimensions come from the table");
+        const auto street = game.map.distances(game.map.spawn, [&](int cell) { return game.map.tile(cell) == '.'; });
+        for (const auto& room : game.dorms) {
+            check(room.floor.size() >= 40 && room.floor.size() <= 42, "custom area bounds control usable floor cells");
+            check(street[room.entrance] >= 0, "different band counts retain public access to every room");
+            int left = game.map.width, right = 0, top = game.map.height, bottom = 0;
+            for (int cell : room.floor) {
+                left = std::min(left, cell % game.map.width);
+                right = std::max(right, cell % game.map.width);
+                top = std::min(top, cell / game.map.width);
+                bottom = std::max(bottom, cell / game.map.width);
+            }
+            check(room.floor.size() == (right - left + 1) * (bottom - top + 1),
+                  "complexity zero produces rectangular rooms");
+        }
+    }
+}
 void snapshots() {
     const auto filename =
         std::filesystem::temp_directory_path() /
@@ -604,12 +657,17 @@ void snapshots() {
     data["nests"][0]["amount"] = 9;
     data["cat_ai"]["repair_threshold_percent"] = 50;
     data["manager_ai"]["out_of_combat_delay_ms"] = 8000;
+    for (auto& profile : data["map_generation"]["profiles"]) {
+        profile["width"] = profile["width"].asInt() + 4;
+    }
     save();
     std::string error;
     check(store.reload(error) && error.empty(), "complete valid reload accepted");
     const auto after = store.current();
     check(before->version != after->version, "content edits change snapshot identity without manual version bump");
     auto newGame = claimed(after);
+    check(newGame.map.width == oldGame.map.width + 4 && newGame.map.profileId == oldGame.map.profileId,
+          "map table reload affects new matches without resizing an existing map");
     check(oldGame.income(oldGame.players[0]) == 6 && newGame.income(newGame.players[0]) == 9,
           "existing and new games retain independent config snapshots");
     check(oldGame.config().catAi.repairThreshold == .65 && newGame.config().catAi.repairThreshold == .5,
@@ -642,6 +700,7 @@ int main() {
         newItemsAndLevels();
         fishRackProduction();
         uniqueFridgePurchases();
+        customMapProfiles();
         snapshots();
         std::cout << "PASS " << checks << " configuration/economy checks\n";
     } catch (const std::exception& e) {

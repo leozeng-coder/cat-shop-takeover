@@ -1,10 +1,11 @@
-import type { State, Catalog } from '../types';
+import type { State, Catalog, MapOption } from '../types';
 import { COMMANDS, decodeMessage, encodeRequest, type ClientMessage } from './game_protocol';
 import { StateStream } from './state_stream';
 export type { ClientMessage } from './game_protocol';
 
 interface ConnectionCallbacks {
   onState: (state: State) => void;
+  onMaps: (maps: MapOption[]) => void;
   onJoined: (lastSequence: number) => void;
   onStatus: (connected: boolean) => void;
   onError: (message: string) => void;
@@ -111,6 +112,7 @@ export class GameConnection {
           this.ready = true;
           this.reconnectAttempts = 0;
           this.callbacks.onStatus(true);
+          this.send({ type: 'maps' });
           const token = sessionStorage.getItem(this.storageKey);
           if (token) this.send({ type: 'resume', token });
           break;
@@ -123,6 +125,9 @@ export class GameConnection {
           break;
         case 'config':
           this.catalog = body as unknown as Catalog;
+          break;
+        case 'maps':
+          this.callbacks.onMaps(body.maps as MapOption[]);
           break;
         case 'snapshot':
         case 'delta': {

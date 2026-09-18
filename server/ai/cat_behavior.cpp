@@ -71,23 +71,23 @@ Status evade(Context& c) {
         return Status::Running;
     }
     state.repathAt = c.game.elapsed + ai.escapeRepath;
-    const int current = GridMap::cellAt(p.position);
+    const int current = c.game.map.cellAt(p.position);
     const int startingRoom = c.game.map.roomAt(current);
     const double clearance = std::min(GameMath::distance(p.position, c.game.monster.position),
                                       c.game.config().enemy.captureRange + TileSize);
     const auto reachable = c.game.map.distances(current, [&](int cell) {
         return c.game.walkable(cell, p.id, startingRoom) &&
                (cell == current ||
-                GameMath::distance(GridMap::center(cell), c.game.monster.position) + 1e-6 >= clearance);
+                GameMath::distance(c.game.map.center(cell), c.game.monster.position) + 1e-6 >= clearance);
     });
     std::vector<int> cells;
-    for (int cell = 0; cell < MapWidth * MapHeight; ++cell) {
+    for (int cell = 0; cell < c.game.map.width * c.game.map.height; ++cell) {
         if (cell != current && reachable[cell] >= 0) {
             cells.push_back(cell);
         }
     }
     auto score = [&](int cell) {
-        const auto point = GridMap::center(cell);
+        const auto point = c.game.map.center(cell);
         return GameMath::distance(point, c.game.monster.position) - .35 * GameMath::distance(point, p.position);
     };
     const int count = std::min(ai.escapeCandidates, static_cast<int>(cells.size()));
@@ -149,7 +149,8 @@ Status place(Context& c, const ItemConfig& item, bool emergency) {
     auto cells = room.floor;
     const bool attack = item.behavior == ItemBehavior::SingleAttack;
     auto distance = [&](int cell) {
-        return std::abs(cell % MapWidth - room.door % MapWidth) + std::abs(cell / MapWidth - room.door / MapWidth);
+        return std::abs(cell % c.game.map.width - room.door % c.game.map.width) +
+               std::abs(cell / c.game.map.width - room.door / c.game.map.width);
     };
     std::sort(cells.begin(), cells.end(), [&](int a, int b) {
         const int da = distance(a), db = distance(b);
@@ -241,8 +242,8 @@ int CatBehavior::danger(const Game& game, const Player& p) {
     if (game.phase != "running" || m.hp <= 0 || m.state == "retreating" || m.state == "resting") {
         return 0;
     }
-    const int room = game.map.roomAt(GridMap::cellAt(p.position));
-    if (room >= 0 && game.dorms[room].doorClosed() && game.map.roomAt(GridMap::cellAt(m.position)) != room) {
+    const int room = game.map.roomAt(game.map.cellAt(p.position));
+    if (room >= 0 && game.dorms[room].doorClosed() && game.map.roomAt(game.map.cellAt(m.position)) != room) {
         return m.target == room ? 1 : 0;
     }
     return game.isEscaping(p) || m.prey == p.id ||

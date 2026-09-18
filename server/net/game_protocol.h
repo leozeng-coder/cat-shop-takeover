@@ -7,8 +7,21 @@
 namespace snackshop {
 namespace GameProtocol {
 inline constexpr int Version = 2;
-enum class Command : int { Ping = 1, Create, Join, Resume, Ready, Start, Leave, Rematch, Action, Resync };
-enum class Notification : int { Hello = 100, Joined, Config, Snapshot, Delta, Left, Expired, Error };
+enum class Command : int {
+    Ping = 1,
+    Create,
+    Join,
+    Resume,
+    Ready,
+    Start,
+    Leave,
+    Rematch,
+    Action,
+    Resync,
+    Maps,
+    SelectMap
+};
+enum class Notification : int { Hello = 100, Joined, Config, Snapshot, Delta, Left, Expired, Error, Maps };
 struct Request {
     Command command;
     std::uint32_t requestId;

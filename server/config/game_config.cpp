@@ -2,6 +2,11 @@
 #include <algorithm>
 #include <stdexcept>
 namespace snackshop {
+const MapProfileConfig* GameConfig::mapProfile(const std::string& id) const {
+    const auto found = std::find_if(mapGeneration.profiles.begin(), mapGeneration.profiles.end(),
+                                    [&](const auto& p) { return p.id == id && p.weight > 0; });
+    return found == mapGeneration.profiles.end() ? nullptr : &*found;
+}
 std::string DoorConfig::displayName() const {
     return name + " " + std::to_string(displayLevel) + "级";
 }

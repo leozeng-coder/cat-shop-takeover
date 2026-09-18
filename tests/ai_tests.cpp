@@ -44,7 +44,7 @@ Game setup(bool home = true, std::shared_ptr<const GameConfig> config = testConf
         room.props.clear();
         room.level = 3;
         room.hp = 950;
-        p.position = GridMap::center(room.nest);
+        p.position = game.map.center(room.nest);
     }
     return game;
 }
@@ -131,7 +131,7 @@ void movingAndInterrupts() {
     attacked.monster.state = "attacking";
     attacked.monster.target = 0;
     attacked.monster.prey = 0;
-    attacked.monster.position = GridMap::center(attacked.dorms[0].entrance);
+    attacked.monster.position = attacked.map.center(attacked.dorms[0].entrance);
     LogicCatAi::update(attacked, cat);
     check(attacked.dorms[0].hp == 240 && cat.wallet["cans"] == 0 && LogicCatAi::currentAction(cat) == "repair_door",
           "new threat bypasses normal decision delay and uses authoritative repair");
@@ -148,7 +148,7 @@ void movingAndInterrupts() {
               cat.nestIntent == -1 && !cat.path.empty(),
           "door breach interrupts normal work and issues a real escape movement");
     for (const auto& point : cat.path) {
-        check(attacked.walkable(GridMap::cellAt(point), cat.id), "escape never traverses walls or closed doors");
+        check(attacked.walkable(attacked.map.cellAt(point), cat.id), "escape never traverses walls or closed doors");
     }
     check(attacked.dorms[0].hp == 0, "escape does not restore a broken door");
 }
@@ -159,7 +159,7 @@ void invalidTargetAndTimeout() {
     const int old = cat.ai.targetRoom;
     game.dorms[old].owner = 1;
     game.players[1].room = old;
-    game.players[1].position = GridMap::center(game.dorms[old].nest);
+    game.players[1].position = game.map.center(game.dorms[old].nest);
     cat.decisionAt = game.elapsed + 1000;
     LogicCatAi::update(game, cat);
     check(cat.ai.targetRoom != old && cat.nestIntent != old,
@@ -185,7 +185,7 @@ void contestedNestExit() {
     const int target = cat.ai.targetRoom;
     auto& room = game.dorms[target];
     room.props.clear();
-    const auto center = GridMap::center(room.nest);
+    const auto center = game.map.center(room.nest);
     cat.position = {center.x + 12, center.y};
     check(game.command(0, GameAction::EnterNest, target).empty(), "AI maintains its claimed movement intent");
     cat.decisionAt = 1000;
@@ -198,14 +198,14 @@ void contestedNestExit() {
           "human actual arrival closes door before AI leaves");
     check(!cat.ai.active && cat.nestIntent == -1 && cat.path.empty() && cat.room < 0,
           "claim interrupts and clears the losing AI task immediately");
-    check(game.map.roomAt(GridMap::cellAt(cat.position)) == target,
+    check(game.map.roomAt(game.map.cellAt(cat.position)) == target,
           "losing AI remains physically inside the closed room");
     game.step(.05);
     check(cat.ai.active && cat.ai.targetRoom >= 0 && cat.ai.targetRoom != target && !cat.path.empty(),
           "AI selects another available nest next tick without waiting for old deadline");
     for (int i = 0; i < 500 && cat.room < 0; ++i) {
         game.step(.05);
-        check(!game.map.wall(GridMap::cellAt(cat.position)), "retargeted AI never crosses a wall");
+        check(!game.map.wall(game.map.cellAt(cat.position)), "retargeted AI never crosses a wall");
         check(room.doorClosed() && room.owner == 1, "AI exit preserves the human closed door");
     }
     check(cat.room >= 0 && cat.room != target && game.dorms[cat.room].owner == 0,

@@ -100,7 +100,7 @@ void LogicItem::updateAttack(Game& game, double dt) {
             const auto& level = item.levels[prop.level - 1];
             prop.cooldown = std::max(0.0, prop.cooldown - dt);
             if (prop.cooldown > 1e-9 || monster.hp <= 0 ||
-                GameMath::distance(GridMap::center(prop.cell), monster.position) > level.range) {
+                GameMath::distance(game.map.center(prop.cell), monster.position) > level.range) {
                 continue;
             }
             prop.cooldown = level.intervalMs / 1000.0;

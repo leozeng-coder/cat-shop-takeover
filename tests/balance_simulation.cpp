@@ -44,7 +44,8 @@ bool buyItem(Game& g, Player& p, const std::string& kind, int count, int level) 
     }
     auto cells = room.floor;
     const auto distance = [&](int cell) {
-        return std::abs(cell % MapWidth - room.door % MapWidth) + std::abs(cell / MapWidth - room.door / MapWidth);
+        return std::abs(cell % g.map.width - room.door % g.map.width) +
+               std::abs(cell / g.map.width - room.door / g.map.width);
     };
     std::sort(cells.begin(), cells.end(),
               [&](int a, int b) { return distance(a) == distance(b) ? a < b : distance(a) < distance(b); });

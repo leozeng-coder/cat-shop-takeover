@@ -22,6 +22,7 @@ export const APP_SHELL = `
           <button class="mode active" data-do="mode" data-capacity="1" aria-pressed="true"><span class="mode-icon">🐈</span><span><strong>单人模式</strong><small>你 + 5 位 AI 猫猫队友</small></span><b>✓</b></button>
           <button class="mode" data-do="mode" data-capacity="6" aria-pressed="false"><span class="mode-icon">🐾</span><span><strong>多人联机</strong><small>邀请 1–5 位好友，其余自动补齐 AI</small></span><b>↗</b></button>
         </div>
+        <div class="map-picker"><h3>今晚去哪条街？</h3><div id="menu-map-picker"><p class="muted">正在寻找街区…</p></div></div>
         <label class="input-label" for="nickname">你的猫叫什么？</label><input id="nickname" maxlength="16" value="橘子" autocomplete="off" />
         <button id="create" class="primary wide" data-do="create">独自出发 <span>↗</span></button>
         <form id="join-form" class="join-form hidden"><label class="input-label" for="invite-input">已有好友房间？输入邀请码</label><div class="input-row"><input id="invite-input" aria-label="好友邀请码" maxlength="6" placeholder="6 位邀请码" autocomplete="off" /><button class="secondary" type="submit">加入好友</button></div></form>

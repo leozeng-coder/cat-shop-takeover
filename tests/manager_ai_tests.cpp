@@ -50,7 +50,7 @@ void occupy(Game& game, int id, int room) {
     p.alive = true;
     p.room = room;
     p.sleeping = true;
-    p.position = GridMap::center(game.dorms[room].nest);
+    p.position = game.map.center(game.dorms[room].nest);
     game.dorms[room].owner = id;
 }
 int freeCell(const Game& game, int room) {
@@ -90,11 +90,11 @@ void weightedTargets() {
     auto distance = setup(config);
     occupy(distance, 0, 0);
     occupy(distance, 1, 1);
-    distance.monster.position = GridMap::center(distance.dorms[0].entrance);
+    distance.monster.position = distance.map.center(distance.dorms[0].entrance);
     tick(distance);
     check(distance.monster.prey == 0, "manager prefers shorter reachable path, not straight-line distance");
     const auto until = distance.monster.targetHoldUntil;
-    distance.monster.position = GridMap::center(distance.dorms[1].entrance);
+    distance.monster.position = distance.map.center(distance.dorms[1].entrance);
     distance.elapsed += config->managerAi.targetInterval;
     tick(distance);
     check(distance.monster.prey == 0 && distance.elapsed < until, "minimum target hold avoids oscillation");
@@ -122,9 +122,9 @@ void movingPreyChase() {
     auto config = rules();
     auto game = setup(config);
     for (auto& row : game.map.rows) {
-        row.assign(MapWidth, '#');
+        row.assign(game.map.width, '#');
     }
-    const int left = 2, right = MapWidth - 3, top = 2, bottom = MapHeight - 3;
+    const int left = 2, right = game.map.width - 3, top = 2, bottom = game.map.height - 3;
     for (int x = left; x <= right; ++x) {
         game.map.rows[top][x] = game.map.rows[bottom][x] = '.';
     }
@@ -134,11 +134,11 @@ void movingPreyChase() {
     auto& cat = game.players[0];
     cat.alive = true;
     cat.room = -1;
-    cat.position = GridMap::center(top * MapWidth + left + 3);
-    game.monster.position = GridMap::center(top * MapWidth + left);
+    cat.position = game.map.center(top * game.map.width + left + 3);
+    game.monster.position = game.map.center(top * game.map.width + left);
     game.monster.level = 4;
-    const std::array<int, 4> corners{top * MapWidth + right, bottom * MapWidth + right, bottom * MapWidth + left,
-                                     top * MapWidth + left};
+    const std::array<int, 4> corners{top * game.map.width + right, bottom * game.map.width + right,
+                                     bottom * game.map.width + left, top * game.map.width + left};
     std::size_t corner = 0;
     for (int frame = 0; frame < 160 && cat.alive; ++frame) {
         if (cat.path.empty()) {
@@ -147,7 +147,7 @@ void movingPreyChase() {
         }
         game.moveAlong(cat.position, cat.path, config->catSpeed * .05, cat.id);
         tick(game);
-        check(!game.map.wall(GridMap::cellAt(game.monster.position)), "chasing respects the corridor walls");
+        check(!game.map.wall(game.map.cellAt(game.monster.position)), "chasing respects the corridor walls");
     }
     check(!cat.alive, "level-four manager catches a moving cat despite frequent target cell changes");
 }
@@ -158,7 +158,7 @@ void retreatAndDefeat() {
     occupy(low, 0, 0);
     auto& m = low.monster;
     m.hp = m.maxHp * .2;
-    m.position = GridMap::center(low.dorms[0].entrance);
+    m.position = low.map.center(low.dorms[0].entrance);
     m.attackingPlayer = 0;
     m.prey = 0;
     const auto wallet = low.players[0].wallet;
@@ -175,7 +175,7 @@ void retreatAndDefeat() {
         tick(low);
     }
     check(m.state == "resting", "manager physically reaches home before resting");
-    check(low.map.roomAt(GridMap::cellAt(m.position)) < 0, "home is on the street");
+    check(low.map.roomAt(low.map.cellAt(m.position)) < 0, "home is on the street");
     m.hp = 0;
     const double restUntil = m.restUntil;
     tick(low);
@@ -189,7 +189,7 @@ void retreatAndDefeat() {
     auto defeated = setup(config);
     occupy(defeated, 0, 0);
     auto& d = defeated.monster;
-    d.position = GridMap::center(defeated.dorms[0].entrance);
+    d.position = defeated.map.center(defeated.dorms[0].entrance);
     d.hp = 0;
     const int cans = defeated.players[0].wallet["cans"];
     tick(defeated);
@@ -214,7 +214,7 @@ void fridgeDoorDefense() {
         auto game = setup(rules());
         occupy(game, 0, 0);
         game.dorms[0].props.push_back({freeCell(game, 0), "mini_fridge", level});
-        game.monster.position = GridMap::center(game.dorms[0].entrance);
+        game.monster.position = game.map.center(game.dorms[0].entrance);
         game.monster.prey = 0;
         game.monster.targetDecisionAt = 1000;
         return game;
@@ -260,7 +260,7 @@ void fridgeDoorDefense() {
           "reconnect retains active delay and pulse cooldown");
     occupy(game, 1, 1);
     game.monster.prey = 1;
-    game.monster.position = GridMap::center(game.dorms[1].entrance);
+    game.monster.position = game.map.center(game.dorms[1].entrance);
     game.monster.attackCooldown = 0;
     tick(game);
     check(game.monster.attackingPlayer == 1 && game.monster.doorHits == 1 && game.dorms[1].attackDelayUntil == 0 &&
@@ -291,7 +291,7 @@ void fridgeDoorDefense() {
     check(!LogicCombat::hitDoor(broken, 0) && broken.dorms[0].doorDefenseReadyAt == 0,
           "broken doors cannot receive fridge protection");
     auto distant = make(5);
-    distant.monster.position = GridMap::center(distant.map.spawn);
+    distant.monster.position = distant.map.center(distant.map.spawn);
     check(!LogicCombat::hitDoor(distant, 0) && distant.dorms[0].doorDefenseReadyAt == 0,
           "fridge cannot remotely delay a manager on the street");
     auto waiting = make(5);
@@ -306,7 +306,7 @@ void fridgeDoorDefense() {
     customRules->items.emplace(item.id, item);
     auto custom = setup(customRules);
     occupy(custom, 0, 0);
-    custom.monster.position = GridMap::center(custom.dorms[0].entrance);
+    custom.monster.position = custom.map.center(custom.dorms[0].entrance);
     custom.dorms[0].props.push_back({freeCell(custom, 0), "other_freezer", 1});
     LogicCombat::hitDoor(custom, 0);
     check(std::abs(custom.dorms[0].attackDelayUntil - custom.elapsed - .35) < 1e-9 &&
@@ -339,7 +339,7 @@ void outOfCombatRecovery() {
     occupy(game, 0, 0);
     const int weaponCell = freeCell(game, 0);
     game.dorms[0].props.push_back({weaponCell, "launcher"});
-    m.position = GridMap::center(weaponCell);
+    m.position = game.map.center(weaponCell);
     LogicItem::updateAttack(game, .05);
     check(m.lastCombatAt == game.elapsed, "an actual incoming hit resets combat time");
     game.dorms[0].props.clear();

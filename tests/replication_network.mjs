@@ -66,11 +66,12 @@ class Client {
   async ready() {
     await this.until(() => this.messages.some((m) => m.type === 'hello'));
   }
-  async request(message) {
+  async request(message, expectError = false) {
     const id = this.send(message);
     await this.until(() => this.messages.some((m) => m.requestId === id));
     const reply = this.messages.find((m) => m.requestId === id);
-    assert.notEqual(reply.type, 'error', reply.message);
+    if (expectError) assert.equal(reply.type, 'error');
+    else assert.notEqual(reply.type, 'error', reply.message);
     return reply;
   }
   frames(type) {
@@ -141,11 +142,45 @@ try {
   await resumed.request({ type: 'resume', token });
   assert.equal(resumed.state.you, 2);
   assert.equal(resumed.state.code, host.state.code);
+  assert.deepEqual(
+    resumed.state.map,
+    host.state.map,
+    'reconnect retains the authoritative map profile and geometry',
+  );
   assert.equal(resumed.frames('snapshot').length, 1);
   assert.equal(resumed.frames('config').length, 1);
   const resumedTick = resumed.state.tick;
   await resumed.until(() => resumed.state.tick > resumedTick);
   console.log('PASS missing revision detection, peer-only rebase and session resume followed by deltas');
+
+  const choice = new Client();
+  await choice.ready();
+  await choice.request({ type: 'maps' });
+  const maps = choice.messages.find((m) => m.type === 'maps').maps;
+  assert.ok(maps.length >= 2);
+  await choice.request({ type: 'create', capacity: 6, name: 'Map host', mapId: 'missing_map' }, true);
+  await choice.request({ type: 'create', capacity: 6, name: 'Map host', mapId: maps[0].id });
+  assert.equal(choice.state.map.id, maps[0].id);
+  assert.equal(choice.state.map.theme, maps[0].theme);
+  const guest = new Client();
+  await guest.ready();
+  await guest.request({ type: 'join', code: choice.joined.code, name: 'Map friend' });
+  const oldSeed = guest.state.map.seed;
+  await guest.request({ type: 'ready', ready: true, mapSeed: oldSeed });
+  await guest.request({ type: 'select_map', mapId: maps[1].id }, true);
+  await choice.request({ type: 'select_map', mapId: maps[1].id });
+  await guest.until(() => guest.state.map.id === maps[1].id);
+  assert.deepEqual(choice.state.map, guest.state.map);
+  assert.equal(guest.state.players[1].ready, false);
+  assert.equal(choice.state.map.width, maps[1].width);
+  await guest.request({ type: 'ready', ready: true, mapSeed: oldSeed }, true);
+  await choice.request({ type: 'start', mapSeed: oldSeed }, true);
+  await guest.request({ type: 'ready', ready: true, mapSeed: guest.state.map.seed });
+  await choice.request({ type: 'start', mapSeed: choice.state.map.seed });
+  await choice.request({ type: 'select_map', mapId: maps[0].id }, true);
+  console.log(
+    'PASS map list, explicit selection, host-only changes, peer map agreement and stale readiness rejection',
+  );
 
   const solo = new Client();
   await solo.ready();

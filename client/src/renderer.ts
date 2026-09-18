@@ -109,6 +109,8 @@ export class Renderer {
     const previous = this.state;
     const newMap =
       state?.map.seed !== previous?.map.seed ||
+      state?.map.id !== previous?.map.id ||
+      state?.map.theme !== previous?.map.theme ||
       state?.code !== previous?.code ||
       state?.you !== previous?.you;
     this.state = state;
@@ -119,7 +121,7 @@ export class Renderer {
       this.press = null;
       if (state) {
         this.camera.reset(state.map, state.players[state.you]);
-        this.theme.select(state.map.seed);
+        this.theme.select(state.map.theme);
       }
       this.onCamera();
     }

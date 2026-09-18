@@ -42,7 +42,7 @@ int main() {
         burst.start(0);
         burst.phase = "running";
         burst.elapsed = 40;
-        burst.monster.position = GridMap::center(burst.map.spawn + 2);
+        burst.monster.position = burst.map.center(burst.map.spawn + 2);
         burst.monster.state = "chasing";
         burst.monster.prey = 0;
         for (auto& p : burst.players) {
@@ -61,7 +61,7 @@ int main() {
     commands.reserve(500);
     for (int i = 0; i < 500; ++i) {
         auto start = Clock::now();
-        g.command(0, GameAction::Move, -1, i % 2 ? MapWidth + 1 : MapWidth + MapWidth - 2);
+        g.command(0, GameAction::Move, -1, i % 2 ? g.map.width + 1 : g.map.width + g.map.width - 2);
         commands.push_back(std::chrono::duration<double, std::milli>(Clock::now() - start).count());
     }
     std::sort(commands.begin(), commands.end());

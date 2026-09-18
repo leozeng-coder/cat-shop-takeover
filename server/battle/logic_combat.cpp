@@ -16,7 +16,7 @@ bool LogicCombat::hitDoor(Game& game, int id) {
     }
     auto& room = game.dorms[id];
     auto& monster = game.monster;
-    if (!room.doorClosed() || GameMath::distance(monster.position, GridMap::center(room.entrance)) >= 2) {
+    if (!room.doorClosed() || GameMath::distance(monster.position, game.map.center(room.entrance)) >= 2) {
         return false;
     }
     LogicItem::updateDoorDefense(game, room);
@@ -55,8 +55,8 @@ bool LogicCombat::catInRange(const Game& game, int id) {
     }
     const auto& cat = game.players[id];
     const auto& monster = game.monster;
-    const int from = GridMap::cellAt(monster.position), to = GridMap::cellAt(cat.position);
-    if (!cat.alive || !GridMap::valid(from) || !game.walkable(to) ||
+    const int from = game.map.cellAt(monster.position), to = game.map.cellAt(cat.position);
+    if (!cat.alive || !game.map.valid(from) || !game.walkable(to) ||
         GameMath::distance(monster.position, cat.position) >= game.config().enemy.captureRange) {
         return false;
     }

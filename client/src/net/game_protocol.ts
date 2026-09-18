@@ -11,15 +11,29 @@ export const COMMANDS = {
   rematch: 8,
   action: 9,
   resync: 10,
+  maps: 11,
+  select_map: 12,
 } as const;
-const NOTIFICATIONS = ['hello', 'joined', 'config', 'snapshot', 'delta', 'left', 'expired', 'error'] as const;
+const NOTIFICATIONS = [
+  'hello',
+  'joined',
+  'config',
+  'snapshot',
+  'delta',
+  'left',
+  'expired',
+  'error',
+  'maps',
+] as const;
 
 export type ClientMessage =
-  | { type: 'create'; capacity: number; name: string }
+  | { type: 'create'; capacity: number; name: string; mapId?: string }
   | { type: 'join'; code: string; name: string }
   | { type: 'resume'; token: string }
-  | { type: 'ready'; ready: boolean }
-  | { type: 'start' | 'leave' | 'rematch' | 'ping' | 'resync' }
+  | { type: 'ready'; ready: boolean; mapSeed?: number }
+  | { type: 'start'; mapSeed?: number }
+  | { type: 'select_map'; mapId: string }
+  | { type: 'leave' | 'rematch' | 'ping' | 'resync' | 'maps' }
   | {
       type: 'action';
       action: 'move' | 'nest' | 'bed' | 'door' | 'build' | 'repair';

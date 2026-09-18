@@ -2,11 +2,12 @@ import './style.css';
 import { APP_SHELL } from './ui/shell';
 import { updateHtml } from './ui/dom_patch';
 import { lobbyView } from './ui/lobby';
+import { mapPickerView } from './ui/map_picker';
 import { gridMenuView, ITEM_CATEGORIES, type ItemCategory } from './ui/grid_menu';
 import { combatStatusView } from './ui/combat_status';
 import { ManagerAnnouncement } from './ui/manager_announcement';
 import { clock, escapeHtml } from './ui/format';
-import { roomAt, type State } from './types';
+import { roomAt, type State, type MapOption } from './types';
 import { Renderer } from './renderer';
 import { GameConnection, type ClientMessage } from './net/game_connection';
 
@@ -21,6 +22,8 @@ let state: State | null = null,
   busy = false,
   autoStart = false;
 let itemCategory: ItemCategory = 'attack';
+let mapOptions: MapOption[] = [];
+let selectedMap = '';
 let dismissedPanelOnPress = false;
 let combatExpanded = false;
 let selected = -1,
@@ -106,10 +109,16 @@ function clearSession() {
   loadingScheduled = false;
   el('loading').classList.add('hidden');
   renderer.setState(null);
+  if (connection.isConnected()) connection.send({ type: 'maps' });
   closeGrid();
   render();
 }
 const connection = new GameConnection({
+  onMaps(maps) {
+    mapOptions = maps;
+    if (!maps.some((map) => map.id === selectedMap)) selectedMap = '';
+    render();
+  },
   onJoined(lastSequence) {
     sequence = lastSequence;
     busy = false;
@@ -146,10 +155,16 @@ const connection = new GameConnection({
     if (autoStart && next.phase === 'lobby' && next.capacity === 1) {
       autoStart = false;
       const code = next.code;
+      const mapSeed = next.map.seed;
       const generation = loadGeneration;
       void renderer.ready.then(() => {
-        if (state?.code === code && state.phase === 'lobby' && generation === loadGeneration)
-          send({ type: 'start' });
+        if (
+          state?.code === code &&
+          state.phase === 'lobby' &&
+          state.map.seed === mapSeed &&
+          generation === loadGeneration
+        )
+          send({ type: 'start', mapSeed });
       });
     }
   },
@@ -199,8 +214,12 @@ function render() {
   el('menu-screen').classList.toggle('hidden', !!state);
   el('lobby-screen').classList.toggle('hidden', !lobby);
   el('game-screen').classList.toggle('hidden', !state || !!lobby);
-  el<HTMLButtonElement>('create').disabled = busy || !connection.isConnected();
-  if (!state) return;
+  el<HTMLButtonElement>('create').disabled = busy || !connection.isConnected() || !mapOptions.length;
+  if (!state) {
+    if (mapOptions.length)
+      updateHtml(el('menu-map-picker'), mapPickerView(mapOptions, selectedMap, 'menu-map', busy));
+    return;
+  }
   const g = state,
     me = g.players[g.you];
   if (lobby) {
@@ -211,7 +230,8 @@ function render() {
     finished = g.phase === 'won' || g.phase === 'lost';
   el('game-screen').classList.toggle('danger', !night);
   el('room-name').textContent =
-    '午夜猫街 · ' +
+    g.map.name +
+    ' · ' +
     g.players.filter((p) => p.human).length +
     ' 位真人 + ' +
     g.players.filter((p) => !p.human).length +
@@ -347,23 +367,38 @@ app.addEventListener('click', async (event) => {
     });
     el('create').innerHTML = (capacity === 1 ? '独自出发' : '创建好友房间') + ' <span>↗</span>';
     el('join-form').classList.toggle('hidden', capacity === 1);
+  } else if (op === 'menu-map') {
+    selectedMap = button.dataset.mapId!;
+    render();
+  } else if (op === 'select-map') {
+    send({ type: 'select_map', mapId: button.dataset.mapId! });
   } else if (op === 'create') {
     autoStart = capacity === 1;
     if (capacity === 1) beginLoading();
-    if (send({ type: 'create', capacity, name: el<HTMLInputElement>('nickname').value.trim() || '橘子' })) {
+    if (
+      send({
+        type: 'create',
+        capacity,
+        name: el<HTMLInputElement>('nickname').value.trim() || '橘子',
+        mapId: selectedMap,
+      })
+    ) {
       busy = true;
       render();
     }
   } else if (op === 'start') {
     beginLoading();
     const code = state?.code;
+    const mapSeed = state?.map.seed;
     await renderer.ready;
-    if (state?.code === code && state?.phase === 'lobby') send({ type: 'start' });
+    if (state?.code === code && state?.phase === 'lobby' && state.map.seed === mapSeed)
+      send({ type: 'start', mapSeed });
   } else if (op === 'ready' && state) {
     const code = state.code;
+    const mapSeed = state.map.seed;
     await renderer.ready;
-    if (state?.code === code && state.phase === 'lobby')
-      send({ type: 'ready', ready: !state.players[state.you].ready });
+    if (state?.code === code && state.phase === 'lobby' && state.map.seed === mapSeed)
+      send({ type: 'ready', ready: !state.players[state.you].ready, mapSeed });
   } else if (op === 'leave') {
     if (connection.isConnected()) send({ type: 'leave' });
     else clearSession();

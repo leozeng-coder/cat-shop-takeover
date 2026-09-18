@@ -1,4 +1,5 @@
 #include "config_loader.h"
+#include "map/map_layout.h"
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -109,11 +110,13 @@ Requirements requirements(const JsonValue& v, const GameConfig& cfg, const std::
     }
     return result;
 }
-LevelConfig level(const JsonValue& row, const GameConfig& cfg, const std::string& at, int ordinal, int count, int nestCount, bool isNest = false) {
+LevelConfig level(const JsonValue& row, const GameConfig& cfg, const std::string& at, int ordinal, int count,
+                  int nestCount, bool isNest = false) {
     if (isNest) {
         object(row, at, {"level", "next_level", "cost", "conditions", "amount", "interval_ms", "range", "currency"});
     } else {
-        object(row, at, {"level", "next_level", "cost", "conditions", "amount", "interval_ms", "range", "name", "appearance"});
+        object(row, at,
+               {"level", "next_level", "cost", "conditions", "amount", "interval_ms", "range", "name", "appearance"});
     }
     LevelConfig result;
     result.level = integer(row["level"], at + ".level", ordinal, ordinal);
@@ -195,15 +198,48 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         fail("currencies", "missing primary currency cans");
     }
     const auto& map = root["map_generation"];
-    object(map, "map_generation",
-           {"min_rooms", "max_rooms", "min_room_width", "max_room_width", "min_room_height", "max_room_height"});
-    auto& layout = cfg->mapGeneration;
-    layout.minRooms = integer(map["min_rooms"], "map_generation.min_rooms", Seats, MaxRooms);
-    layout.maxRooms = integer(map["max_rooms"], "map_generation.max_rooms", layout.minRooms, MaxRooms);
-    layout.minRoomWidth = integer(map["min_room_width"], "map_generation.min_room_width", 7, 8);
-    layout.maxRoomWidth = integer(map["max_room_width"], "map_generation.max_room_width", layout.minRoomWidth, 12);
-    layout.minRoomHeight = integer(map["min_room_height"], "map_generation.min_room_height", 7, 8);
-    layout.maxRoomHeight = integer(map["max_room_height"], "map_generation.max_room_height", layout.minRoomHeight, 10);
+    object(map, "map_generation", {"profiles"});
+    ids.clear();
+    int mapWeight = 0;
+    for (const auto& row : array(map["profiles"], "map_generation.profiles", 1, 32)) {
+        const auto at = "map_generation." + id(row["id"], "map_generation.id");
+        object(row, at,
+               {"id", "name", "theme", "weight", "width", "height", "min_rooms", "max_rooms", "min_room_width",
+                "max_room_width", "min_room_height", "max_room_height", "min_room_area", "max_room_area",
+                "corridor_width", "bands", "layout_complexity"});
+        MapProfileConfig layout;
+        layout.id = id(row["id"], at + ".id");
+        if (!ids.insert(layout.id).second) {
+            fail(at, "duplicate map ID");
+        }
+        layout.name = string(row["name"], at + ".name");
+        layout.theme = id(row["theme"], at + ".theme");
+        layout.weight = integer(row["weight"], at + ".weight", 0, 1000);
+        mapWeight += layout.weight;
+        layout.width = integer(row["width"], at + ".width", 24, 96);
+        layout.height = integer(row["height"], at + ".height", 24, 96);
+        layout.minRooms = integer(row["min_rooms"], at + ".min_rooms", Seats, MaxRooms);
+        layout.maxRooms = integer(row["max_rooms"], at + ".max_rooms", layout.minRooms, MaxRooms);
+        layout.minRoomWidth = integer(row["min_room_width"], at + ".min_room_width", 7, 24);
+        layout.maxRoomWidth = integer(row["max_room_width"], at + ".max_room_width", layout.minRoomWidth, 24);
+        layout.minRoomHeight = integer(row["min_room_height"], at + ".min_room_height", 7, 24);
+        layout.maxRoomHeight = integer(row["max_room_height"], at + ".max_room_height", layout.minRoomHeight, 24);
+        layout.minRoomArea = integer(row["min_room_area"], at + ".min_room_area", 12, 484);
+        layout.maxRoomArea = integer(row["max_room_area"], at + ".max_room_area", layout.minRoomArea, 484);
+        layout.corridorWidth = integer(row["corridor_width"], at + ".corridor_width", 2, 8);
+        layout.bands = integer(row["bands"], at + ".bands", 2, 4);
+        layout.complexity = integer(row["layout_complexity"], at + ".layout_complexity", 0, 3);
+        const int columns = (layout.maxRooms + layout.bands - 1) / layout.bands;
+        const int plotWidth = (layout.width - 2 - (columns + 1) * layout.corridorWidth) / columns;
+        const int plotHeight = (layout.height - 2 - (layout.bands + 1) * layout.corridorWidth) / layout.bands;
+        if (roomFootprints(layout, plotWidth, plotHeight).empty()) {
+            fail(at, "map size, room bounds/area and corridors cannot fit the maximum room count");
+        }
+        cfg->mapGeneration.profiles.push_back(std::move(layout));
+    }
+    if (mapWeight == 0) {
+        fail("map_generation", "at least one map must have a positive weight");
+    }
     const auto& match = root["match"];
     object(match, "match", {"preparation_ms", "duration_ms", "reconnect_grace_ms", "cat_speed"});
     cfg->balance.preparation = integer(match["preparation_ms"], "match.preparation_ms", 0, 3600000) / 1000.0;

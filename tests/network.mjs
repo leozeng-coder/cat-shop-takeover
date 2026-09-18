@@ -134,8 +134,9 @@ try {
       initial.players.every((p) => !('hp' in p) && !('maxHp' in p)),
       'cats have no health field',
     );
-    assert.equal(initial.map.rows.length, 36);
-    assert.equal(initial.map.rows[0].length, 44);
+    assert.equal(initial.map.rows.length, initial.map.height);
+    assert.ok(initial.map.rows.every((row) => row.length === initial.map.width));
+    assert.ok(initial.map.id && initial.map.name && initial.map.theme);
     assert.equal(initial.players[0].wallet.dried_fish, 0);
     assert.equal(initial.catalog.items.pantry.behavior, 'currency_producer');
     assert.equal(initial.catalog.items.launcher.behavior, 'single_attack');
@@ -144,7 +145,10 @@ try {
     for (const room of initial.dorms) {
       assert.ok(room.props.length >= 1 && room.props.length <= 2);
       assert.equal(room.closed, false);
-      assert.equal(initial.map.rows[Math.floor(room.nest / 44)][room.nest % 44], String(room.id));
+      assert.equal(
+        initial.map.rows[Math.floor(room.nest / initial.map.width)][room.nest % initial.map.width],
+        String(room.id),
+      );
       assert.ok(room.props.every((p) => p.cell !== room.nest));
     }
     const party = [host];
@@ -209,7 +213,7 @@ try {
       room: 0,
       cell: Number(
         affordable.map.rows
-          .flatMap((row, y) => [...row].map((t, x) => (t === '0' ? y * 44 + x : -1)))
+          .flatMap((row, y) => [...row].map((t, x) => (t === '0' ? y * affordable.map.width + x : -1)))
           .find((c) => c >= 0 && c !== affordable.dorms[0].nest),
       ),
       seq: ++host.sequence,

@@ -53,7 +53,7 @@ Status returnHome(Context& c) {
     }
     const double speed = LogicProgression::stats(m, c.game.config().enemy).speed * ai.retreatSpeed;
     c.game.moveAlong(m.position, m.path, speed * c.dt);
-    if (GameMath::distance(m.position, GridMap::center(c.game.map.shopkeeperSpawn)) < 2) {
+    if (GameMath::distance(m.position, c.game.map.center(c.game.map.shopkeeperSpawn)) < 2) {
         m.state = "resting";
         m.restUntil = c.game.elapsed + c.game.config().enemy.restDuration;
         m.path.clear();
@@ -75,8 +75,8 @@ Status rest(Context& c) {
     return Status::Running;
 }
 int destinationFor(const Game& game, const Player& cat) {
-    const int cell = GridMap::cellAt(cat.position), room = game.map.roomAt(cell);
-    return room >= 0 && game.dorms[room].doorClosed() && game.map.roomAt(GridMap::cellAt(game.monster.position)) != room
+    const int cell = game.map.cellAt(cat.position), room = game.map.roomAt(cell);
+    return room >= 0 && game.dorms[room].doorClosed() && game.map.roomAt(game.map.cellAt(game.monster.position)) != room
                ? game.dorms[room].entrance
                : cell;
 }
@@ -105,7 +105,7 @@ bool selectTarget(Context& c) {
         if (route.empty()) {
             continue;
         }
-        const int roomId = c.game.map.roomAt(GridMap::cellAt(cat.position));
+        const int roomId = c.game.map.roomAt(c.game.map.cellAt(cat.position));
         int attacks = 0;
         double doorHealth = 0;
         if (roomId >= 0) {
@@ -149,7 +149,7 @@ Status hunt(Context& c) {
         return Status::Failure;
     }
     auto& prey = c.game.players[m.prey];
-    const int cell = GridMap::cellAt(prey.position), roomId = c.game.map.roomAt(cell);
+    const int cell = c.game.map.cellAt(prey.position), roomId = c.game.map.roomAt(cell);
     const int destination = destinationFor(c.game, prey);
     const bool locked =
         roomId >= 0 && destination == c.game.dorms[roomId].entrance && c.game.dorms[roomId].doorClosed();
@@ -158,7 +158,7 @@ Status hunt(Context& c) {
         // Finish the current grid segment before rerouting to a moving cat.
         // Recentring on every prey cell change can otherwise erase the speed advantage.
         Point origin = m.position;
-        if (!m.path.empty() && c.game.walkable(GridMap::cellAt(m.path.front()))) {
+        if (!m.path.empty() && c.game.walkable(c.game.map.cellAt(m.path.front()))) {
             origin = m.path.front();
         }
         m.path = c.game.pathTo(origin, destination);
@@ -172,7 +172,7 @@ Status hunt(Context& c) {
         }
     }
     int attacked = -1;
-    if (locked && GameMath::distance(m.position, GridMap::center(destination)) < 2) {
+    if (locked && GameMath::distance(m.position, c.game.map.center(destination)) < 2) {
         attacked = c.game.dorms[roomId].owner;
         m.state = "attacking";
         LogicCombat::hitDoor(c.game, roomId);

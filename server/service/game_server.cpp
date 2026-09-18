@@ -112,6 +112,13 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
     if (kind == "ping") {
         return {};
     }
+    if (kind == "maps") {
+        Json::Value value;
+        value["type"] = "maps";
+        value["maps"] = GameSnapshot::maps(*latestConfig());
+        GameProtocol::send(connection, value);
+        return {};
+    }
     if (kind == "create" || kind == "join" || kind == "resume") {
         if (connected != m_connections.end()) {
             return "请先离开当前对局";
@@ -145,7 +152,12 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
                 std::transform(code.begin(), code.end(), code.begin(),
                                [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
             } while (m_matches.contains(code));
-            game = std::make_shared<Game>(code, capacity, std::random_device{}(), latestConfig());
+            const auto config = latestConfig();
+            const auto mapId = GameProtocol::stringField(msg, "mapId");
+            if ((msg.isMember("mapId") && !msg["mapId"].isString()) || (!mapId.empty() && !config->mapProfile(mapId))) {
+                return "地图不存在或暂未开放";
+            }
+            game = std::make_shared<Game>(code, capacity, std::random_device{}(), config, mapId);
             m_matches.emplace(code, Match{game});
         } else {
             std::string code = GameProtocol::stringField(msg, "code");
@@ -199,7 +211,13 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
         GameProtocol::send(connection, left);
         return {};
     }
-    if (kind == "ready") {
+    if ((kind == "ready" || kind == "start") && msg.isMember("mapSeed") &&
+        (!msg["mapSeed"].isUInt() || msg["mapSeed"].asUInt() != game.map.seed)) {
+        return "地图已更换，请重新准备";
+    }
+    if (kind == "select_map") {
+        failure = msg["mapId"].isString() ? game.selectMap(session->seat, msg["mapId"].asString()) : "地图选择无效";
+    } else if (kind == "ready") {
         if (!msg["ready"].isBool()) {
             failure = "准备状态无效";
         } else {

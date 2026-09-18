@@ -9,17 +9,18 @@
 #include <limits>
 #include <utility>
 namespace snackshop {
-Game::Game(std::string value, int size, std::uint32_t seed, std::shared_ptr<const GameConfig> rules)
-    : code(std::move(value)), capacity(size), balance(rules->balance), m_config(std::move(rules)), m_random(seed) {
-    map.generate(seed, dorms, config());
+Game::Game(std::string value, int size, std::uint32_t seed, std::shared_ptr<const GameConfig> rules, std::string mapId)
+    : code(std::move(value)), selectedMap(std::move(mapId)), capacity(size), balance(rules->balance),
+      m_config(std::move(rules)), m_random(seed) {
+    map.generate(seed, dorms, config(), selectedMap);
     monster.hp = monster.maxHp = config().enemy.levels.front().maxHp;
-    monster.position = GridMap::center(map.shopkeeperSpawn);
+    monster.position = map.center(map.shopkeeperSpawn);
     for (int i = 0; i < Seats; ++i) {
         LogicEconomy::initialize(players[i], config());
         players[i].id = i;
         players[i].name = "猫队员 " + std::to_string(i + 1);
         players[i].personality = i % static_cast<int>(config().catAi.profiles.size());
-        players[i].position = GridMap::center(map.spawn + (i % 3) - 1 + (i / 3) * MapWidth);
+        players[i].position = map.center(map.spawn + (i % 3) - 1 + (i / 3) * map.width);
     }
 }
 int Game::humanCount() const {
@@ -92,6 +93,24 @@ std::string Game::setReady(int id, bool ready) {
     players[id].ready = ready;
     return {};
 }
+std::string Game::selectMap(int id, const std::string& mapId) {
+    if (id != host || !validPlayer(id)) {
+        return "只有房主可以选择地图";
+    }
+    if (phase != "lobby") {
+        return "开局后不能更换地图";
+    }
+    if (!mapId.empty() && !config().mapProfile(mapId)) {
+        return "地图不存在或暂未开放";
+    }
+    if (selectedMap == mapId) {
+        return {};
+    }
+    selectedMap = mapId;
+    resetBoard();
+    notify("房主选择了" + map.name + "，请重新准备");
+    return {};
+}
 std::string Game::start(int id) {
     if (id != host || !validPlayer(id)) {
         return "只有房主可以开始";
@@ -123,6 +142,9 @@ std::string Game::rematch(int id, std::shared_ptr<const GameConfig> nextConfig) 
     if (nextConfig) {
         m_config = std::move(nextConfig);
         balance = config().balance;
+        if (!selectedMap.empty() && !config().mapProfile(selectedMap)) {
+            selectedMap.clear();
+        }
     }
     resetBoard();
     return {};
@@ -132,10 +154,10 @@ void Game::resetBoard() {
     tick = 0;
     notices.clear();
     phase = "lobby";
-    map.generate(m_random(), dorms, config());
+    map.generate(m_random(), dorms, config(), selectedMap);
     monster = Monster{};
     monster.hp = monster.maxHp = config().enemy.levels.front().maxHp;
-    monster.position = GridMap::center(map.shopkeeperSpawn);
+    monster.position = map.center(map.shopkeeperSpawn);
     for (int i = 0; i < Seats; ++i) {
         const auto old = players[i];
         auto& p = players[i];
@@ -147,7 +169,7 @@ void Game::resetBoard() {
         p.connected = old.connected;
         p.ready = !p.human || i == host;
         p.personality = i % static_cast<int>(config().catAi.profiles.size());
-        p.position = GridMap::center(map.spawn + i % 3 - 1 + (i / 3) * MapWidth);
+        p.position = map.center(map.spawn + i % 3 - 1 + (i / 3) * map.width);
     }
     notify("新街区已经准备好，猫店形状和物资都变了");
 }
@@ -197,14 +219,14 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
             }
             if (p.room < 0) {
                 // A movement intent never reserves an unclaimed nest or blocks another cat.
-                if (phase == "running" && map.roomAt(GridMap::cellAt(monster.position)) == targetRoom) {
+                if (phase == "running" && map.roomAt(map.cellAt(monster.position)) == targetRoom) {
                     return "店长已经进店，请先寻找安全的猫店";
                 }
             }
             cell = dorms[targetRoom].nest;
             intent = targetRoom;
         }
-        if (!GridMap::valid(cell)) {
+        if (!map.valid(cell)) {
             return "请选择地图内的格子";
         }
         auto route = pathTo(p.position, cell, id);
@@ -240,7 +262,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
         room.level = next.stage;
         room.hp += next.health - previous.health;
     } else if (action == GameAction::Build) {
-        if (!GridMap::valid(cell) || map.roomAt(cell) != p.room || map.wall(cell) || cell == room.door ||
+        if (!map.valid(cell) || map.roomAt(cell) != p.room || map.wall(cell) || cell == room.door ||
             cell == room.nest) {
             return "只能在自家猫店的空地格安装";
         }

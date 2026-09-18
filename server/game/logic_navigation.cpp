@@ -35,19 +35,19 @@ bool Game::walkable(int cell, int player, int startingRoom) const {
     return true;
 }
 std::deque<Point> Game::pathTo(Point from, int cell, int player) const {
-    const int start = GridMap::cellAt(from), startingRoom = map.roomAt(start);
+    const int start = map.cellAt(from), startingRoom = map.roomAt(start);
     const auto path = map.route(start, cell, [&](int next) { return walkable(next, player, startingRoom); });
     std::deque<Point> points;
     // Recenter on the current grid axis before changing direction. This prevents
     // rapid destination changes from cutting diagonally through wall corners.
     for (int next : path) {
-        points.push_back(GridMap::center(next));
+        points.push_back(map.center(next));
     }
     return points;
 }
 bool Game::moveAlong(Point& position, std::deque<Point>& path, double distance, int player) const {
     while (!path.empty() && distance > 0) {
-        const int current = GridMap::cellAt(position), next = GridMap::cellAt(path.front());
+        const int current = map.cellAt(position), next = map.cellAt(path.front());
         if (next != current && !walkable(next, player, map.roomAt(current))) {
             path.clear();
             return false;
@@ -65,7 +65,7 @@ bool Game::moveAlong(Point& position, std::deque<Point>& path, double distance, 
     return path.empty();
 }
 void Game::arrive(Player& p) {
-    const int cell = GridMap::cellAt(p.position), roomId = map.roomAt(cell);
+    const int cell = map.cellAt(p.position), roomId = map.roomAt(cell);
     if (roomId >= 0) {
         auto& props = dorms[roomId].props;
         const auto crate = std::find_if(props.begin(), props.end(), [&](const Prop& prop) {
@@ -89,7 +89,7 @@ void Game::arrive(Player& p) {
         return;
     }
     auto& room = dorms[p.nestIntent];
-    if (cell != room.nest || GameMath::distance(p.position, GridMap::center(room.nest)) > 1) {
+    if (cell != room.nest || GameMath::distance(p.position, map.center(room.nest)) > 1) {
         p.nestIntent = -1;
         return;
     }
@@ -99,7 +99,7 @@ void Game::arrive(Player& p) {
         return;
     }
     if (p.room < 0) {
-        if (phase == "running" && map.roomAt(GridMap::cellAt(monster.position)) == room.id) {
+        if (phase == "running" && map.roomAt(map.cellAt(monster.position)) == room.id) {
             notify(p.name + " 的猫窝被店长盯上了，快找其他猫店");
             p.nestIntent = -1;
             return;

@@ -5,8 +5,9 @@
 namespace snackshop {
 class Game {
 public:
-    explicit Game(std::string code, int capacity, std::uint32_t seed, std::shared_ptr<const GameConfig> config);
+    explicit Game(std::string code, int capacity, std::uint32_t seed, std::shared_ptr<const GameConfig> config, std::string selectedMap = "");
     std::string code;
+    std::string selectedMap;
     int capacity, host = -1;
     std::string phase = "lobby";
     GridMap map;
@@ -23,6 +24,7 @@ public:
     void removeHuman(int id);
     void setConnected(int id, bool connected);
     std::string setReady(int id, bool ready);
+    std::string selectMap(int id, const std::string& mapId);
     std::string start(int id);
     std::string rematch(int id, std::shared_ptr<const GameConfig> nextConfig = {});
     std::string command(int id, GameAction action, int room = -1, int cell = -1, const std::string& kind = "launcher");

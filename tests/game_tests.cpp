@@ -36,20 +36,75 @@ void settle(Game& g, int room = 0) {
     }
     check(g.players[0].sleeping && g.players[0].room == room, "physical arrival claims nest");
 }
+void mapSelection() {
+    Game game("CHOICE", 6, 77, testConfig(), "neon_alley");
+    game.addHuman("Host");
+    game.addHuman("Friend");
+    check(game.map.profileId == "neon_alley" && game.map.theme == "neon_alley",
+          "explicit selection binds geometry and art");
+    const auto seed = game.map.seed;
+    check(!game.selectMap(1, "harbor_market").empty() && game.map.seed == seed, "guest cannot change the map");
+    game.setReady(1, true);
+    check(game.selectMap(0, "harbor_market").empty(), "host changes map in lobby");
+    check(game.map.profileId == "harbor_market" && game.map.width == 52 && !game.players[1].ready &&
+              game.players[0].ready,
+          "new geometry is authoritative and guests must ready again");
+    check(!game.selectMap(0, "missing_map").empty() && game.map.profileId == "harbor_market",
+          "invalid map leaves match intact");
+    check(!game.start(0).empty(), "old readiness cannot start a changed map");
+    game.setReady(1, true);
+    check(game.start(0).empty() && !game.selectMap(0, "snack_street").empty(), "active matches cannot change map");
+    game.phase = "won";
+    check(game.rematch(0).empty() && game.selectedMap == "harbor_market" && game.map.profileId == "harbor_market",
+          "rematch retains explicitly selected map and generates a new layout");
+    auto next = std::make_shared<GameConfig>(*testConfig());
+    for (auto& profile : next->mapGeneration.profiles) {
+        if (profile.id == "harbor_market") {
+            profile.weight = 0;
+        }
+    }
+    game.phase = "won";
+    check(game.rematch(0, next).empty() && game.selectedMap.empty() && game.map.profileId != "harbor_market",
+          "a map disabled by reload falls back to the enabled random pool on rematch");
+}
 void generatedMaps() {
     std::set<std::string> layouts;
+    std::set<std::string> profiles;
     std::set<std::size_t> roomCounts;
     for (std::uint32_t seed = 0; seed < 60; ++seed) {
         Game g("MAP", 1, seed, testConfig());
         Game same("MAP", 1, seed, testConfig());
+        const auto& rules =
+            *std::find_if(g.config().mapGeneration.profiles.begin(), g.config().mapGeneration.profiles.end(),
+                          [&](const auto& profile) { return profile.id == g.map.profileId; });
+        profiles.insert(g.map.profileId);
+        check(g.map.width == rules.width && g.map.height == rules.height && g.map.theme == rules.theme,
+              "selected backend profile owns dimensions and art theme");
+        check(g.map.rows.size() == rules.height &&
+                  std::all_of(g.map.rows.begin(), g.map.rows.end(),
+                              [&](const auto& row) { return row.size() == rules.width; }),
+              "terrain dimensions match the configured grid");
+        check(g.dorms.size() >= rules.minRooms && g.dorms.size() <= rules.maxRooms, "configured room count range");
+        check(g.map.cellAt({double(rules.width * TileSize), 0}) == -1 &&
+                  g.map.cellAt({0, double(rules.height * TileSize)}) == -1 && !g.map.valid(g.map.cellCount()),
+              "bounds use the active map size");
+        for (int cell = 0; cell < g.map.cellCount(); ++cell) {
+            check(g.map.cellAt(g.map.center(cell)) == cell, "grid/world coordinate round trip uses active width");
+            for (int next : g.map.neighbors(cell)) {
+                check(std::abs(next % g.map.width - cell % g.map.width) +
+                              std::abs(next / g.map.width - cell / g.map.width) ==
+                          1,
+                      "neighbors never wrap between rows");
+            }
+        }
         check(g.map.rows == same.map.rows && g.dorms.size() == same.dorms.size(), "seed is deterministic");
-        check(g.players.size() == 6 && g.dorms.size() >= 8 && g.dorms.size() <= 10,
-              "six cats choose among eight to ten rooms");
+        check(g.players.size() == Seats && g.dorms.size() >= 8 && g.dorms.size() <= MaxRooms,
+              "six cats choose among the configured spare rooms");
         roomCounts.insert(g.dorms.size());
         const auto street = g.map.distances(g.map.spawn, [&](int cell) { return g.map.tile(cell) == '.'; });
         check(street[g.map.shopkeeperSpawn] >= 0, "shopkeeper home shares the connected public street");
         for (const auto& cat : g.players) {
-            check(g.map.tile(GridMap::cellAt(cat.position)) == '.', "all six cats spawn on the street after mirroring");
+            check(g.map.tile(g.map.cellAt(cat.position)) == '.', "all six cats spawn on the street after mirroring");
         }
         std::string layout;
         for (const auto& row : g.map.rows) {
@@ -58,7 +113,8 @@ void generatedMaps() {
         layouts.insert(layout);
         std::set<int> sizes;
         for (const auto& room : g.dorms) {
-            check(room.floor.size() >= 12 && room.floor.size() <= 63, "compact rooms retain usable building space");
+            check(room.floor.size() >= rules.minRoomArea && room.floor.size() <= rules.maxRoomArea,
+                  "usable room area stays within its profile bounds");
             check(street[room.entrance] >= 0, "every door remains reachable without crossing another shop");
             check(room.props.size() >= 1 && room.props.size() <= 2, "one or two initial props besides nest");
             check(g.map.roomAt(room.nest) == room.id && !g.propAt(room.nest), "each shop has a dedicated nest");
@@ -87,7 +143,8 @@ void generatedMaps() {
         check(sizes.size() >= 3, "rooms have different sizes");
     }
     check(layouts.size() == 60, "different seeds create different layouts");
-    check(roomCounts.size() == 3, "generation varies between eight, nine and ten rooms");
+    check(profiles.size() == testConfig()->mapGeneration.profiles.size(), "all enabled map profiles are exercised");
+    check(roomCounts.size() > 3, "generation exercises the expanded room counts");
 }
 void extraRoomInteractions() {
     auto g = solo();
@@ -109,7 +166,7 @@ void extraRoomInteractions() {
     check(g.command(0, GameAction::Repair, id).empty() && room.hp > damaged, "extra room door can be repaired");
     g.phase = "running";
     g.monster.state = "attacking";
-    g.monster.position = GridMap::center(room.entrance);
+    g.monster.position = g.map.center(room.entrance);
     room.hp = 1;
     check(LogicCombat::hitDoor(g, id) && room.hp == 0 && g.isEscaping(g.players[0]),
           "manager can breach extra room doors and trigger escape-only state");
@@ -165,7 +222,7 @@ void movementAndOwnership() {
             g.command(0, GameAction::Move, -1, i % 22 == 0 ? target : room.nest);
         }
         g.step(.05);
-        const int cell = GridMap::cellAt(p.position);
+        const int cell = g.map.cellAt(p.position);
         check(!g.map.wall(cell) && cell != room.door && g.map.roomAt(cell) == room.id,
               "rapid retargeting stays inside room with a closed door");
         const auto* prop = g.propAt(cell);
@@ -194,12 +251,12 @@ void competingNestClaims() {
     }
     auto& room = g.dorms[0];
     room.props.clear();
-    const auto center = GridMap::center(room.nest);
+    const auto center = g.map.center(room.nest);
     g.players[0].human = false;
     g.players[0].position = {center.x + 6, center.y};
     g.players[1].human = g.players[1].connected = true;
     g.players[1].position = {center.x + 2, center.y};
-    g.players[2].position = GridMap::center(room.entrance);
+    g.players[2].position = g.map.center(room.entrance);
     check(g.command(0, GameAction::EnterNest, 0).empty(), "first cat starts approaching the nest");
     check(g.command(1, GameAction::EnterNest, 0).empty(), "another cat may contest the same nest");
     check(g.command(2, GameAction::Move, -1, room.nest).empty(), "nest intent does not block room entry");
@@ -210,7 +267,7 @@ void competingNestClaims() {
           "closer later seat wins within the same tick and immediately closes the door");
     check(g.players[0].room < 0 && g.players[0].nestIntent < 0 && g.players[0].path.empty(),
           "loser releases stale nest movement without becoming an owner");
-    check(g.map.roomAt(GridMap::cellAt(g.players[0].position)) == 0,
+    check(g.map.roomAt(g.map.cellAt(g.players[0].position)) == 0,
           "closure neither waits for nor teleports a guest inside");
     check(g.walkable(room.door, 0, 0) && !g.walkable(room.door, 0) && !g.walkable(room.door, 1, 0) &&
               !g.walkable(room.door, -1, 0),
@@ -221,11 +278,11 @@ void competingNestClaims() {
     for (int i = 0; i < 300 && !g.players[0].path.empty(); ++i) {
         g.step(.05);
         check(room.doorClosed(), "guest exit never globally opens the door");
-        check(!g.map.wall(GridMap::cellAt(g.players[0].position)), "guest exits without crossing walls");
-        check(g.map.roomAt(GridMap::cellAt(g.players[2].position)) != room.id,
+        check(!g.map.wall(g.map.cellAt(g.players[0].position)), "guest exits without crossing walls");
+        check(g.map.roomAt(g.map.cellAt(g.players[2].position)) != room.id,
               "preplanned outside route cannot enter a now-closed room");
     }
-    check(GridMap::cellAt(g.players[0].position) == room.entrance && g.players[0].path.empty(),
+    check(g.map.cellAt(g.players[0].position) == room.entrance && g.players[0].path.empty(),
           "guest physically reaches the street");
     check(!g.command(0, GameAction::Move, -1, room.nest).empty(), "departed guest cannot return inside");
     check(!g.command(0, GameAction::EnterNest, 0).empty(), "departed guest cannot steal the owned nest");
@@ -242,11 +299,11 @@ void competingNestClaims() {
     check(cancel.command(0, GameAction::EnterNest, 0).empty(), "start a cancellable approach");
     check(cancel.command(0, GameAction::Move, -1, cancel.map.spawn).empty(), "retarget cancels nest intent");
     check(cancel.players[0].nestIntent < 0 && cancel.dorms[0].owner < 0, "cancelled movement leaves an unclaimed nest");
-    cancel.players[1].position = GridMap::center(cancel.dorms[0].nest);
+    cancel.players[1].position = cancel.map.center(cancel.dorms[0].nest);
     check(cancel.command(0, GameAction::EnterNest, 0).empty(), "an idle visitor does not block claiming a nest");
     advance(cancel, 10);
     check(cancel.dorms[0].owner == 0 && cancel.dorms[0].doorClosed() &&
-              cancel.map.roomAt(GridMap::cellAt(cancel.players[1].position)) == 0,
+              cancel.map.roomAt(cancel.map.cellAt(cancel.players[1].position)) == 0,
           "owner closes immediately with an idle visitor still inside");
 }
 void gridBuilding() {
@@ -281,7 +338,7 @@ void gridBuilding() {
     check(g.command(0, GameAction::Build, -1, built).empty(), "existing launcher can upgrade");
     // Even the floor immediately inside the only entrance can hold a passable item.
     for (int cell : g.map.neighbors(room.door)) {
-        if (g.map.tile(cell) == '0' + room.id && cell != room.nest && !g.propAt(cell)) {
+        if (g.map.roomAt(cell) == room.id && cell != room.door && cell != room.nest && !g.propAt(cell)) {
             check(g.command(0, GameAction::Build, -1, cell).empty(), "doorway items do not seal the entrance");
         }
     }
@@ -327,14 +384,14 @@ void itemTraversal() {
         while (*cell == room.nest) {
             ++cell;
         }
-        cat.position = GridMap::center(*cell);
+        cat.position = g.map.center(*cell);
         check(g.command(cat.id, GameAction::Build, -1, *cell, id).empty(),
               "items can be installed on a tile occupied by a cat");
         check(g.walkable(*cell, cat.id, room.id) && g.walkable(*cell, 1, room.id) && g.walkable(*cell),
               "every buildable item allows player, AI and manager traversal");
         ++cell;
     }
-    cat.position = GridMap::center(room.nest);
+    cat.position = g.map.center(room.nest);
     for (int floor : room.floor) {
         if (floor != room.nest && !g.propAt(floor)) {
             check(g.command(cat.id, GameAction::Build, -1, floor, "pantry").empty(),
@@ -349,12 +406,12 @@ void itemTraversal() {
     room.hp = 0;
     auto escape = g.pathTo(cat.position, room.entrance, cat.id);
     check(!escape.empty() && g.moveAlong(cat.position, escape, 10000, cat.id) &&
-              GridMap::cellAt(cat.position) == room.entrance,
+              g.map.cellAt(cat.position) == room.entrance,
           "cat can physically escape through a fully furnished room after breach");
-    cat.position = GridMap::center(room.nest);
+    cat.position = g.map.center(room.nest);
     g.phase = "running";
     g.monster.state = "chasing";
-    g.monster.position = GridMap::center(room.entrance);
+    g.monster.position = g.map.center(room.entrance);
     g.monster.path = g.pathTo(g.monster.position, room.nest);
     check(!g.monster.path.empty() && g.moveAlong(g.monster.position, g.monster.path, 10000) &&
               LogicCombat::catchCat(g, cat.id),
@@ -401,7 +458,7 @@ void daylightAndCapture() {
     room.hp = 1;
     capture.phase = "running";
     capture.elapsed = 31;
-    capture.monster.position = GridMap::center(room.entrance);
+    capture.monster.position = capture.map.center(room.entrance);
     capture.monster.prey = 0;
     capture.monster.hp = 5000;
     capture.monster.maxHp = 5000;
@@ -446,7 +503,7 @@ void breachEscapeOnly() {
     room.hp = 1;
     game.phase = "running";
     game.monster.state = "attacking";
-    game.monster.position = GridMap::center(room.entrance);
+    game.monster.position = game.map.center(room.entrance);
     const auto position = cat.position;
     check(LogicCombat::hitDoor(game, room.id) && game.isEscaping(cat) && !cat.sleeping && cat.nestIntent == -1 &&
               cat.path.empty(),
@@ -556,7 +613,7 @@ void incomingHitRage() {
         game.players[0].room = 0;
         room.props = {{room.nest, "launcher", 1}};
         game.monster.state = "hunting";
-        game.monster.position = GridMap::center(room.nest);
+        game.monster.position = game.map.center(room.nest);
         game.monster.hp = 100;
         return game;
     };
@@ -576,7 +633,7 @@ void incomingHitRage() {
     m.position = {-10000, -10000};
     LogicItem::updateAttack(g, .05);
     check(m.hp == 291.5 && m.rage == 0, "out-of-range attacks grant no rage");
-    m.position = GridMap::center(room.nest);
+    m.position = g.map.center(room.nest);
     m.hp = 1;
     m.rage = 59;
     room.props.push_back({room.nest, "launcher", 1});
@@ -670,7 +727,7 @@ void doorCombatAndAttackTarget() {
     g.elapsed = 31;
     monster.state = "hunting";
     monster.prey = 0;
-    monster.position = GridMap::center(room.entrance);
+    monster.position = g.map.center(room.entrance);
     g.step(.05);
     check(monster.doorHits == 1 && monster.attackSequence == 1 && monster.rage == g.config().enemy.doorRage,
           "one valid door hit awards rage exactly once");
@@ -693,13 +750,13 @@ void doorCombatAndAttackTarget() {
     check(room.hp == before - testConfig()->enemy.levels[0].doorDamage,
           "current hit uses level before its rage reward");
     monster.attackCooldown = 0;
-    monster.position = GridMap::center(g.map.spawn);
+    monster.position = g.map.center(g.map.spawn);
     const int hits = monster.doorHits, xp = monster.rage;
     check(!LogicCombat::hitDoor(g, 0) && monster.doorHits == hits && monster.rage == xp,
           "remote or missed door attack awards nothing");
     g.step(.05);
     check(monster.attackingPlayer == -1, "walking between targets clears portrait feedback");
-    monster.position = GridMap::center(room.entrance);
+    monster.position = g.map.center(room.entrance);
     monster.repathAt = 0;
     monster.attackCooldown = 0;
     room.hp = 1;
@@ -735,7 +792,7 @@ void fullMatches() {
         check(g.phase == "won" || g.phase == "lost", "full round terminates");
         for (const auto& p : g.players) {
             check(p.wallet.at("cans") >= 0 && p.bed <= static_cast<int>(g.config().nests.size()) &&
-                      !g.map.wall(GridMap::cellAt(p.position)),
+                      !g.map.wall(g.map.cellAt(p.position)),
                   "full match player invariants");
         }
         for (const auto& room : g.dorms) {
@@ -747,6 +804,7 @@ void fullMatches() {
 int main() {
     try {
         generatedMaps();
+        mapSelection();
         extraRoomInteractions();
         movementAndOwnership();
         competingNestClaims();

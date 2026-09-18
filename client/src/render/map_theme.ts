@@ -49,7 +49,7 @@ export class MapTheme {
   private textures = new Map<string, ImageBitmap>();
   private floors: (TileSurface | undefined)[] = [];
   private surfaces: { road?: TileSurface; wall?: TileSurface } = {};
-  private selectedSeed: number | null = null;
+  private selectedTheme = '';
   private loadedTheme = '';
   private generation = 0;
 
@@ -61,16 +61,17 @@ export class MapTheme {
     this.ready = this.index.then(() => {});
   }
 
-  select(seed: number): void {
-    if (seed === this.selectedSeed) return;
-    this.selectedSeed = seed;
+  select(theme: string): void {
+    if (theme === this.selectedTheme) return;
+    this.selectedTheme = theme;
     const generation = ++this.generation;
     this.ready = this.index.then(async (index) => {
       if (!index || generation !== this.generation) return;
-      // Peers derive the same appearance from authoritative map data and the asset index.
-      const entry = index.themes[(seed >>> 0) % index.themes.length];
-      if (entry.id === this.loadedTheme) return;
       try {
+        // The server binds geometry and art through the selected map profile.
+        const entry = index.themes.find((entry) => entry.id === theme);
+        if (!entry) throw new Error('Unknown map theme: ' + theme);
+        if (entry.id === this.loadedTheme) return;
         await this.load(entry, generation);
       } catch (error) {
         if (generation !== this.generation) return;

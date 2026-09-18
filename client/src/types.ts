@@ -41,8 +41,19 @@ export interface ItemConfig {
   unique: boolean;
   levels: ItemLevelConfig[];
 }
+export interface MapOption {
+  id: string;
+  name: string;
+  theme: string;
+  width: number;
+  height: number;
+  minRooms: number;
+  maxRooms: number;
+  complexity: number;
+}
 export interface Catalog {
   version: string;
+  maps: MapOption[];
   catSpeed: number;
   currencies: { id: string; name: string; symbol: string }[];
   doors: {
@@ -105,6 +116,9 @@ export interface Dorm {
   props: Prop[];
 }
 export interface GridMap {
+  id: string;
+  name: string;
+  theme: string;
   width: number;
   height: number;
   tileSize: number;
@@ -123,6 +137,7 @@ export interface State {
   capacity: number;
   phase: 'lobby' | 'preparing' | 'running' | 'won' | 'lost';
   host: number;
+  selectedMap: string;
   you: number;
   elapsed: number;
   duration: number;
@@ -160,11 +175,9 @@ export interface State {
 export function roomAt(map: GridMap, cell: number): number {
   if (cell < 0 || cell >= map.width * map.height) return -1;
   const tile = map.rows[Math.floor(cell / map.width)][cell % map.width];
-  return tile >= '0' && tile <= '9'
-    ? Number(tile)
-    : tile >= 'a' && tile <= 'j'
-      ? tile.charCodeAt(0) - 97
-      : -1;
+  const floor = '0123456789ABCDEF'.indexOf(tile);
+  if (floor >= 0) return floor;
+  return tile >= 'a' && tile <= 'p' ? tile.charCodeAt(0) - 97 : -1;
 }
 export function cellCenter(map: GridMap, cell: number) {
   return {
