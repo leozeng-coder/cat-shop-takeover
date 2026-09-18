@@ -78,7 +78,7 @@ function finishLoadingWhenReady() {
   if (!loading || loadingScheduled || !state || state.phase === 'lobby') return;
   loadingScheduled = true;
   const generation = loadGeneration;
-  void document.fonts.ready.then(() =>
+  void Promise.all([document.fonts.ready, renderer.ready]).then(() =>
     requestAnimationFrame(() => {
       window.setTimeout(
         () => {
@@ -145,7 +145,12 @@ const connection = new GameConnection({
     finishLoadingWhenReady();
     if (autoStart && next.phase === 'lobby' && next.capacity === 1) {
       autoStart = false;
-      send({ type: 'start' });
+      const code = next.code;
+      const generation = loadGeneration;
+      void renderer.ready.then(() => {
+        if (state?.code === code && state.phase === 'lobby' && generation === loadGeneration)
+          send({ type: 'start' });
+      });
     }
   },
   onError(message) {
@@ -351,9 +356,15 @@ app.addEventListener('click', async (event) => {
     }
   } else if (op === 'start') {
     beginLoading();
-    send({ type: 'start' });
-  } else if (op === 'ready' && state) send({ type: 'ready', ready: !state.players[state.you].ready });
-  else if (op === 'leave') {
+    const code = state?.code;
+    await renderer.ready;
+    if (state?.code === code && state?.phase === 'lobby') send({ type: 'start' });
+  } else if (op === 'ready' && state) {
+    const code = state.code;
+    await renderer.ready;
+    if (state?.code === code && state.phase === 'lobby')
+      send({ type: 'ready', ready: !state.players[state.you].ready });
+  } else if (op === 'leave') {
     if (connection.isConnected()) send({ type: 'leave' });
     else clearSession();
   } else if (op === 'rematch') {

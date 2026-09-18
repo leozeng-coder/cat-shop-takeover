@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "id": "harbor_market",
+  "name": "海风渔港集市",
+  "rendering": {
+    "background": {
+      "asset": "background",
+      "outsideTiles": 4,
+      "clearColor": "#a6ccc3"
+    },
+    "road": {
+      "asset": "road",
+      "tilesPerImage": 1
+    },
+    "wall": {
+      "asset": "wall",
+      "tilesPerImage": 1
+    },
+    "floors": [
+      {
+        "asset": "floors/driftwood",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/dock_wood",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/white_lime",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/sandstone",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/seafoam_hex",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/blue_checker",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/coral_terracotta",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/shell_terrazzo",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/jade_mosaic",
+        "tilesPerImage": 1
+      },
+      {
+        "asset": "floors/aqua_concrete",
+        "tilesPerImage": 1
+      }
+    ],
+    "grid": {
+      "color": "#4d797032",
+      "lineWidth": 0.65
+    },
+    "nightTint": "#285b701c"
+  },
+  "generator": "built-in imagegen",
+  "assets": [
+    {
+      "id": "floors/driftwood",
+      "name": "漂白木板",
+      "src": "floors/driftwood.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw three broad vanilla-cream wooden planks with only two or three softly curved pale sandy grain lines per plank. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/driftwood."
+    },
+    {
+      "id": "floors/dock_wood",
+      "name": "旧栈道木板",
+      "src": "floors/dock_wood.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw three broad warm taupe wooden planks, only two or three simple creamy curved grain marks per plank, clean cartoon wood. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/dock_wood."
+    },
+    {
+      "id": "floors/white_lime",
+      "name": "白灰方砖",
+      "src": "floors/white_lime.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw two by two warm ivory ceramic floor squares with pale sandy grout and rounded inner corners. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/white_lime."
+    },
+    {
+      "id": "floors/sandstone",
+      "name": "浅沙石砖",
+      "src": "floors/sandstone.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw two by two pale butter-beige floor squares, slightly wavy rounded inside contours and thin cream grout. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/sandstone."
+    },
+    {
+      "id": "floors/seafoam_hex",
+      "name": "海沫六角砖",
+      "src": "floors/seafoam_hex.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw regular repeating seafoam green hexagonal tiles with cream grout, smooth flat color, softly rounded vertices. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/seafoam_hex."
+    },
+    {
+      "id": "floors/blue_checker",
+      "name": "蓝白棋盘砖",
+      "src": "floors/blue_checker.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw four by four pastel cornflower blue and warm vanilla cream checkerboard, clean flat fills. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/blue_checker."
+    },
+    {
+      "id": "floors/coral_terracotta",
+      "name": "珊瑚陶砖",
+      "src": "floors/coral_terracotta.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw two by two pale coral-pink ceramic squares with ivory grout and softly rounded inner corners. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/coral_terracotta."
+    },
+    {
+      "id": "floors/shell_terrazzo",
+      "name": "贝壳水磨石",
+      "src": "floors/shell_terrazzo.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw warm cream floor with about eighteen widely spaced rounded pastel blue, peach and pale yellow confetti shapes, clean flat shapes only. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/shell_terrazzo."
+    },
+    {
+      "id": "floors/jade_mosaic",
+      "name": "浅绿马赛克",
+      "src": "floors/jade_mosaic.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw four by four soft mint jade and ivory ceramic squares with thin pale grout, rounded inner corners. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/jade_mosaic."
+    },
+    {
+      "id": "floors/aqua_concrete",
+      "name": "水蓝水泥",
+      "src": "floors/aqua_concrete.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw smooth pale turquoise flooring, mostly flat color with only three very broad faint aqua shapes. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/floors/aqua_concrete."
+    },
+    {
+      "id": "road",
+      "name": "路面",
+      "src": "road.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Create a FULLY OPAQUE RGB square image for a cute cozy 2D cartoon game. This is an edge-to-edge repeating floor or wall surface graphic. Draw simple running-bond paving made of pale sand and vanilla cream rectangular blocks with softly rounded inside corners, thin warm beige grout. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Exact straight overhead view. Simple cute shapes must read clearly at a32-pixel game grid. Make this a seamless repeat with matching opposite edges. Artwork and colored grout fill the ENTIRE square including all four corners. No transparent pixels, no empty white space, no frame, no rounded outside image boundary, no feathering, no fade, no blur, no vignette, no center-to-edge gradient. No characters, faces, logos, icons, text or objects on the surface. Square1024x1024, opaque RGB PNG. Production asset harbor_market/road."
+    },
+    {
+      "id": "wall",
+      "name": "墙体",
+      "src": "wall.png",
+      "width": 1254,
+      "height": 1254,
+      "colorMode": "RGB",
+      "prompt": "Input image role: geometry reference showing existing top-down wall grid blocks. Create ONE SINGLE wall-block tile for ONE 32x32 game grid cell, based on the reference's individual square block. Output a square opaque RGB bitmap, ideally1024x1024, with one large plain square wall-top face filling almost the whole canvas. It must NOT contain a row of bricks, multiple tiles, running-bond masonry or a wall surface pattern. Match this geometry: full dark base fills all32x32 cell; one subtly rounded top cap inset about1px left/right and1px top, top cap height about26px; narrow darker solid bottom band about5px creates a shallow raised wall-block effect. Very small light line across top edge, subtle side bevel. Exact top-down 2D orthographic wall-cap icon, no isometric cube and no perspective. warm ivory top, pale seafoam rim and muted sage-blue bottom band. Cute cozy gentle cartoon art, simple matte flat colors, clean warm outlines, no spots, no grain, no realistic texture, no glossy candy reflections. Entire image must be filled and completely opaque RGB, including corner pixels outside the slightly rounded cap, where the darker base color fills in. No blank space, transparency, outer margin, shadow cast outside the block, labels, lettering, floor, plants or background scenery. This one square asset will be drawn once per wall grid cell to form horizontal walls, vertical walls and corners. Production asset harbor_market/wall."
+    },
+    {
+      "id": "background",
+      "name": "四格外围背景",
+      "src": "background.png",
+      "width": 1363,
+      "height": 1154,
+      "colorMode": "RGB",
+      "prompt": "Canvas shape is MANDATORY: NEAR-SQUARE landscape, only slightly wider than tall, exact aspect ratio 13:11 (1.1818). Do not use a wide 3:2 or 16:9 canvas. Create a COMPLETE FULLY OPAQUE RGB landscape background illustration for a cute cozy 2D cartoon game. Cute cozy 2D mobile cartoon game illustration. Clean smooth color fills, simple rounded shapes, warm creamy pastel palette, sparse broad gentle highlights, delicate warm-colored outlines, low detail density. Playful toy-like charm. Crisp readable shapes. No photorealism, no texture noise, no grain, no paper fibers, no watercolor mottling, no realistic concrete, no pores, no scratches, no weathering, no dense wood grain, no grunge, no dramatic light. Theme 海风渔港集市. Color family: soft seafoam turquoise, warm ivory, faded ocean blue and pale coral accents. Exact straight overhead orthographic view, not isometric. Full 13:11 rectangular image, 1664 x 1408 pixels. Entire rectangle has a continuous painted base of simple running-bond paving made of pale sand and vanilla cream rectangular blocks with softly rounded inside corners, thin warm beige grout. All environmental props must be small, cute and toy-like, exclusively within a narrow outer border about 8% of image width on left/right and 9% of image height on top/bottom. Perimeter subject: a peaceful small fishing-harbor market perimeter from directly overhead: calm turquoise seawater, narrow weathered wooden dock segments, a few small moored rowboat tops and folded nets at corners, cropped ivory warehouse roofs with pale coral accents, sparse coastal shrubs. Most perimeter is quiet water or paving. No people, animals, writing, horizon or sky. Translate all buildings, boats and plants into extremely simple adorable rounded cartoon forms with clean smooth fills, no realistic details. The large center is quiet continuous painted pavement that actual gameplay later covers, NOT blank white or transparent. No props in the central 84% x 82% rectangle. Full-bleed image, opaque RGB everywhere including all corners. No transparency, feathered edges, white margins, rounded canvas boundary, lettering, people, animals, grid overlay or HUD. Production asset harbor_market/background."
+    }
+  ]
+}

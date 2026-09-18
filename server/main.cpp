@@ -72,6 +72,9 @@ int main(int argc, char** argv) {
     drogon::app()
         .setThreadNum(1)
         .setDocumentRoot(web)
+        // Theme manifests are public client assets, alongside the images they reference.
+        .setFileTypes({"html", "js", "css", "xml", "xsl", "txt", "svg", "ttf", "otf", "woff2", "woff", "eot",
+                       "png", "jpg", "jpeg", "gif", "bmp", "ico", "icns", "json", "webp"})
         .setStaticFilesCacheTime(-1)
         .setHomePage("index.html")
         .addListener(bind, static_cast<std::uint16_t>(port));

@@ -2,6 +2,7 @@ import { cellCenter, roomAt, type State, type Prop } from './types';
 import { GameArt } from './render/game_art';
 import { MotionTrack } from './render/motion_track';
 import { GameCamera } from './render/game_camera';
+import { MapTheme, type TileSurface } from './render/map_theme';
 import { CAT_COLORS } from './ui/portraits';
 const floorColors = [
   '#eee4c6',
@@ -22,6 +23,7 @@ export class Renderer {
   private width = 0;
   private height = 0;
   private camera = new GameCamera();
+  private theme = new MapTheme();
   private lastFrame = 0;
   private hover = -1;
   private press: {
@@ -100,6 +102,9 @@ export class Renderer {
   get following() {
     return this.camera.following && !!this.state?.players[this.state.you].alive;
   }
+  get ready(): Promise<void> {
+    return this.theme.ready;
+  }
   setState(state: State | null) {
     const previous = this.state;
     const newMap =
@@ -112,7 +117,10 @@ export class Renderer {
       this.selectedCell = -1;
       this.hover = -1;
       this.press = null;
-      if (state) this.camera.reset(state.map, state.players[state.you]);
+      if (state) {
+        this.camera.reset(state.map, state.players[state.you]);
+        this.theme.select(state.map.seed);
+      }
       this.onCamera();
     }
     if (state) {
@@ -227,6 +235,22 @@ export class Renderer {
     if (prop.appearance !== 'shelf' && prop.appearance !== 'crate')
       a.text('' + prop.level, p.x + 11, p.y + 12, 8, '#fffbea', 'center');
   }
+  private drawSurface(surface: TileSurface, x: number, y: number, tileSize: number) {
+    const { image, tilesPerImage } = surface;
+    const sw = image.width / tilesPerImage,
+      sh = image.height / tilesPerImage;
+    this.ctx.drawImage(
+      image,
+      (x % tilesPerImage) * sw,
+      (y % tilesPerImage) * sh,
+      sw,
+      sh,
+      x * tileSize,
+      y * tileSize,
+      tileSize,
+      tileSize,
+    );
+  }
   private drawMap() {
     const g = this.state!,
       m = g.map,
@@ -245,9 +269,23 @@ export class Renderer {
         const cell = y * m.width + x,
           t = m.rows[y][x],
           rid = roomAt(m, cell),
-          px = x * 32,
-          py = y * 32;
-        if (t === '#') {
+          px = x * m.tileSize,
+          py = y * m.tileSize,
+          texture =
+            t === '#'
+              ? this.theme.surface('wall')
+              : rid >= 0
+                ? this.theme.floor(m.seed, rid)
+                : this.theme.surface('road');
+        if (texture) {
+          // Default: one complete swatch per cell. Tables can spread it across N x N cells.
+          this.drawSurface(texture, x, y, m.tileSize);
+          if (rid >= 0 && t !== '#' && this.theme.rendering.grid.lineWidth > 0) {
+            c.strokeStyle = this.theme.rendering.grid.color;
+            c.lineWidth = this.theme.rendering.grid.lineWidth;
+            c.strokeRect(px + 0.5, py + 0.5, m.tileSize - 1, m.tileSize - 1);
+          }
+        } else if (t === '#') {
           a.rect(px, py, 32, 32, '#899784');
           a.rect(px + 1, py + 1, 30, 26, '#dde1c9', 2, '#b4bea4');
           a.line(px + 3, py + 3, px + 29, py + 3, '#f0eedc', 2);
@@ -265,6 +303,11 @@ export class Renderer {
           if ((x * 13 + y * 7) % 113 === 0) a.paw(px + 16, py + 16, night ? '#91a599' : '#b1bca2', 0.7);
         }
       }
+    if (night && this.theme.surface('road')) {
+      // Tint terrain only, keeping cats, nests and interactable objects readable.
+      c.fillStyle = this.theme.rendering.nightTint;
+      c.fillRect(0, 0, m.width * m.tileSize, m.height * m.tileSize);
+    }
     // Sparse street furnishings and markings never masquerade as walkable walls.
     const spawn = this.point(m.spawn);
     a.rect(spawn.x - 43, spawn.y - 20, 86, 45, night ? '#d5dcc3' : '#e1e3c3', 8);
@@ -391,6 +434,17 @@ export class Renderer {
       night = this.state!.phase === 'preparing',
       w = m.width * m.tileSize,
       h = m.height * m.tileSize;
+    const background = this.theme.background;
+    if (background) {
+      const margin = this.theme.rendering.background.outsideTiles * m.tileSize;
+      // Anchor artwork to the world, including the four-cell decorative perimeter.
+      this.ctx.drawImage(background, -margin, -margin, w + margin * 2, h + margin * 2);
+      if (night) {
+        this.ctx.fillStyle = this.theme.rendering.nightTint;
+        this.ctx.fillRect(-margin, -margin, w + margin * 2, h + margin * 2);
+      }
+      return;
+    }
     // Decorative pavement stays outside the playable grid and has no collision data.
     a.rect(-42, -42, w + 84, h + 84, night ? '#92a59a' : '#b2bea6', 12);
     a.rect(-24, -24, w + 48, h + 48, night ? '#bcc5b2' : '#d4d7be', 5, night ? '#819887' : '#a4b295');
@@ -432,7 +486,7 @@ export class Renderer {
         t = this.transform();
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, this.width, this.height);
-      c.fillStyle = g.phase === 'preparing' ? '#a0b5ad' : '#becbb4';
+      c.fillStyle = this.theme.rendering.background.clearColor;
       c.fillRect(0, 0, this.width, this.height);
       c.translate(t.x, t.y);
       c.scale(t.scale, t.scale);

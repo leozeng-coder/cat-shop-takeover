@@ -122,7 +122,11 @@ export class GameCamera {
   }
   private overviewScale() {
     const margin = this.outsideMargin() * 2;
-    return Math.max(0.05, this.width / (this.worldWidth + margin), this.height / (this.worldHeight + margin));
+    // Fit the complete playfield and its artwork border on wide and portrait viewports.
+    return Math.max(
+      0.05,
+      Math.min(this.width / (this.worldWidth + margin), this.height / (this.worldHeight + margin)),
+    );
   }
   private focusScale() {
     const compact = this.width <= 760;

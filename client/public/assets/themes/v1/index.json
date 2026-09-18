@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "artStyle": "Cozy, cute 2D cartoon; warm pastel colors, rounded shapes, clean fills; fully opaque RGB.",
+  "layout": {
+    "mapColumns": 44,
+    "mapRows": 36,
+    "tileSize": 32,
+    "outsideTiles": 4,
+    "backgroundWorldRect": {
+      "x": -128,
+      "y": -128,
+      "width": 1664,
+      "height": 1408
+    },
+    "playableWorldRect": {
+      "x": 0,
+      "y": 0,
+      "width": 1408,
+      "height": 1152
+    },
+    "backgroundImageSize": {
+      "width": 1363,
+      "height": 1154
+    },
+    "backgroundLayer": "below-map",
+    "wallTilesPerImage": 1
+  },
+  "themes": [
+    {
+      "id": "snack_street",
+      "name": "猫猫小食街",
+      "manifest": "snack_street/theme.json"
+    },
+    {
+      "id": "neon_alley",
+      "name": "雨后霓虹巷",
+      "manifest": "neon_alley/theme.json"
+    },
+    {
+      "id": "harbor_market",
+      "name": "海风渔港集市",
+      "manifest": "harbor_market/theme.json"
+    },
+    {
+      "id": "autumn_market",
+      "name": "秋日林间集市",
+      "manifest": "autumn_market/theme.json"
+    }
+  ]
+}
