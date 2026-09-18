@@ -118,6 +118,9 @@ void generatedMaps() {
             check(street[room.entrance] >= 0, "every door remains reachable without crossing another shop");
             check(room.props.size() >= 1 && room.props.size() <= 2, "one or two initial props besides nest");
             check(g.map.roomAt(room.nest) == room.id && !g.propAt(room.nest), "each shop has a dedicated nest");
+            check(g.map.roomAt(room.door) == room.id &&
+                      std::all_of(room.floor.begin(), room.floor.end(), [&](int cell) { return g.map.roomAt(cell) == room.id; }),
+                  "all room floors and doors decode consistently, including rooms above ten");
             check(!room.doorClosed() && g.walkable(room.door), "unclaimed entrance is open to all actors");
             check(room.nest == same.dorms[room.id].nest && room.props.size() == same.dorms[room.id].props.size(),
                   "seed reproduces nest and prop count");
@@ -147,7 +150,13 @@ void generatedMaps() {
     check(roomCounts.size() > 3, "generation exercises the expanded room counts");
 }
 void extraRoomInteractions() {
-    auto g = solo();
+    auto cfg = std::make_shared<GameConfig>(*testConfig());
+    for (auto& profile : cfg->mapGeneration.profiles) {
+        profile.minRooms = profile.maxRooms;
+    }
+    Game g("EXTRA", 1, 42, cfg, "autumn_market");
+    g.addHuman("Captain");
+    check(g.start(0).empty() && g.dorms.size() == MaxRooms, "largest map starts with sixteen rooms and six cats");
     for (auto& cat : g.players) {
         cat.decisionAt = 10000;
     }
