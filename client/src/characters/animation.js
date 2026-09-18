@@ -13,6 +13,7 @@ export async function loadCharacterAnimations(manifestUrl) {
     strideWorldUnits: manifest.strideWorldUnits,
     paletteUrl: new URL(manifest.palettes, url).href,
     movementClips: manifest.movementClips,
+    retreatClips: manifest.retreatClips,
     atlases: {},
     clips: {},
   };
@@ -97,6 +98,13 @@ export function validateManifest(config) {
   for (const [direction, action] of Object.entries(config.movementClips ?? {})) {
     if (!['left', 'right', 'up', 'down'].includes(direction) || !config.clips[action]?.loop) {
       throw new Error(`Invalid movement clip: ${direction} -> ${action}`);
+    }
+  }
+  for (const [direction, action] of Object.entries(config.retreatClips ?? {})) {
+    const clip = config.clips[action];
+    const facing = { left: 'left', right: 'right', up: 'back', down: 'front' }[direction];
+    if (!facing || !clip?.loop || clip.facing !== facing) {
+      throw new Error(`Invalid retreat direction: ${direction} -> ${action}`);
     }
   }
   for (const [name, clip] of Object.entries(config.clips)) {

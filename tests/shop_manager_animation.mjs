@@ -36,6 +36,99 @@ try {
   badPortrait.portraitRect = [300, 0, 128, 128];
   assert.throws(() => validateManifest(badPortrait), /portrait rectangle/);
 
+  for (const state of ["retreating", "defeated"]) {
+    for (const [direction, x, y, action] of [
+      ["left", -10, 0, "move_left"],
+      ["right", 10, 0, "move_right"],
+      ["up", 0, -10, "move_up"],
+      ["down", 0, 10, "move_down"],
+    ]) {
+      const controller = new ManagerMotion();
+      controller.sample(
+        manager,
+        { x: 0, y: 0, state, attackSequence: 0 },
+        0,
+        96,
+      );
+      const frame = controller.sample(
+        manager,
+        { x, y, state, attackSequence: 0 },
+        16,
+        96,
+      );
+      assert.equal(
+        frame.action,
+        action,
+        `${state}: face ${direction}, never run backwards`,
+      );
+      assert.equal(
+        frame.mirror,
+        false,
+        "direction changes must preserve the net hand",
+      );
+    }
+  }
+  const turns = new ManagerMotion();
+  const turn = (x, y, now) =>
+    turns.sample(
+      manager,
+      { x, y, state: "retreating", attackSequence: 0 },
+      now,
+      96,
+    );
+  turn(0, 0, 0);
+  assert.equal(turn(-10, 0, 100).index, 0);
+  assert.equal(
+    turn(0, 0, 260).index,
+    2,
+    "turning right preserves the retreat phase",
+  );
+  assert.equal(
+    turn(0, -10, 420).index,
+    4,
+    "turning up preserves the retreat phase",
+  );
+  assert.equal(
+    turn(0, 0, 580).index,
+    6,
+    "turning down preserves the retreat phase",
+  );
+  assert.equal(
+    turn(-10, 0, 740).index,
+    0,
+    "every direction uses the same retreat cadence",
+  );
+  assert.equal(
+    turn(-10, 0, 800).action,
+    "idle",
+    "stopping cancels the running pose",
+  );
+  const wrongRetreat = structuredClone(manager);
+  wrongRetreat.retreatClips.right = "retreat";
+  assert.throws(
+    () => validateManifest(wrongRetreat),
+    /Invalid retreat direction/,
+  );
+  const noRetreatMapping = structuredClone(manager);
+  delete noRetreatMapping.retreatClips;
+  const fallback = new ManagerMotion();
+  fallback.sample(
+    noRetreatMapping,
+    { x: 0, y: 0, state: "retreating", attackSequence: 0 },
+    0,
+    96,
+  );
+  assert.equal(
+    fallback.sample(
+      noRetreatMapping,
+      { x: 10, y: 0, state: "retreating", attackSequence: 0 },
+      16,
+      96,
+    ).action,
+    "move_right",
+    "missing retreat mapping uses movement in the correct direction",
+  );
+
   const pose = { x: 0, y: 0, state: "hunting", attackSequence: 7 };
   const motion = new ManagerMotion();
   const sample = (now, changes = {}, active = true) => {
@@ -81,15 +174,15 @@ try {
     "coalesced hits play the newest attack, not a stale backlog",
   );
   assert.equal(sample(7300).action, "attack");
-  assert.equal(sample(7320, { state: "retreating", x: 10 }).action, "retreat");
+  assert.equal(sample(7320, { state: "retreating", x: -10 }).action, "move_left");
   assert.equal(
-    sample(7480, { x: 20 }).index,
+    sample(7480, { x: -20 }).index,
     2,
     "retreat uses its authored timing",
   );
   assert.equal(
-    sample(7496, { state: "defeated", x: 25 }).action,
-    "retreat",
+    sample(7496, { state: "defeated", x: -25 }).action,
+    "move_left",
     "zero HP means fleeing home, not a death pose",
   );
   assert.equal(sample(8000, { state: "resting" }).action, "idle");

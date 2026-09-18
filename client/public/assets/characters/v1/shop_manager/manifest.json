@@ -14,6 +14,12 @@
     "up": "move_up",
     "down": "move_down"
   },
+  "retreatClips": {
+    "left": "move_left",
+    "right": "move_right",
+    "up": "move_up",
+    "down": "move_down"
+  },
   "animations": {
     "idle": {
       "src": "idle.png",

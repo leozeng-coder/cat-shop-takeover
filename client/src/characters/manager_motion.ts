@@ -11,6 +11,7 @@ export class ManagerMotion {
   private attackAt = -Infinity;
   private action: string | null = null;
   private actionAt = 0;
+  private retreatAt: number | null = null;
 
   sample(
     config: AnimationConfig,
@@ -22,6 +23,9 @@ export class ManagerMotion {
     const { moving, distance, direction } = this.movement.sample(pose, teleportDistance);
     const returning = pose.state === 'retreating' || pose.state === 'defeated';
     const resting = pose.state === 'resting' || pose.state === 'waiting';
+    const fleeing = active && returning && moving;
+    if (fleeing) this.retreatAt ??= now;
+    else this.retreatAt = null;
     // A new/reconnected view starts from its snapshot without replaying historical hits.
     const hit = this.attackSequence !== null && pose.attackSequence > this.attackSequence;
     this.attackSequence = pose.attackSequence;
@@ -35,7 +39,7 @@ export class ManagerMotion {
         ? 'idle'
         : returning
           ? moving
-            ? 'retreat'
+            ? (config.retreatClips?.[direction] ?? config.movementClips![direction]!)
             : 'idle'
           : attacking
             ? 'attack'
@@ -47,9 +51,13 @@ export class ManagerMotion {
     const time =
       action === 'attack'
         ? now - this.attackAt
-        : action === config.movementClips?.[direction]
-          ? walkTime(config, distance, action)
-          : now - this.actionAt;
+        : fleeing
+          ? // Keep the retreat cadence and phase across turns, including fallback walk atlases.
+            ((now - this.retreatAt!) / clipDuration(config.clips.retreat)) *
+            clipDuration(config.clips[action])
+          : action === config.movementClips?.[direction]
+            ? walkTime(config, distance, action)
+            : now - this.actionAt;
     // Separate authored directions preserve the net hand; never mirror this actor.
     return { action, ...sampleClip(config, action, time), mirror: false };
   }

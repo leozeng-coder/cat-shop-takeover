@@ -30,6 +30,7 @@ export interface AnimationConfig {
   portraitRect?: [number, number, number, number];
   strideWorldUnits: number;
   movementClips?: Partial<Record<'left' | 'right' | 'up' | 'down', string>>;
+  retreatClips?: Partial<Record<'left' | 'right' | 'up' | 'down', string>>;
   paletteUrl: string;
   atlases: Record<
     string,
