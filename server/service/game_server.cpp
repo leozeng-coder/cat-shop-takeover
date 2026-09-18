@@ -13,17 +13,37 @@ std::shared_ptr<const GameConfig> GameServer::latestConfig() {
     }
     return m_configs->current();
 }
-void GameServer::broadcast(const Game& game) {
-    for (const auto& [token, session] : m_sessions) {
-        if (session->code != game.code) {
-            continue;
+void GameServer::sendState(Match& match, Session& session) {
+    const auto connection = session.connection.lock();
+    if (!connection || !connection->connected()) {
+        return;
+    }
+    const auto& game = *match.game;
+    if (session.configVersion != game.config().version) {
+        GameProtocol::send(connection, GameSnapshot::catalog(game.config()));
+        session.configVersion = game.config().version;
+    }
+    const auto packet = match.stream.packet(session.cursor, match.personal[session.seat]);
+    GameProtocol::notifyEncoded(connection,
+                                packet.full ? GameProtocol::Notification::Snapshot : GameProtocol::Notification::Delta,
+                                packet.body);
+}
+void GameServer::broadcast(Match& match) {
+    // Room-local slots avoid scanning all sessions for every match. World encoding is shared.
+    bool connected = false;
+    for (const auto& slot : match.sessions) {
+        if (const auto session = slot.lock(); session && !session->connection.expired()) {
+            connected = true;
         }
-        if (const auto connection = session->connection.lock()) {
-            if (session->configVersion != game.config().version) {
-                GameProtocol::send(connection, GameSnapshot::catalog(game.config()));
-                session->configVersion = game.config().version;
-            }
-            GameProtocol::send(connection, GameSnapshot::encode(game, session->seat));
+    }
+    if (!connected) {
+        return;
+    }
+    match.stream.advance(GameSnapshot::world(*match.game));
+    for (const auto& slot : match.sessions) {
+        if (const auto session = slot.lock(); session && !session->connection.expired()) {
+            match.personal[session->seat] = GameSnapshot::personal(*match.game, session->seat);
+            sendState(match, *session);
         }
     }
 }
@@ -48,7 +68,7 @@ void GameServer::detach(const drogon::WebSocketConnectionPtr& connection, bool l
         m_sessions.erase(session->token);
     }
     if (match != m_matches.end()) {
-        broadcast(*match->second.game);
+        broadcast(match->second);
     }
 }
 void GameServer::attach(const drogon::WebSocketConnectionPtr& connection, const std::shared_ptr<Session>& session) {
@@ -58,8 +78,10 @@ void GameServer::attach(const drogon::WebSocketConnectionPtr& connection, const 
     }
     session->connection = connection;
     session->configVersion.clear();
+    session->cursor = {};
     session->lastSeen = Clock::now();
     m_connections[connection.get()] = session;
+    m_matches.at(session->code).sessions[session->seat] = session;
     Json::Value joined;
     joined["type"] = "joined";
     joined["token"] = session->token;
@@ -68,8 +90,11 @@ void GameServer::attach(const drogon::WebSocketConnectionPtr& connection, const 
     joined["lastSequence"] = Json::UInt64(session->lastSequence);
     GameProtocol::send(connection, joined);
 }
-void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const Json::Value& msg) {
+void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const GameProtocol::Request& request) {
     std::lock_guard lock(m_mutex);
+    GameProtocol::reply(connection, request, dispatch(connection, request.body));
+}
+std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connection, const Json::Value& msg) {
     const auto kind = GameProtocol::stringField(msg, "type");
     auto connected = m_connections.find(connection.get());
     if (connected != m_connections.end()) {
@@ -80,21 +105,16 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
             s.messages = 0;
         }
         if (++s.messages > 60) {
-            GameProtocol::error(connection, "操作过于频繁");
-            return;
+            return "操作过于频繁";
         }
         s.lastSeen = now;
     }
     if (kind == "ping") {
-        Json::Value pong;
-        pong["type"] = "pong";
-        GameProtocol::send(connection, pong);
-        return;
+        return {};
     }
     if (kind == "create" || kind == "join" || kind == "resume") {
         if (connected != m_connections.end()) {
-            GameProtocol::error(connection, "请先离开当前对局");
-            return;
+            return "请先离开当前对局";
         }
         if (kind == "resume") {
             auto it = m_sessions.find(GameProtocol::stringField(msg, "token"));
@@ -102,24 +122,22 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
                 Json::Value expired;
                 expired["type"] = "expired";
                 GameProtocol::send(connection, expired);
-                return;
+                return {};
             }
             attach(connection, it->second);
             const auto game = m_matches.at(it->second->code).game;
             game->setConnected(it->second->seat, true);
-            broadcast(*game);
-            return;
+            broadcast(m_matches.at(game->code));
+            return {};
         }
         std::shared_ptr<Game> game;
         if (kind == "create") {
             const int capacity = GameProtocol::intField(msg, "capacity");
             if (capacity != 1 && capacity != 2 && capacity != 6) {
-                GameProtocol::error(connection, "请选择有效模式");
-                return;
+                return "请选择有效模式";
             }
             if (m_matches.size() >= 100) {
-                GameProtocol::error(connection, "当前对局较多，请稍后重试");
-                return;
+                return "当前对局较多，请稍后重试";
             }
             std::string code;
             do {
@@ -135,15 +153,13 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
                            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
             const auto match = m_matches.find(code);
             if (match == m_matches.end()) {
-                GameProtocol::error(connection, "邀请码不存在或对局已结束");
-                return;
+                return "邀请码不存在或对局已结束";
             }
             game = match->second.game;
         }
         const int seat = game->addHuman(GameProtocol::playerName(msg));
         if (seat < 0) {
-            GameProtocol::error(connection, "对局已开始或真人席位已满");
-            return;
+            return "对局已开始或真人席位已满";
         }
         auto session = std::make_shared<Session>();
         session->token = drogon::utils::getUuid();
@@ -151,27 +167,37 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
         session->seat = seat;
         m_sessions[session->token] = session;
         attach(connection, session);
-        broadcast(*game);
-        return;
+        broadcast(m_matches.at(game->code));
+        return {};
     }
     if (connected == m_connections.end()) {
-        GameProtocol::error(connection, "请先创建或加入对局");
-        return;
+        return "请先创建或加入对局";
     }
     const auto session = connected->second;
     const auto match = m_matches.find(session->code);
     if (match == m_matches.end()) {
-        GameProtocol::error(connection, "对局已结束");
-        return;
+        return "对局已结束";
     }
     auto& game = *match->second.game;
+    if (kind == "resync") {
+        const auto now = Clock::now();
+        if (now - session->lastResync < std::chrono::seconds(1)) {
+            return "同步请求过于频繁";
+        }
+        session->lastResync = now;
+        session->cursor = {};
+        session->configVersion.clear();
+        // Rebase only this peer; subsequent deltas continue from the room's current revision.
+        sendState(match->second, *session);
+        return {};
+    }
     std::string failure;
     if (kind == "leave") {
         detach(connection, true);
         Json::Value left;
         left["type"] = "left";
         GameProtocol::send(connection, left);
-        return;
+        return {};
     }
     if (kind == "ready") {
         if (!msg["ready"].isBool()) {
@@ -188,17 +214,15 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
             failure = game.rematch(session->seat);
         }
     } else if (kind == "action") {
-        if (!msg["seq"].isUInt64() || msg["seq"].asUInt64() == 0) {
-            GameProtocol::error(connection, "操作序号无效");
-            return;
+        if (!msg["seq"].isUInt64() || msg["seq"].asUInt64() == 0 || msg["seq"].asUInt64() > 9007199254740991ULL) {
+            return "操作序号无效";
         }
         const auto sequence = msg["seq"].asUInt64();
         if (sequence <= session->lastSequence) {
-            return;
+            return sequence == session->lastSequence ? session->lastActionError : std::string{};
         }
         if (sequence > session->lastSequence + 10000) {
-            GameProtocol::error(connection, "操作序号超出范围");
-            return;
+            return "操作序号超出范围";
         }
         session->lastSequence = sequence;
         const auto action = GameProtocol::parseAction(msg);
@@ -211,10 +235,12 @@ void GameServer::handle(const drogon::WebSocketConnectionPtr& connection, const 
     } else {
         failure = "未知消息";
     }
-    if (!failure.empty()) {
-        GameProtocol::error(connection, failure);
+    if (kind == "action") {
+        session->lastActionError = failure;
+    } else if (failure.empty()) {
+        broadcast(match->second);
     }
-    broadcast(game);
+    return failure;
 }
 void GameServer::update() {
     std::lock_guard lock(m_mutex);
@@ -249,7 +275,7 @@ void GameServer::update() {
         if (now - match.lastOccupied > std::chrono::seconds(90)) {
             expired.push_back(code);
         } else if (snapshotDue) {
-            broadcast(*match.game);
+            broadcast(match);
         }
     }
     for (const auto& code : expired) {

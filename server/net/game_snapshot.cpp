@@ -102,16 +102,14 @@ Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
     value["manager"]["levelUpHealPercent"] = cfg.enemy.levelUpHealRatio * 100;
     return value;
 }
-Json::Value GameSnapshot::encode(const Game& g, int viewer) {
+Json::Value GameSnapshot::world(const Game& g) {
     Json::Value value;
     const auto& cfg = g.config();
-    value["type"] = "state";
     value["configVersion"] = cfg.version;
     value["code"] = g.code;
     value["capacity"] = g.capacity;
     value["phase"] = g.phase;
     value["host"] = g.host;
-    value["you"] = viewer;
     value["elapsed"] = g.elapsed;
     value["duration"] = g.balance.duration;
     value["preparation"] = g.balance.preparation;
@@ -171,7 +169,6 @@ Json::Value GameSnapshot::encode(const Game& g, int viewer) {
         j["nest"] = d.nest;
         j["entrance"] = d.entrance;
         j["area"] = static_cast<int>(d.floor.size());
-        j["repairOffer"] = offer(g.repairError(viewer, d.id));
         j["props"] = Json::Value(Json::arrayValue);
         for (const auto& p : d.props) {
             Json::Value prop;
@@ -220,6 +217,16 @@ Json::Value GameSnapshot::encode(const Game& g, int viewer) {
         n["time"] = notice.time;
         n["text"] = notice.text;
         value["notices"].append(n);
+    }
+    return value;
+}
+Json::Value GameSnapshot::personal(const Game& g, int viewer) {
+    Json::Value value;
+    const auto& cfg = g.config();
+    value["you"] = viewer;
+    value["repairOffers"] = Json::Value(Json::arrayValue);
+    for (const auto& room : g.dorms) {
+        value["repairOffers"].append(offer(g.repairError(viewer, room.id)));
     }
     auto& offers = value["offers"];
     offers["nest"] = offer(g.nestUpgradeError(viewer));

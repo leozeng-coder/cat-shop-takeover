@@ -1,6 +1,7 @@
 #ifndef SNACKSHOP_GAME_SERVER_H
 #define SNACKSHOP_GAME_SERVER_H
 #include "config/config_loader.h"
+#include "net/game_protocol.h"
 #include "net/net_session.h"
 #include <json/json.h>
 #include <mutex>
@@ -9,7 +10,7 @@ namespace snackshop {
 class GameServer {
 public:
     explicit GameServer(std::shared_ptr<ConfigStore> configs) : m_configs(std::move(configs)) {}
-    void handle(const drogon::WebSocketConnectionPtr& connection, const Json::Value& message);
+    void handle(const drogon::WebSocketConnectionPtr& connection, const GameProtocol::Request& request);
     void close(const drogon::WebSocketConnectionPtr& connection);
     void update();
     int roomCount() const;
@@ -17,7 +18,9 @@ public:
 private:
     std::shared_ptr<const GameConfig> latestConfig();
     std::shared_ptr<ConfigStore> m_configs;
-    void broadcast(const Game& game);
+    std::string dispatch(const drogon::WebSocketConnectionPtr& connection, const Json::Value& message);
+    void broadcast(Match& match);
+    void sendState(Match& match, Session& session);
     void detach(const drogon::WebSocketConnectionPtr& connection, bool leave);
     void attach(const drogon::WebSocketConnectionPtr& connection, const std::shared_ptr<Session>& session);
     mutable std::mutex m_mutex;

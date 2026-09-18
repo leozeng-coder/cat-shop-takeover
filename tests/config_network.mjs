@@ -1,3 +1,4 @@
+import { ProtocolClient } from './protocol_client.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
@@ -55,13 +56,15 @@ server.stderr.on('data', (data) => {
 const stopped = once(server, 'exit');
 const clients = [];
 class Client {
+  protocol = new ProtocolClient();
   constructor() {
     this.socket = new WebSocket('ws://127.0.0.1:' + port + '/ws');
     this.messages = [];
     this.waiters = new Set();
     this.catalogs = 0;
     this.socket.on('message', (bytes) => {
-      const message = JSON.parse(bytes);
+      const message = this.protocol.receive(bytes);
+      if (!message) return;
       if (message.type === 'config') {
         this.catalog = message;
         ++this.catalogs;
@@ -84,7 +87,7 @@ class Client {
     await once(this.socket, 'open');
   }
   send(value) {
-    this.socket.send(JSON.stringify(value));
+    this.socket.send(this.protocol.send(value));
   }
   wait(predicate) {
     return new Promise((resolve, reject) => {
@@ -268,7 +271,16 @@ try {
   await fridgeHost.wait((m) => m.type === 'state' && m.phase === 'preparing');
   let fridgeSequence = 0;
   function action(client, name, room = -1, cell = -1, kind = 'mini_fridge') {
-    client.send({ type: 'action', action: name, room, cell, kind, seq: ++fridgeSequence });
+    const message = {
+      type: 'action',
+      action: name,
+      room,
+      cell,
+      kind,
+      seq: ++fridgeSequence,
+    };
+    client.send(message);
+    return message;
   }
   action(fridgeHost, 'nest', 0);
   action(fridgePeer, 'nest', 1);
@@ -314,8 +326,10 @@ try {
     }
     throw new Error('No accessible fridge tile');
   }
-  action(fridgeHost, 'door');
-  await fridgeHost.wait((m) => m.type === 'state' && m.dorms[0].level === 2);
+  const doorUpgrade = action(fridgeHost, 'door');
+  fridgeHost.send(doorUpgrade);
+  const doorUpgraded = await fridgeHost.wait((m) => m.type === 'state' && m.dorms[0].level >= 2);
+  assert.equal(doorUpgraded.dorms[0].level, 2, 'duplicate action sequence cannot purchase twice');
   const installed = await install(fridgeHost, 0);
   assert.equal(installed.state.offers.items.mini_fridge[0].enabled, false);
   assert.match(installed.state.offers.items.mini_fridge[0].reason, /已安装/);

@@ -5,7 +5,8 @@
 namespace snackshop {
 namespace GameSnapshot {
 Json::Value catalog(const GameConfig& config);
-Json::Value encode(const Game& game, int viewer);
+Json::Value world(const Game& game);
+Json::Value personal(const Game& game, int viewer);
 } // namespace GameSnapshot
 } // namespace snackshop
 #endif

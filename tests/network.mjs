@@ -1,3 +1,4 @@
+import { ProtocolClient } from './protocol_client.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../client/package.json', import.meta.url));
@@ -6,6 +7,7 @@ const managerBalance = require('../data/config/manager.json');
 const base = process.env.GAME_TEST_URL || 'http://127.0.0.1:8787';
 const clients = [];
 class Client {
+  protocol = new ProtocolClient();
   constructor() {
     this.ws = new WebSocket(base.replace(/^http/, 'ws') + '/ws');
     this.messages = [];
@@ -15,7 +17,8 @@ class Client {
     this.catalog = null;
     this.configMessages = 0;
     this.ws.on('message', (data) => {
-      const m = JSON.parse(data);
+      const m = this.protocol.receive(data);
+      if (!m) return;
       this.messages.push(m);
       if (this.messages.length > 300) this.messages.shift();
       if (m.type === 'config') {
@@ -45,7 +48,7 @@ class Client {
     clients.push(this);
   }
   send(m) {
-    this.ws.send(JSON.stringify(m));
+    this.ws.send(this.protocol.send(m));
   }
   wait(predicate, timeout = 12000) {
     return new Promise((resolve, reject) => {

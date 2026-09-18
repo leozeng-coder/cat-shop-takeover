@@ -26,7 +26,7 @@ if(CAT_SHOP_BUILD_SERVER)
     set_property(TARGET Brotli_lib PROPERTY INTERFACE_LINK_LIBRARIES
       "unofficial::brotli::brotlidec;unofficial::brotli::brotlienc")
   endif()
-  add_executable(cat_shop_server server/main.cpp server/service/game_server.cpp server/net/game_protocol.cpp server/net/game_snapshot.cpp)
+  add_executable(cat_shop_server server/main.cpp server/service/game_server.cpp server/net/game_protocol.cpp server/net/game_snapshot.cpp server/net/state_stream.cpp)
   target_link_libraries(cat_shop_server PRIVATE game_core game_config_loader Drogon::Drogon)
   if(MSVC)
     target_compile_options(cat_shop_server PRIVATE /W4 /utf-8)

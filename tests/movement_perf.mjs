@@ -1,3 +1,5 @@
+import { ProtocolClient } from "./protocol_client.mjs";
+const protocol = new ProtocolClient();
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const require = createRequire(
@@ -22,12 +24,13 @@ const timer = setTimeout(() => {
 }, 25000);
 ws.on("open", () =>
   ws.send(
-    JSON.stringify({ type: "create", capacity: 1, name: "Movement probe" }),
+    protocol.send({ type: "create", capacity: 1, name: "Movement probe" }),
   ),
 );
 ws.on("message", (data) => {
-  const m = JSON.parse(data);
-  if (m.type === "joined") ws.send(JSON.stringify({ type: "start" }));
+  const m = protocol.receive(data);
+  if (!m) return;
+  if (m.type === "joined") ws.send(protocol.send({ type: "start" }));
   if (m.type !== "state") return;
   const p = m.players[m.you],
     now = performance.now();
@@ -36,7 +39,7 @@ ws.on("message", (data) => {
     commandAt = now;
     destination = m.map.width + 1;
     ws.send(
-      JSON.stringify({
+      protocol.send({
         type: "action",
         action: "move",
         cell: destination,
@@ -69,7 +72,7 @@ ws.on("message", (data) => {
       }),
     );
     assert.equal(stalls, 0, "movement should never pause between path nodes");
-    ws.send(JSON.stringify({ type: "leave" }));
+    ws.send(protocol.send({ type: "leave" }));
     ws.close();
   }
 });
