@@ -33,11 +33,11 @@ export const APP_SHELL = `
   <section id="lobby-screen" class="lobby-screen hidden"><div class="lobby-card" id="lobby-content"></div></section>
   <section id="game-screen" class="game-screen hidden">
     <header class="game-hud"><div class="hud-left"><button class="icon-button" data-do="leave" title="返回主菜单" aria-label="返回主菜单">↶</button><div class="game-title">猫猫夺店计划<small id="room-name">午夜猫街</small></div></div><div class="phase-group"><span id="phase-label">☾ 夜间准备</span><strong id="timer">00:30</strong><small id="phase-description">店长不在，找猫窝安家</small></div><div class="wallet" id="wallet" aria-label="局内货币"></div></header>
+    <section class="battle-overview" aria-label="全员战况"><div id="combat-status"></div></section>
     <div class="map-stage" id="map-stage">
       <canvas id="board" aria-label="随机网格猫街地图，点击街道移动，点击罐头窝安家，点击自家格子安装道具"></canvas>
-      <section class="battle-overview" aria-label="全员战况"><div class="map-label"><span id="day-badge">MOONLIGHT DISTRICT</span><strong id="map-status">寻找一家猫店</strong></div><div id="combat-status"></div></section>
       <div id="cat-status" class="cat-status"></div>
-      <div class="map-tools"><button data-do="zoom-in" aria-label="放大地图">＋</button><button data-do="zoom-out" aria-label="缩小地图">−</button><button data-do="fit" aria-label="查看整个街区">⌗</button><button data-do="locate" aria-label="定位我的猫">◎</button></div>
+      <div class="map-tools"><button data-do="zoom-in" aria-label="放大地图">＋</button><button data-do="zoom-out" aria-label="缩小地图">−</button><button data-do="fit" aria-label="街区总览" title="缩小到最远视野 · 拖动查看街区">⌗</button><button id="camera-follow" data-do="locate" aria-label="定位并跟随我的猫" aria-pressed="true" title="镜头正在跟随你的猫 · 拖动可自由查看">◎</button></div>
       <div class="map-legend"><span><i class="dot me"></i>你的猫</span><span><i class="dot nest"></i>罐头窝</span><span><i class="dot enemy"></i>店长</span></div>
       <div id="grid-menu" class="grid-menu hidden" role="dialog" aria-label="格子操作菜单"></div>
       <div id="result" class="result-overlay hidden"></div>

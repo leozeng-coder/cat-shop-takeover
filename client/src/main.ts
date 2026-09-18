@@ -21,7 +21,8 @@ let state: State | null = null,
   busy = false,
   autoStart = false;
 let itemCategory: ItemCategory = 'attack';
-let dismissedGridOnPress = false;
+let dismissedPanelOnPress = false;
+let combatExpanded = false;
 let selected = -1,
   popup = { x: 0, y: 0 },
   toastTimer = 0,
@@ -39,6 +40,21 @@ function closeGrid() {
   selected = -1;
   renderer.selectedCell = -1;
   el('grid-menu').classList.add('hidden');
+}
+function closeCombat() {
+  if (!combatExpanded) return;
+  combatExpanded = false;
+  if (state) updateHtml(el('combat-status'), combatStatusView(state, combatExpanded));
+}
+function updateCameraControl() {
+  const follow = el<HTMLButtonElement>('camera-follow');
+  follow.setAttribute('aria-pressed', String(renderer.following));
+  follow.disabled = !state?.players[state.you].alive;
+  follow.title = follow.disabled
+    ? '你的猫已被抱走，可以自由查看街区'
+    : renderer.following
+      ? '镜头正在跟随你的猫 · 拖动可自由查看'
+      : '定位自己的猫并恢复镜头跟随';
 }
 function send(message: ClientMessage) {
   if (!connection.send(message)) {
@@ -81,6 +97,7 @@ function clearSession() {
   managerAnnouncement.reset();
   state = null;
   itemCategory = 'attack';
+  combatExpanded = false;
   sequence = 0;
   busy = false;
   autoStart = false;
@@ -113,7 +130,10 @@ const connection = new GameConnection({
       (!previous || previous.phase === 'lobby')
     )
       beginLoading();
-    if (previous?.map.seed !== next.map.seed) closeGrid();
+    if (previous?.map.seed !== next.map.seed) {
+      closeGrid();
+      combatExpanded = false;
+    }
     state = next;
     if (next.players[next.you].escaping) {
       closeGrid();
@@ -169,6 +189,7 @@ function renderGrid() {
   panel.style.top = Math.max(10, Math.min(popup.y - 20, stage.clientHeight - panel.offsetHeight - 12)) + 'px';
 }
 function render() {
+  updateCameraControl();
   const lobby = state?.phase === 'lobby';
   el('menu-screen').classList.toggle('hidden', !!state);
   el('lobby-screen').classList.toggle('hidden', !lobby);
@@ -197,8 +218,8 @@ function render() {
     : night
       ? '店长不在，找猫窝安家'
       : '坚持到店长放弃';
-  el('day-badge').textContent = night ? 'MOONLIGHT DISTRICT' : 'SUNRISE · THE OWNER IS BACK';
-  updateHtml(el('combat-status'), combatStatusView(g));
+  if (finished) combatExpanded = false;
+  updateHtml(el('combat-status'), combatStatusView(g, combatExpanded));
   updateHtml(
     el('wallet'),
     g.catalog.currencies
@@ -216,18 +237,6 @@ function render() {
       )
       .join(''),
   );
-  const ownerState: Record<string, string> = {
-    hunting: '店长正在街上找猫',
-    attacking: '店长正在拆 ' + (g.monster.target + 1) + ' 号店门',
-    chasing: '店长正在追猫！',
-    retreating: '店长血量不足，正在回家',
-    defeated: '店长被赶跑了！',
-    resting: '店长暂时在街口休息',
-    waiting: '店长还没回来',
-  };
-  el('map-status').textContent = night
-    ? '30 秒准备 · 自由选择猫店'
-    : ownerState[g.monster.state] || '留意街上的店长';
   const alive = g.players.filter((p) => p.alive).length;
   el('cat-status').innerHTML =
     '<strong>' +
@@ -269,9 +278,13 @@ function render() {
     );
   } else renderGrid();
 }
-renderer.onCamera = closeGrid;
+renderer.onCamera = () => {
+  closeGrid();
+  closeCombat();
+  updateCameraControl();
+};
 renderer.onCell = (cell, x, y) => {
-  if (dismissedGridOnPress) return;
+  if (dismissedPanelOnPress) return;
   if (!state || !['preparing', 'running'].includes(state.phase) || !state.players[state.you].alive) return;
   const g = state,
     me = g.players[g.you],
@@ -353,7 +366,12 @@ app.addEventListener('click', async (event) => {
     } catch {
       toast('邀请码：' + state.code);
     }
-  } else if (op === 'filter-items') {
+  } else if (op === 'toggle-combat' || op === 'open-combat') {
+    closeGrid();
+    combatExpanded = op === 'open-combat' || !combatExpanded;
+    if (state) updateHtml(el('combat-status'), combatStatusView(state, combatExpanded));
+  } else if (op === 'close-combat') closeCombat();
+  else if (op === 'filter-items') {
     const category = ITEM_CATEGORIES.find((c) => c.id === button.dataset.category);
     if (category) {
       itemCategory = category.id;
@@ -382,19 +400,23 @@ app.addEventListener('click', async (event) => {
     el('modal').innerHTML =
       '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><div class="eyebrow">A LITTLE MIDNIGHT ADVENTURE</div><h2 id="help-title">今晚，猫猫来营业</h2><ol><li>夜间有 ' +
       (state?.preparation ?? 30) +
-      ' 秒准备。点击街道移动，猫猫会绕过墙和货架，从店门进入。</li><li>每局随机生成 8–10 间紧凑猫店，供 6 只猫选择；每店都有一个罐头窝，额外随机放 1–2 个道具。点击空店的窝，猫会走过去安家，谁先到达谁安家，选中猫窝不会提前占位。安家后立即关门，房主不能出门；屋内其他猫可开门出去，出去后不能再进，店长也不能进来。</li><li>点自家空格，选择弹射器、储藏柜或修补台。安装的道具不阻挡猫猫和店长通行，每格只能安装一件。点已有道具、罐头窝或店门，可以升级和修补。</li><li>安家后持续赚罐头，数量显示在右上角。起身后收入保持不变；走到罐头箱上还能拾取物资。</li><li>白天店长回来：先敲门、破门，再进店追猫。店长会随时间、敲门和受击积累怒气值，升级时回复部分生命值，并向全体猫猫播报。左上角显示全员头像和店长等级、血量。店长正在敲门的猫店，其主人头像右下角会出现店长，每 2 秒撞击一次头像，提醒你及时防守。店门被打破后，猫猫自动起身，真人点击地图控制逃跑，AI 自动避让；此时无法安装、升级、修门或回窝。店长会走进房间，接触到猫才会把它抓走；猫没有生命值或扣血阶段。倒计时结束时仍有猫留守就获胜（整局 ' +
+      ' 秒准备。点击街道移动，猫猫会绕过墙和货架，从店门进入。</li><li>每局随机生成 8–10 间紧凑猫店，供 6 只猫选择；每店都有一个罐头窝，额外随机放 1–2 个道具。点击空店的窝，猫会走过去安家，谁先到达谁安家，选中猫窝不会提前占位。安家后立即关门，房主不能出门；屋内其他猫可开门出去，出去后不能再进，店长也不能进来。</li><li>点自家空格，选择弹射器、储藏柜或修补台。安装的道具不阻挡猫猫和店长通行，每格只能安装一件。点已有道具、罐头窝或店门，可以升级和修补。</li><li>安家后持续赚罐头，数量显示在右上角。起身后收入保持不变；走到罐头箱上还能拾取物资。</li><li>白天店长回来：先敲门、破门，再进店追猫。店长会随时间、敲门和受击积累怒气值，升级时回复部分生命值，并向全体猫猫播报。地图上方显示全员头像和店长等级、血量，点击头像或“详情”可查看详细战况。店长正在敲门的猫店，其主人头像右下角会出现店长，每 2 秒撞击一次头像，提醒你及时防守。店门被打破后，猫猫自动起身，真人点击地图控制逃跑，AI 自动避让；此时无法安装、升级、修门或回窝。店长会走进房间，接触到猫才会把它抓走；猫没有生命值或扣血阶段。倒计时结束时仍有猫留守就获胜（整局 ' +
       clock((state?.preparation ?? 30) + (state?.duration ?? 570)) +
-      '，含准备阶段）。</li></ol><p>滚轮缩放，拖动地图，◎ 定位自己的猫。多人模式邀请好友加入，剩余位置自动补 AI。</p><button class="primary wide" data-do="close-help">知道啦，去找罐头 ↗</button></div>';
+      '，含准备阶段）。</li></ol><p>开局镜头自动聚焦并跟随自己的猫。滚轮或 ＋／− 缩放，拖动地图暂停跟随，◎ 定位并恢复跟随，⌗ 切到最远视野，拖动查看街区其它区域。多人模式邀请好友加入，剩余位置自动补 AI。</p><button class="primary wide" data-do="close-help">知道啦，去找罐头 ↗</button></div>';
     el('modal').classList.remove('hidden');
   } else if (op === 'close-help') el('modal').classList.add('hidden');
 });
 document.addEventListener('pointerdown', (event) => {
-  dismissedGridOnPress = selected >= 0 && !el('grid-menu').contains(event.target as Node);
-  if (dismissedGridOnPress) closeGrid();
+  const outsideGrid = selected >= 0 && !el('grid-menu').contains(event.target as Node);
+  const outsideCombat = combatExpanded && !el('combat-status').contains(event.target as Node);
+  dismissedPanelOnPress = outsideGrid || outsideCombat;
+  if (outsideGrid) closeGrid();
+  if (outsideCombat) closeCombat();
 });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeGrid();
+    closeCombat();
     el('modal').classList.add('hidden');
   }
 });

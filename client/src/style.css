@@ -665,71 +665,80 @@ input {
   cursor: crosshair;
 }
 .battle-overview {
-  position: absolute;
-  top: 18px;
-  left: 20px;
-  width: 246px;
-  max-height: calc(100% - 76px);
-  overflow: auto;
-  scrollbar-width: thin;
-  padding: 13px 14px;
-  background: #f9f9eef2;
-  border: 1px solid #d3ddcb;
-  border-radius: 12px;
-  box-shadow: 0 3px 12px #395c3810;
+  position: relative;
+  flex-shrink: 0;
+  padding: 7px 23px;
+  background: #f7f7eb;
+  border-bottom: 1px solid #d3ddcb;
+  z-index: 5;
 }
-.map-label {
-  padding-bottom: 11px;
-  border-bottom: 1px solid #dce2ce;
-}
-.map-label > span {
-  display: block;
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  color: #97a589;
-}
-.map-label > strong {
-  display: block;
-  font-size: 11px;
-  margin-top: 5px;
-  font-weight: 650;
-  color: #677c5e;
+.combat-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
 .enemy-card {
-  padding: 11px 0;
-  border-bottom: 1px solid #dce2ce;
+  flex: 0 1 330px;
+  min-width: 260px;
 }
 .enemy-heading,
 .enemy-health,
 .enemy-rage,
-.roster-heading {
+.combat-details-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
 }
 .enemy-heading strong {
-  font-size: 13px;
+  font-size: 12px;
   color: #765b46;
+  white-space: nowrap;
 }
 .enemy-heading em {
   font-style: normal;
   color: #b9744f;
-  margin-left: 5px;
+  margin-left: 4px;
+}
+.enemy-state {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .enemy-heading > span,
 .enemy-health,
-.enemy-rage,
-.roster-heading > span {
+.enemy-rage {
   font-size: 10px;
   color: #899077;
 }
+.roster-count {
+  white-space: nowrap;
+}
+.combat-toggle,
+.combat-close {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 7px;
+  border: 1px solid #dce3cf;
+  border-radius: 8px;
+  background: #edf1e2;
+  color: #607854;
+  font-size: 11px;
+}
+.combat-toggle[aria-expanded='true'] {
+  background: #dce7cf;
+}
 .enemy-health {
-  margin: 9px 0 5px;
+  margin-top: 2px;
 }
 .enemy-health b {
   color: #966a50;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .combat-bar {
   height: 5px;
@@ -743,123 +752,124 @@ input {
   background: #89a96c;
 }
 .enemy-bar {
-  height: 7px;
+  flex: 1;
+  height: 6px;
   background: #eddfcb;
 }
 .enemy-bar i {
   background: #ce9472;
 }
 .enemy-rage {
-  margin: 7px 0 4px;
+  justify-content: space-between;
+  margin: 7px 0;
 }
 .rage-bar {
-  height: 3px;
+  height: 4px;
   background: #e7e1cf;
 }
 .rage-bar i {
   background: #c7ad60;
 }
-.enemy-card p {
-  font-size: 9px;
-  color: #a29c80;
-  margin: 7px 0 0;
-}
-.roster-heading {
-  margin: 11px 0 6px;
-}
-.roster-heading strong {
-  font-size: 11px;
-  color: #697b5e;
-}
 .combat-roster {
+  flex: 0 1 360px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .roster-cat {
   min-width: 0;
-  padding: 6px 3px;
-  border-radius: 9px;
+  border-radius: 8px;
   text-align: center;
 }
 .roster-cat.is-me {
-  background: #e9eddb;
+  background: #e5ebd8;
 }
 .roster-cat.is-captured {
   opacity: 0.45;
 }
+.roster-control {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 2px 3px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  text-align: center;
+}
+.roster-control:hover {
+  background: #e5ebd866;
+}
+.roster-control:focus-visible,
+.combat-toggle:focus-visible,
+.combat-close:focus-visible {
+  outline: 2px solid #6e8b5d;
+  outline-offset: 2px;
+}
 .portrait-stage {
+  display: block;
   position: relative;
-  width: 54px;
-  height: 49px;
-  margin: 0 auto 3px;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 2px;
 }
 .cat-portrait {
-  width: 46px;
-  height: 46px;
+  display: block;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #f0efdb;
   border: 1px solid #d4dabe;
   transform-origin: center;
 }
-.cat-portrait svg {
+.cat-portrait svg,
+.attacker-badge svg {
   display: block;
   width: 100%;
   height: 100%;
 }
 .roster-badge {
   position: absolute;
-  top: -2px;
-  right: -8px;
-  padding: 1px 4px;
+  top: -1px;
+  right: -2px;
+  min-width: 13px;
+  padding: 0 2px;
   border-radius: 4px;
   background: #f9f9ed;
-  color: #91977b;
+  color: #72835f;
   font-size: 8px;
   line-height: 12px;
-  white-space: nowrap;
 }
 .roster-name {
   display: block;
-  font-size: 10px;
+  font-size: 9px;
+  line-height: 12px;
   color: #637454;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.roster-activity {
-  display: block;
-  font-size: 9px;
-  color: #a0a389;
-  margin-top: 2px;
-}
 .attacker-badge {
   position: absolute;
-  width: 26px;
-  height: 26px;
-  right: -5px;
-  bottom: -2px;
+  width: 20px;
+  height: 20px;
+  right: -3px;
+  bottom: -1px;
   border-radius: 50%;
   background: #faead5;
   border: 1.5px solid #c88564;
   box-shadow: 0 2px 5px #70442f2e;
 }
-.attacker-badge svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.attacker-badge[hidden] {
+.attacker-badge[hidden],
+.roster-badge[hidden],
+.combat-details[hidden] {
   display: none;
 }
 .is-attacked {
   background: #f2e3cf;
-}
-.is-attacked .roster-activity {
-  color: #b06f50;
 }
 .is-attacked .cat-portrait {
   border-color: #cc946c;
@@ -867,6 +877,57 @@ input {
 }
 .is-attacked .attacker-badge {
   animation: manager-impact 2s ease-in-out infinite;
+}
+.combat-details {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 20px;
+  width: min(360px, calc(100% - 40px));
+  max-height: min(65dvh, 520px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 15px;
+  border: 1px solid #c7d2bb;
+  border-radius: 13px;
+  background: #fffdf5;
+  box-shadow: 0 8px 30px #3d56332b;
+}
+.combat-details-heading {
+  justify-content: space-between;
+  color: #526b49;
+  font-size: 13px;
+}
+.combat-close {
+  height: 36px;
+  font-size: 20px;
+}
+.combat-details p {
+  margin: 7px 0;
+  color: #8c9177;
+  font-size: 11px;
+}
+.combat-detail-roster {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 7px 0 0;
+  border-top: 1px solid #e0e5d6;
+}
+.combat-detail-roster li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  color: #79876c;
+  font-size: 10px;
+}
+.combat-detail-roster strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #596f50;
+}
+.combat-detail-roster span {
+  text-align: right;
 }
 @keyframes manager-impact {
   0%,
@@ -946,6 +1007,15 @@ input {
 }
 .map-tools button:hover {
   background: #e7ecdb;
+}
+.map-tools button[aria-pressed='true'] {
+  background: #d5e3c6;
+  color: #3f6335;
+  box-shadow: inset 0 -3px #7a9c60;
+}
+.map-tools button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 .map-legend {
   position: absolute;
@@ -1349,23 +1419,8 @@ input {
   .game-hud {
     height: 69px;
   }
-  .battle-overview {
-    left: 10px;
-    top: 12px;
-    width: 200px;
-    padding: 10px;
-  }
-  .map-label {
-    font-size: 10px;
-  }
-  .roster-cat {
-    padding: 5px 3px;
-  }
   .cat-status {
-    right: 10px;
-    top: 12px;
-    padding: 12px 9px;
-    font-size: 10px;
+    display: none;
   }
   .game-footer {
     padding: 0 10px;
@@ -1425,6 +1480,58 @@ input {
   color: #7f9070;
 }
 @media (max-width: 760px) {
+  .game-hud {
+    height: 56px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .game-title,
+  .phase-group > small {
+    display: none;
+  }
+  .hud-left .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+  .phase-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .phase-group > span {
+    font-size: 10px;
+  }
+  .phase-group > strong {
+    font-size: 18px;
+  }
+  .battle-overview {
+    padding: 6px 10px;
+  }
+  .combat-summary {
+    display: block;
+  }
+  .enemy-card {
+    min-width: 0;
+  }
+  .combat-roster {
+    margin-top: 6px;
+  }
+  .combat-details {
+    left: 10px;
+    width: calc(100% - 20px);
+  }
+  .wallet .resource {
+    min-width: 0;
+    padding: 5px 8px;
+    border-radius: 9px;
+  }
+  .wallet .resource small {
+    display: none;
+  }
+  .wallet .resource strong {
+    font-size: 18px;
+  }
   .wallet {
     gap: 7px;
   }

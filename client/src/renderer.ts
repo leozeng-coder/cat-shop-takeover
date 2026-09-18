@@ -1,6 +1,7 @@
 import { cellCenter, roomAt, type State, type Prop } from './types';
 import { GameArt } from './render/game_art';
 import { MotionTrack } from './render/motion_track';
+import { GameCamera } from './render/game_camera';
 import { CAT_COLORS } from './ui/portraits';
 const floorColors = [
   '#eee4c6',
@@ -20,10 +21,18 @@ export class Renderer {
   private state: State | null = null;
   private width = 0;
   private height = 0;
-  private zoom = 1;
-  private pan = { x: 0, y: 0 };
+  private camera = new GameCamera();
+  private lastFrame = 0;
   private hover = -1;
-  private press: { x: number; y: number; px: number; py: number; dragged: boolean } | null = null;
+  private press: {
+    id: number;
+    cell: number;
+    x: number;
+    y: number;
+    lastX: number;
+    lastY: number;
+    dragged: boolean;
+  } | null = null;
   private tracks = new Map<string, MotionTrack>();
   selectedCell = -1;
   onCell: (cell: number, x: number, y: number) => void = () => {};
@@ -33,32 +42,46 @@ export class Renderer {
     this.art = new GameArt(this.ctx);
     new ResizeObserver(() => this.resize()).observe(canvas);
     canvas.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      this.press = { x: e.clientX, y: e.clientY, px: this.pan.x, py: this.pan.y, dragged: false };
+      if (e.button !== 0 || !e.isPrimary || this.press) return;
+      this.press = {
+        id: e.pointerId,
+        cell: this.hit(e.clientX, e.clientY),
+        x: e.clientX,
+        y: e.clientY,
+        lastX: e.clientX,
+        lastY: e.clientY,
+        dragged: false,
+      };
       canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (this.press) {
+      if (this.press && this.press.id === e.pointerId) {
         const dx = e.clientX - this.press.x,
           dy = e.clientY - this.press.y;
         if (Math.hypot(dx, dy) > 6) this.press.dragged = true;
         if (this.press.dragged) {
-          this.pan = { x: this.press.px + dx, y: this.press.py + dy };
+          this.camera.drag(e.clientX - this.press.lastX, e.clientY - this.press.lastY);
+          this.press.lastX = e.clientX;
+          this.press.lastY = e.clientY;
           this.onCamera();
         }
       }
       this.hover = this.hit(e.clientX, e.clientY);
     });
     canvas.addEventListener('pointerup', (e) => {
+      if (this.press?.id !== e.pointerId) return;
       if (this.press && !this.press.dragged) {
-        const cell = this.hit(e.clientX, e.clientY),
+        const cell = this.press.cell,
           bounds = canvas.getBoundingClientRect();
         if (cell >= 0) this.onCell(cell, e.clientX - bounds.left, e.clientY - bounds.top);
       }
       this.press = null;
     });
-    canvas.addEventListener('pointercancel', () => {
-      this.press = null;
+    canvas.addEventListener('pointercancel', (e) => {
+      if (this.press?.id === e.pointerId) this.press = null;
+    });
+    canvas.addEventListener('lostpointercapture', (e) => {
+      if (this.press?.id === e.pointerId) this.press = null;
     });
     canvas.addEventListener('pointerleave', () => {
       this.hover = -1;
@@ -74,13 +97,24 @@ export class Renderer {
     );
     requestAnimationFrame((t) => this.frame(t));
   }
+  get following() {
+    return this.camera.following && !!this.state?.players[this.state.you].alive;
+  }
   setState(state: State | null) {
-    if (state?.map.seed !== this.state?.map.seed) {
-      this.tracks.clear();
-      this.fit();
-      this.selectedCell = -1;
-    }
+    const previous = this.state;
+    const newMap =
+      state?.map.seed !== previous?.map.seed ||
+      state?.code !== previous?.code ||
+      state?.you !== previous?.you;
     this.state = state;
+    if (newMap) {
+      this.tracks.clear();
+      this.selectedCell = -1;
+      this.hover = -1;
+      this.press = null;
+      if (state) this.camera.reset(state.map, state.players[state.you]);
+      this.onCamera();
+    }
     if (state) {
       const received = performance.now();
       for (const player of state.players) {
@@ -90,32 +124,26 @@ export class Renderer {
       }
       if (!this.tracks.has('owner')) this.tracks.set('owner', new MotionTrack());
       this.tracks.get('owner')!.push(state.tick, received, state.monster);
+      if (this.camera.following && !state.players[state.you].alive) this.fit();
     }
   }
   fit() {
-    this.zoom = 1;
-    this.pan = { x: 0, y: 0 };
+    this.camera.fit();
     this.onCamera();
   }
   zoomBy(factor: number) {
     this.changeZoom(factor, this.width / 2, this.height / 2);
   }
   locate() {
-    if (!this.state) return;
-    this.zoom = Math.max(this.zoom, 1.8);
-    const p = this.state.players[this.state.you],
-      t = this.transform();
-    this.pan.x += this.width / 2 - (p.x * t.scale + t.x);
-    this.pan.y += this.height / 2 - (p.y * t.scale + t.y);
+    if (!this.state || !this.state.players[this.state.you].alive) return;
+    const p =
+      this.tracks.get('cat' + this.state.you)?.sample(performance.now(), this.state.map) ??
+      this.state.players[this.state.you];
+    this.camera.follow(p);
     this.onCamera();
   }
   private changeZoom(factor: number, x: number, y: number) {
-    const before = this.transform();
-    this.zoom = Math.max(0.8, Math.min(3.4, this.zoom * factor));
-    const after = this.transform(),
-      ratio = after.scale / before.scale;
-    this.pan.x += x - ((x - before.x) * ratio + after.x);
-    this.pan.y += y - ((y - before.y) * ratio + after.y);
+    this.camera.zoomAt(factor, x, y);
     this.onCamera();
   }
   private resize() {
@@ -125,16 +153,11 @@ export class Renderer {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = Math.round(r.width * dpr);
     this.canvas.height = Math.round(r.height * dpr);
+    this.camera.resize(r.width, r.height);
+    this.onCamera();
   }
   private transform() {
-    const w = (this.state?.map.width ?? 44) * 32,
-      h = (this.state?.map.height ?? 36) * 32;
-    const scale = Math.min((this.width - 40) / w, (this.height - 25) / h) * this.zoom;
-    return {
-      scale: Math.max(0.05, scale),
-      x: (this.width - w * scale) / 2 + this.pan.x,
-      y: (this.height - h * scale) / 2 + this.pan.y,
-    };
+    return this.camera.transform();
   }
   private hit(x: number, y: number) {
     if (!this.state) return -1;
@@ -210,8 +233,15 @@ export class Renderer {
       a = this.art,
       c = this.ctx,
       night = g.phase === 'preparing';
-    for (let y = 0; y < m.height; y++)
-      for (let x = 0; x < m.width; x++) {
+    const topLeft = this.camera.toWorld(0, 0),
+      bottomRight = this.camera.toWorld(this.width, this.height),
+      minX = Math.max(0, Math.floor(topLeft.x / m.tileSize) - 1),
+      minY = Math.max(0, Math.floor(topLeft.y / m.tileSize) - 1),
+      maxX = Math.min(m.width, Math.ceil(bottomRight.x / m.tileSize) + 1),
+      maxY = Math.min(m.height, Math.ceil(bottomRight.y / m.tileSize) + 1);
+    // Only paint visible ground tiles; keep a one-tile border for wall outlines.
+    for (let y = minY; y < maxY; y++)
+      for (let x = minX; x < maxX; x++) {
         const cell = y * m.width + x,
           t = m.rows[y][x],
           rid = roomAt(m, cell),
@@ -355,24 +385,62 @@ export class Renderer {
     a.text('店长 Lv.' + this.state!.monster.level, 0, -32, 10, '#ac6a4b', 'center');
     c.restore();
   }
+  private drawSurroundings() {
+    const m = this.state!.map,
+      a = this.art,
+      night = this.state!.phase === 'preparing',
+      w = m.width * m.tileSize,
+      h = m.height * m.tileSize;
+    // Decorative pavement stays outside the playable grid and has no collision data.
+    a.rect(-42, -42, w + 84, h + 84, night ? '#92a59a' : '#b2bea6', 12);
+    a.rect(-24, -24, w + 48, h + 48, night ? '#bcc5b2' : '#d4d7be', 5, night ? '#819887' : '#a4b295');
+    const seam = night ? '#a1b39e' : '#b9c3a9';
+    for (let x = 0; x <= w; x += 64) {
+      a.line(x, -23, x, -2, seam, 1);
+      a.line(x, h + 2, x, h + 23, seam, 1);
+    }
+    for (let y = 0; y <= h; y += 64) {
+      a.line(-23, y, -2, y, seam, 1);
+      a.line(w + 2, y, w + 23, y, seam, 1);
+    }
+    for (let x = 64; x < w; x += 192) {
+      for (const y of [-55, h + 55]) {
+        a.ellipse(x, y, 20, 12, night ? '#829d8d' : '#a4b58f');
+        a.ellipse(x - 9, y - 4, 12, 9, night ? '#90aa95' : '#b1c09c');
+      }
+    }
+    for (let y = 64; y < h; y += 192) {
+      for (const x of [-55, w + 55]) {
+        a.ellipse(x, y, 12, 20, night ? '#829d8d' : '#a4b58f');
+        a.ellipse(x - 4, y - 9, 9, 12, night ? '#90aa95' : '#b1c09c');
+      }
+    }
+  }
   private frame(now: number) {
+    const seconds = this.lastFrame ? (now - this.lastFrame) / 1000 : 0;
+    this.lastFrame = now;
     this.art.time = now / 1000;
     if (this.state && this.state.phase !== 'lobby' && this.width > 0 && this.height > 0) {
+      const g = this.state,
+        me = this.tracks.get('cat' + g.you)!.sample(now, g.map);
+      // Press-time world selection lets click-to-move keep following without a pause.
+      if (this.selectedCell < 0 && g.players[g.you].alive) this.camera.track(me, seconds);
+      else this.camera.hold();
       const c = this.ctx,
         a = this.art,
         dpr = Math.min(window.devicePixelRatio || 1, 2),
-        t = this.transform(),
-        g = this.state;
+        t = this.transform();
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, this.width, this.height);
       c.fillStyle = g.phase === 'preparing' ? '#a0b5ad' : '#becbb4';
       c.fillRect(0, 0, this.width, this.height);
       c.translate(t.x, t.y);
       c.scale(t.scale, t.scale);
+      this.drawSurroundings();
       this.drawMap();
       for (const cat of g.players) {
         if (!cat.alive) continue;
-        const p = this.tracks.get('cat' + cat.id)!.sample(now, g.map);
+        const p = cat.id === g.you ? me : this.tracks.get('cat' + cat.id)!.sample(now, g.map);
         if (cat.id === g.you) {
           c.save();
           c.strokeStyle = '#faf2b4';
