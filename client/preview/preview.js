@@ -3,13 +3,17 @@ import { loadPalettes, PaletteAtlases } from '../src/characters/palette-atlases.
 
 const labels = {
   move: '横向移动',
+  move_left: '朝左移动',
+  move_right: '朝右移动',
   move_down: '朝下移动',
   move_up: '朝上移动',
   idle: '待机',
   wake: '起身',
   sleep: '睡眠呼吸',
+  attack: '敲门攻击',
+  retreat: '撤退',
 };
-const isMove = (name) => name === 'move' || name === 'move_up' || name === 'move_down';
+const isMove = (name) => name === 'move' || name.startsWith('move_') || name === 'retreat';
 const elements = Object.fromEntries(
   [
     'motion',
@@ -19,6 +23,7 @@ const elements = Object.fromEntries(
     'next',
     'speed',
     'mode',
+    'size',
     'right',
     'frame',
     'frames',
@@ -28,6 +33,11 @@ const elements = Object.fromEntries(
     'skins',
     'skin-status',
     'animation-summary',
+    'character-title',
+    'skin-section',
+    'asset-note',
+    'manifest-link',
+    'palette-link',
   ].map((id) => [id, document.getElementById(id)]),
 );
 let config,
@@ -61,7 +71,7 @@ function context(canvas) {
   return { ctx, width: rect.width, height: rect.height };
 }
 
-function drawCat(ctx, index, x, y, size, right = false) {
+function drawCharacter(ctx, index, x, y, size, right = false) {
   const atlas = config.atlases[config.clips[action].atlas];
   const frame = atlas.frames[index],
     [sx, sy, sw, sh] = frame.rect;
@@ -94,17 +104,25 @@ function draw() {
     current = sampleClip(config, action, elapsed);
   const { ctx, width, height } = context(elements.motion),
     baseline = height - 36;
-  const verticalTravel = action !== 'move' && isMove(action) && elements.mode.value === 'travel';
+  const displayHeight = Math.min(Number(elements.size.value), height * 0.68);
+  const followTravel = action !== 'move' && isMove(action) && elements.mode.value === 'travel';
+  const verticalTravel = followTravel && ['front', 'back'].includes(clip.facing);
+  const gridDistance =
+    ((elapsed / clipDuration(clip)) * config.strideWorldUnits * displayHeight) /
+    config.atlases[clip.atlas].sourceBodyHeight;
+  const horizontalOffset =
+    followTravel && !verticalTravel
+      ? (((clip.facing === 'left' ? gridDistance : -gridDistance) % 48) + 48) % 48
+      : 0;
   ctx.strokeStyle = '#b5b99f55';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = 0; x < width; x += 48) {
+  for (let x = horizontalOffset; x < width; x += 48) {
     ctx.moveTo(x, 0);
     ctx.lineTo(x, height);
   }
   if (verticalTravel) {
-    const distance = (elapsed / clipDuration(clip)) * 90;
-    const offset = (((action === 'move_up' ? distance : -distance) % 48) + 48) % 48;
+    const offset = (((clip.facing === 'back' ? gridDistance : -gridDistance) % 48) + 48) % 48;
     for (let y = offset; y < height; y += 48) {
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
@@ -113,19 +131,18 @@ function draw() {
   ctx.moveTo(0, baseline);
   ctx.lineTo(width, baseline);
   ctx.stroke();
-  const displayHeight = Math.min(185, height * 0.68);
   const range = Math.max(0, width - 220),
     distance = (elapsed / clipDuration(clip)) * displayHeight * 0.95;
   const position = range ? distance % (range * 2) : 0;
-  const travel = action === 'move' && elements.mode.value === 'travel';
+  const travel = clip.mirrorForRight && action === 'move' && elements.mode.value === 'travel';
   const x = travel ? 110 + (position < range ? position : range * 2 - position) : width / 2;
-  const right = action === 'move' && (travel ? position < range : elements.right.checked);
+  const right = clip.mirrorForRight && (travel ? position < range : elements.right.checked);
   ctx.fillStyle = '#897b5020';
   ctx.beginPath();
-  ctx.ellipse(x, baseline + 2, 47, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, baseline + 2, displayHeight * 0.25, displayHeight * 0.032, 0, 0, Math.PI * 2);
   ctx.fill();
-  drawCat(ctx, current.frame, x, baseline, displayHeight, right);
-  elements.status.textContent = `${labels[action]} · 第 ${current.index + 1} / ${clip.frames.length} 帧${verticalTravel ? ' · 镜头跟随' : ''}`;
+  drawCharacter(ctx, current.frame, x, baseline, displayHeight, right);
+  elements.status.textContent = `${labels[action] ?? action} · 第 ${current.index + 1} / ${clip.frames.length} 帧${followTravel ? ' · 镜头跟随' : ''}`;
   elements.frame.value = current.index + 1;
   cards.forEach((card, i) => card.classList.toggle('active', i === current.index));
 }
@@ -133,7 +150,7 @@ function draw() {
 function drawFrames() {
   cards.forEach((card, i) => {
     const { ctx, width, height } = context(card.querySelector('canvas'));
-    drawCat(ctx, config.clips[action].frames[i], width / 2, height - 10, height * 0.77);
+    drawCharacter(ctx, config.clips[action].frames[i], width / 2, height - 10, height * 0.77);
   });
 }
 
@@ -149,9 +166,10 @@ function selectAction(name) {
   const clip = config.clips[action];
   elements.frame.max = clip.frames.length;
   elements['frame-count'].textContent = `${clip.frames.length} 张`;
-  elements.playback.textContent = clip.loop ? '连续循环' : '播放一次，停在站稳姿势';
+  elements.playback.textContent = clip.loop ? '连续循环' : '播放一次，停在末帧';
   elements.mode.disabled = !isMove(action);
-  elements.right.disabled = action !== 'move';
+  elements.right.disabled = !clip.mirrorForRight;
+  elements.right.parentElement.hidden = config.profile === 'shop_manager';
   clip.frames.forEach((_, i) => {
     const card = document.createElement('div');
     card.className = 'frame-card';
@@ -254,7 +272,27 @@ function tick(now) {
 }
 
 async function start() {
-  config = await loadCharacterAnimations('../assets/characters/v1/cat_orange/manifest.json');
+  const root = new URL('../assets/characters/v1/', location.href);
+  const response = await fetch(new URL('index.json', root), { signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new Error('无法读取角色目录');
+  const { characters } = await response.json();
+  const requested = new URLSearchParams(location.search).get('character') ?? 'cat_orange';
+  const entry = characters.find((entry) => entry.id === requested) ?? characters[0];
+  const manifestUrl = new URL(entry.manifest, root).href;
+  config = await loadCharacterAnimations(manifestUrl);
+  const manager = config.profile === 'shop_manager';
+  elements['character-title'].textContent = manager ? '店长的动作小剧场。' : '猫猫的动作小剧场。';
+  document.title = `${manager ? '店长' : '猫猫'} · 角色动作预览`;
+  elements['skin-section'].hidden = manager;
+  elements['asset-note'].textContent = manager
+    ? '完整角色逐帧 · 四向独立绘制 · 右手持网'
+    : '完整角色逐帧 · 六套毛色共用动作';
+  elements['manifest-link'].href = manifestUrl;
+  elements['palette-link'].href = config.paletteUrl;
+  elements['palette-link'].hidden = manager;
+  for (const link of document.querySelectorAll('[data-character]')) {
+    if (link.dataset.character === entry.id) link.setAttribute('aria-current', 'page');
+  }
   elements['animation-summary'].textContent = Object.entries(config.clips)
     .map(([name, clip]) => `${labels[name] ?? name} ${clip.frames.length} 帧`)
     .join(' · ');
@@ -277,7 +315,8 @@ async function start() {
       }),
     ),
   );
-  displayImage = images.move;
+  const initialAction = manager ? 'idle' : 'move';
+  displayImage = images[initialAction];
   elements.action.addEventListener('change', (event) => selectAppearance(event.target.value, wantedSkin));
   elements.pause.addEventListener('click', () => {
     const clip = config.clips[action];
@@ -303,9 +342,9 @@ async function start() {
     rate = Number(event.target.value);
   });
   window.addEventListener('resize', drawFrames);
-  selectAction('move');
-  void createSkinChoices();
-  await selectAppearance('move', selectedSkin);
+  selectAction(initialAction);
+  if (!manager) void createSkinChoices();
+  await selectAppearance(initialAction, selectedSkin);
   elements.action.disabled = false;
   lastTime = performance.now();
   requestAnimationFrame(tick);

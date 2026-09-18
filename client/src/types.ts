@@ -8,7 +8,8 @@ export type Appearance =
   | 'pantry'
   | 'repair'
   | 'fish_rack'
-  | 'mini_fridge';
+  | 'mini_fridge'
+  | 'magic_trash_bin';
 export interface Price {
   currency: string;
   amount: number;
@@ -16,6 +17,11 @@ export interface Price {
 export interface Offer {
   enabled: boolean;
   reason: string;
+}
+export interface ItemOffer extends Offer {
+  cost?: Price[];
+  purchased?: number;
+  limit?: number;
 }
 export interface LevelConfig {
   level: number;
@@ -33,9 +39,16 @@ export interface ItemLevelConfig extends LevelConfig {
 export interface ItemConfig {
   id: string;
   name: string;
+  description: string;
   category: 'currency' | 'attack' | 'utility';
   behavior:
-    'obstacle' | 'pickup' | 'currency_producer' | 'single_attack' | 'door_repair' | 'door_attack_delay';
+    | 'obstacle'
+    | 'pickup'
+    | 'currency_producer'
+    | 'single_attack'
+    | 'door_repair'
+    | 'door_attack_delay'
+    | 'random_item';
   appearance: Appearance;
   currency: string;
   buildable: boolean;
@@ -79,6 +92,8 @@ export interface Prop {
   appearance: Appearance;
   level: number;
   lastShot: number;
+  revealStartedAt?: number;
+  revealAt?: number;
 }
 export interface Player {
   character: CharacterSelection;
@@ -173,7 +188,7 @@ export interface State {
   notices: { id: number; time: number; text: string }[];
   configVersion: string;
   catalog: Catalog;
-  offers: { nest: Offer; door: Offer; items: Record<string, Offer[]> };
+  offers: { nest: Offer; door: Offer; items: Record<string, ItemOffer[]> };
 }
 export function roomAt(map: GridMap, cell: number): number {
   if (cell < 0 || cell >= map.width * map.height) return -1;

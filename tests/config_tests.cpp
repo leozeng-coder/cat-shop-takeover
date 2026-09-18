@@ -1,6 +1,7 @@
 #include "game/game.h"
 #include "game/logic_economy.h"
 #include "item/logic_item.h"
+#include "item/logic_random_item.h"
 #include "test_config.h"
 #include <algorithm>
 #include <chrono>
@@ -30,7 +31,7 @@ Json::Value document() {
     };
     auto data = read("manifest");
     for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
-                             "manager_ai", "map_generation", "characters"}) {
+                             "manager_ai", "map_generation", "characters", "random_items"}) {
         data[name] = read(name);
     }
     const auto map = read("map_items");
@@ -51,7 +52,7 @@ void saveTables(const std::filesystem::path& directory, const Json::Value& data)
     save("manifest", manifest);
     save("map_items", map);
     for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
-                             "manager_ai", "map_generation", "characters"}) {
+                             "manager_ai", "map_generation", "characters", "random_items"}) {
         save(name, data[name]);
     }
 }
@@ -545,6 +546,100 @@ void uniqueFridgePurchases() {
               "rematch clears all door defense cooldowns and delayed attacks");
     }
 }
+void randomItemPurchases() {
+    rejects([](auto& d) { d["random_items"][0]["level_weight_decay"] = 1; }, "equal level weights rejected");
+    rejects([](auto& d) { d["random_items"][0]["level_weight_decay"] = 0; }, "unreachable high levels rejected");
+    rejects([](auto& d) { d["random_items"][0]["purchase_costs"][1][0]["amount"] = 100; }, "decreasing price rejected");
+    rejects([](auto& d) { d["random_items"][0]["purchase_costs"] = Json::Value(Json::arrayValue); },
+            "empty purchase limit rejected");
+    rejects([](auto& d) { d["random_items"][0]["item"] = "launcher"; }, "random rule needs consumable behavior");
+    rejects([](auto& d) { d["random_items"] = Json::Value(Json::arrayValue); }, "missing random rule rejected");
+    rejects([](auto& d) { d["initial_items"].append("magic_trash_bin"); },
+            "pending consumables cannot spawn as map furniture");
+    auto game = claimed();
+    auto& cat = game.players[0];
+    auto& room = game.dorms[0];
+    const auto& item = game.config().item("magic_trash_bin");
+    const auto& rule = game.config().randomItems.at(item.id);
+    check(rule.purchaseCosts.size() == 3, "three purchases per seat per match");
+    for (const auto& [id, entry] : game.config().items) {
+        check(!entry.description.empty(), "every item has a description");
+    }
+    check(LogicRandomItem::pool(game, 0).size() == 5,
+          "pool has all five installable items, without terrain or consumables");
+    const int tile = room.floor.front() == room.nest ? room.floor.back() : room.floor.front();
+    cat.wallet["cans"] = 0;
+    check(!game.command(0, GameAction::Build, -1, tile, item.id).empty() && cat.itemPurchases.empty() &&
+              room.props.empty(),
+          "insufficient funds never consume a draw or occupy a tile");
+    cat.wallet["cans"] = 10000;
+    cat.wallet["dried_fish"] = 10000;
+    const auto initial = cat.wallet;
+    check(!game.command(0, GameAction::Build, -1, room.nest, item.id).empty() && cat.wallet == initial,
+          "invalid placement is rejected before charging");
+    room.hp = 0;
+    check(!game.command(0, GameAction::Build, -1, tile, item.id).empty() && cat.itemPurchases.empty(),
+          "escaping cannot purchase a random item");
+    room.hp = game.config().door(1).health;
+    for (int i = 0; i < 3; ++i) {
+        const auto before = cat.wallet;
+        const int cell = build(game, item.id);
+        const auto pending = *game.propAt(cell);
+        check(pending.kind == item.id && pending.revealAt > game.elapsed && !pending.rewardKind.empty(),
+              "purchase first installs a pending trash bin");
+        check(LogicRandomItem::purchased(cat, item.id) == i + 1, "placement consumes exactly one draw");
+        for (const auto& cost : rule.purchaseCosts[i]) {
+            check(cat.wallet[cost.currency] == before.at(cost.currency) - cost.amount,
+                  "each purchase uses its configured price");
+        }
+        const auto paid = cat.wallet;
+        check(!game.command(0, GameAction::Build, -1, cell, item.id).empty() && cat.wallet == paid &&
+                  LogicRandomItem::purchased(cat, item.id) == i + 1,
+              "repeated clicks on a shaking bin neither reroll nor charge");
+        const auto pool = LogicRandomItem::pool(game, 0);
+        if (game.config().item(pending.rewardKind).unique) {
+            check(std::none_of(pool.begin(), pool.end(),
+                               [&](const auto* reward) { return reward->id == pending.rewardKind; }),
+                  "pending unique reward is reserved against other rolls");
+            check(!game.itemPurchaseError(0, game.config().item(pending.rewardKind), 1).empty(),
+                  "pending unique reward blocks direct duplicate purchase");
+        }
+        game.setConnected(0, false);
+        game.setConnected(0, true);
+        check(game.propAt(cell)->rewardKind == pending.rewardKind && LogicRandomItem::purchased(cat, item.id) == i + 1,
+              "reconnect preserves the draw result and usage");
+        game.elapsed = pending.revealAt - .05;
+        LogicRandomItem::update(game);
+        check(game.propAt(cell)->kind == item.id, "reward remains hidden throughout the shaking interval");
+        game.elapsed = pending.revealAt;
+        LogicRandomItem::update(game);
+        const auto& revealed = *game.propAt(cell);
+        check(revealed.kind == pending.rewardKind && revealed.level == pending.rewardLevel &&
+                  revealed.rewardKind.empty(),
+              "deadline replaces the bin in place with its original rolled level");
+        check(game.config().item(revealed.kind).levels.size() >= static_cast<std::size_t>(revealed.level),
+              "rolled level is valid for the selected item");
+        const auto notices = game.notices.front().id;
+        LogicRandomItem::update(game);
+        check(game.notices.front().id == notices, "revealing twice cannot issue another reward");
+    }
+    const auto wallet = cat.wallet;
+    check(!game.itemPurchaseError(0, item, 1).empty() &&
+              !game.command(0, GameAction::Build, -1, tile, item.id).empty() && cat.wallet == wallet,
+          "fourth purchase is denied without debit");
+    game.players[1].room = 1;
+    game.players[1].wallet = initial;
+    game.dorms[1].owner = 1;
+    game.dorms[1].props.clear();
+    check(game.itemPurchaseError(1, item, 1).empty() && build(game, item.id, 1) >= 0,
+          "other players have an independent purchase allowance");
+    game.phase = "won";
+    check(game.rematch(0).empty() && cat.itemPurchases.empty(), "new match resets the purchase allowance");
+    for (const auto& r : game.dorms) {
+        check(std::none_of(r.props.begin(), r.props.end(), [](const auto& p) { return !p.rewardKind.empty(); }),
+              "new match clears all pending rewards");
+    }
+}
 void fishRackProduction() {
     auto game = claimed();
     auto& p = game.players[0];
@@ -641,8 +736,9 @@ void snapshots() {
         std::filesystem::path path;
         ~Cleanup() {
             std::error_code error;
-            for (const auto* name : {"manifest", "currencies", "match", "doors", "nests", "items", "manager", "repair",
-                                     "map_items", "cat_ai", "manager_ai", "map_generation", "characters"}) {
+            for (const auto* name :
+                 {"manifest", "currencies", "match", "doors", "nests", "items", "manager", "repair", "map_items",
+                  "cat_ai", "manager_ai", "map_generation", "characters", "random_items"}) {
                 std::filesystem::remove(path / (std::string(name) + ".json"), error);
             }
             std::filesystem::remove(path, error);
@@ -703,6 +799,7 @@ int main() {
         newItemsAndLevels();
         fishRackProduction();
         uniqueFridgePurchases();
+        randomItemPurchases();
         customMapProfiles();
         snapshots();
         std::cout << "PASS " << checks << " configuration/economy checks\n";

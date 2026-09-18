@@ -112,6 +112,29 @@ export class GameArt {
     }
     c.restore();
   }
+  magicTrashBin(x: number, y: number, progress: number) {
+    const c = this.ctx;
+    this.ellipse(x, y + 12, 13, 4, '#57496830');
+    c.save();
+    c.translate(x, y + 11);
+    // Two complete left/right shakes, anchored at the base; never restart on snapshots.
+    c.rotate(Math.sin(progress * Math.PI * 4) * 0.16);
+    this.rect(-10, -23, 20, 24, '#ae9cb9', 4, '#72657e');
+    this.line(-6, -17, -6, -3, '#d6c7d9', 1.5);
+    this.line(6, -17, 6, -3, '#d6c7d9', 1.5);
+    this.rect(-13, -26, 26, 5, '#d8cba7', 2, '#887960');
+    this.rect(-4, -30, 8, 4, '#bdaec8', 2, '#72657e');
+    this.text('?', 0, -6, 15, '#fff1ba', 'center');
+    c.restore();
+    if (progress > 0 && progress < 1) {
+      const glow = Math.sin(progress * Math.PI);
+      c.save();
+      c.globalAlpha = glow;
+      this.text('✦', x - 16, y - 9, 9, '#ffe4a6', 'center');
+      this.text('✧', x + 15, y - 16, 10, '#fff5d4', 'center');
+      c.restore();
+    }
+  }
   miniFridge(x: number, y: number, pulse: number) {
     const c = this.ctx;
     c.save();

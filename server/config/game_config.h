@@ -43,15 +43,20 @@ struct DoorConfig {
 struct NestConfig : LevelConfig {
     std::string currency;
 };
-enum class ItemBehavior { Obstacle, Pickup, CurrencyProducer, SingleAttack, DoorRepair, DoorAttackDelay };
+enum class ItemBehavior { Obstacle, Pickup, CurrencyProducer, SingleAttack, DoorRepair, DoorAttackDelay, RandomItem };
 struct ItemLevelConfig : LevelConfig {
     std::string name, appearance;
 };
 struct ItemConfig {
-    std::string id, name, category, appearance, currency;
+    std::string id, name, description, category, appearance, currency;
     ItemBehavior behavior = ItemBehavior::Obstacle;
     bool buildable = false, unique = false;
     std::vector<ItemLevelConfig> levels;
+};
+struct RandomItemConfig {
+    std::vector<Cost> purchaseCosts;
+    double levelWeightDecay = 0;
+    double revealDuration = 0;
 };
 struct EnemyLevelStats {
     int maxHp = 0, doorDamage = 0;
@@ -127,6 +132,7 @@ struct GameConfig {
     std::vector<DoorConfig> doors;
     std::vector<NestConfig> nests;
     std::map<std::string, ItemConfig> items;
+    std::map<std::string, RandomItemConfig> randomItems;
     std::vector<std::string> initialItems;
     std::string pickupItem;
     EnemyConfig enemy;

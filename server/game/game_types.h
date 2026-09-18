@@ -17,6 +17,9 @@ struct Prop {
     int level = 1;
     double cooldown = 0;
     double lastShot = -100;
+    std::string rewardKind;
+    int rewardLevel = 0;
+    double revealStartedAt = 0, revealAt = 0;
 };
 struct Dorm {
     int id = 0, owner = -1, level = 1;
@@ -34,6 +37,8 @@ struct Player {
     bool human = false, connected = false, ready = true, alive = true, sleeping = false;
     int room = -1, bed = 1, personality = 0, nestIntent = -1;
     Wallet wallet;
+    // Successful consumable purchases belong to the seat and survive reconnect/AI takeover.
+    std::map<std::string, int> itemPurchases;
     CatAiState ai;
     double productionRemainder = 0;
     Point position{};

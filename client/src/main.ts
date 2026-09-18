@@ -181,6 +181,24 @@ const connection = new GameConnection({
       combatExpanded = false;
     }
     state = next;
+    if (previous?.code === next.code && previous.map.seed === next.map.seed) {
+      const mine = next.players[next.you].room;
+      if (mine >= 0) {
+        const before = previous.dorms[mine];
+        for (const prop of next.dorms[mine].props) {
+          const old = before.props.find((p) => p.cell === prop.cell);
+          if (old && next.catalog.items[old.kind].behavior === 'random_item' && prop.kind !== old.kind) {
+            toast(
+              '翻到宝贝啦！' +
+                next.catalog.items[prop.kind].levels[prop.level - 1].name +
+                ' · ' +
+                prop.level +
+                '级',
+            );
+          }
+        }
+      }
+    }
     if (
       !selectedCharacter ||
       characterKey(selectedCharacter) !== characterKey(next.players[next.you].character)

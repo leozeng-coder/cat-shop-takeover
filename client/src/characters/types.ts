@@ -26,6 +26,7 @@ export interface Palettes {
   source: Record<string, number[]>;
 }
 export interface AnimationConfig {
+  profile?: 'cat' | 'shop_manager';
   strideWorldUnits: number;
   movementClips?: Partial<Record<'left' | 'right' | 'up' | 'down', string>>;
   paletteUrl: string;

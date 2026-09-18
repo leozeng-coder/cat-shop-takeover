@@ -42,8 +42,8 @@ double number(const JsonValue& v, const std::string& at, double min = 0, double 
     }
     return v.asDouble();
 }
-std::string string(const JsonValue& v, const std::string& at, bool empty = false) {
-    if (!v.isString() || (!empty && v.asString().empty()) || v.asString().size() > 128) {
+std::string string(const JsonValue& v, const std::string& at, bool empty = false, std::size_t maxLength = 128) {
+    if (!v.isString() || (!empty && v.asString().empty()) || v.asString().size() > maxLength) {
         fail(at, "invalid string");
     }
     return v.asString();
@@ -169,7 +169,8 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     }
     object(root, "config",
            {"schema_version", "version", "currencies", "match", "doors", "nests", "items", "initial_items",
-            "pickup_item", "repair", "manager", "cat_ai", "manager_ai", "map_generation", "characters"});
+            "pickup_item", "repair", "manager", "cat_ai", "manager_ai", "map_generation", "characters",
+            "random_items"});
     integer(root["schema_version"], "schema_version", 1, 1);
     auto cfg = std::make_shared<GameConfig>();
     // Content identity distinguishes edits even when the author forgets to bump the display version.
@@ -325,13 +326,16 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
                                                         {"currency_producer", ItemBehavior::CurrencyProducer},
                                                         {"single_attack", ItemBehavior::SingleAttack},
                                                         {"door_repair", ItemBehavior::DoorRepair},
-                                                        {"door_attack_delay", ItemBehavior::DoorAttackDelay}};
+                                                        {"door_attack_delay", ItemBehavior::DoorAttackDelay},
+                                                        {"random_item", ItemBehavior::RandomItem}};
     for (const auto& row : array(root["items"], "items")) {
         object(row, "items",
-               {"id", "name", "category", "behavior", "appearance", "currency", "buildable", "unique", "levels"});
+               {"id", "name", "description", "category", "behavior", "appearance", "currency", "buildable", "unique",
+                "levels"});
         ItemConfig item;
         item.id = id(row["id"], "items.id");
         item.name = string(row["name"], item.id + ".name");
+        item.description = string(row["description"], item.id + ".description", false, 512);
         item.category = string(row["category"], item.id + ".category");
         const auto behavior = string(row["behavior"], item.id + ".behavior");
         if (!behaviors.contains(behavior)) {
@@ -345,8 +349,9 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             fail(item.id, "category disagrees with behavior");
         }
         item.appearance = string(row["appearance"], item.id + ".appearance");
-        const std::set<std::string> appearances{"shelf",  "crate",     "launcher",   "pantry",
-                                                "repair", "fish_rack", "mini_fridge", "launcher_dual", "launcher_cannon"};
+        const std::set<std::string> appearances{"shelf",           "crate",          "launcher",    "pantry",
+                                                "repair",          "fish_rack",      "mini_fridge", "launcher_dual",
+                                                "launcher_cannon", "magic_trash_bin"};
         if (!appearances.contains(item.appearance)) {
             fail(item.id, "unknown appearance");
         }
@@ -364,7 +369,14 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         if (terrain && item.buildable) {
             fail(item.id, "terrain item cannot be purchased");
         }
-        const auto& levels = array(row["levels"], item.id + ".levels", 1, terrain ? 1 : 64);
+        const bool randomItem = item.behavior == ItemBehavior::RandomItem;
+        if (randomItem && (!item.buildable || item.unique)) {
+            fail(item.id, "random items must be purchasable consumables without a unique flag");
+        }
+        const auto& levels = array(row["levels"], item.id + ".levels", randomItem ? 0 : 1,
+                                   randomItem ? 0
+                                   : terrain  ? 1
+                                              : 64);
         for (const auto& data : levels) {
             const int ordinal = static_cast<int>(item.levels.size()) + 1;
             const auto at = item.id + ".levels[" + std::to_string(ordinal) + "]";
@@ -394,9 +406,57 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             fail("items", "duplicate ID " + item.id);
         }
     }
+    for (const auto& row : array(root["random_items"], "random_items", 0, 128)) {
+        object(row, "random_items", {"item", "purchase_costs", "level_weight_decay", "reveal_duration_ms"});
+        const auto key = id(row["item"], "random_items.item");
+        if (!cfg->items.contains(key) || cfg->item(key).behavior != ItemBehavior::RandomItem) {
+            fail(key, "random item rule must reference a random_item consumable");
+        }
+        RandomItemConfig rules;
+        rules.levelWeightDecay = number(row["level_weight_decay"], key + ".level_weight_decay", 0.01, 0.99);
+        rules.revealDuration = integer(row["reveal_duration_ms"], key + ".reveal_duration_ms", 200, 10000) / 1000.0;
+        for (const auto& entry : array(row["purchase_costs"], key + ".purchase_costs", 1, 32)) {
+            auto price = cost(entry, *cfg, key + ".purchase_costs");
+            if (price.empty()) {
+                fail(key, "each purchase must have a price");
+            }
+            if (!rules.purchaseCosts.empty()) {
+                bool increased = false;
+                for (const auto& currency : cfg->currencies) {
+                    auto amount = [&](const Cost& costs) {
+                        const auto found = std::find_if(costs.begin(), costs.end(),
+                                                        [&](const auto& c) { return c.currency == currency.id; });
+                        return found == costs.end() ? 0 : found->amount;
+                    };
+                    if (amount(price) < amount(rules.purchaseCosts.back())) {
+                        fail(key, "purchase prices must not decrease");
+                    }
+                    increased = increased || amount(price) > amount(rules.purchaseCosts.back());
+                }
+                if (!increased) {
+                    fail(key, "each purchase must cost more than the previous one");
+                }
+            }
+            rules.purchaseCosts.push_back(std::move(price));
+        }
+        if (!cfg->randomItems.emplace(key, std::move(rules)).second) {
+            fail(key, "duplicate random item rule");
+        }
+    }
+    for (const auto& [key, item] : cfg->items) {
+        if (item.behavior == ItemBehavior::RandomItem && !cfg->randomItems.contains(key)) {
+            fail(key, "missing random item rule");
+        }
+    }
+    if (!cfg->randomItems.empty() && std::none_of(cfg->items.begin(), cfg->items.end(), [](const auto& entry) {
+            return entry.second.buildable && entry.second.behavior != ItemBehavior::RandomItem;
+        })) {
+        fail("random_items", "no installable reward items");
+    }
     for (const auto& row : array(root["initial_items"], "initial_items", 1, 128)) {
         const auto key = id(row, "initial_items");
         if (!cfg->items.contains(key) || !cfg->item(key).buildable ||
+            cfg->item(key).behavior == ItemBehavior::RandomItem ||
             std::find(cfg->initialItems.begin(), cfg->initialItems.end(), key) != cfg->initialItems.end()) {
             fail("initial_items", "unknown, unbuildable or duplicate item");
         }
@@ -562,8 +622,9 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
         }
         return text;
     };
-    const std::array<const char*, 13> names{"manifest", "currencies", "match", "doors", "nests", "items", "manager",
-                                          "repair", "map_items", "cat_ai", "manager_ai", "map_generation", "characters"};
+    const std::array<const char*, 14> names{"manifest",   "currencies",     "match",      "doors",       "nests",
+                                            "items",      "manager",        "repair",     "map_items",   "cat_ai",
+                                            "manager_ai", "map_generation", "characters", "random_items"};
     std::map<std::string, std::string> sources;
     std::map<std::string, JsonValue> tables;
     std::size_t bytes = 0;
@@ -596,7 +657,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
     auto result = tables.at("manifest");
     object(result, "manifest.json", {"schema_version", "version"});
     for (const auto* name : {"currencies", "match", "doors", "nests", "items", "manager", "repair", "cat_ai",
-                             "manager_ai", "map_generation", "characters"}) {
+                             "manager_ai", "map_generation", "characters", "random_items"}) {
         result[name] = tables.at(name);
     }
     const auto& map = tables.at("map_items");

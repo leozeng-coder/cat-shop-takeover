@@ -8,6 +8,7 @@ export async function loadCharacterAnimations(manifestUrl) {
     throw new Error('Invalid character frame dimensions');
   }
   const config = {
+    profile: manifest.profile ?? 'cat',
     strideWorldUnits: manifest.strideWorldUnits,
     paletteUrl: new URL(manifest.palettes, url).href,
     movementClips: manifest.movementClips,
@@ -62,15 +63,34 @@ export function walkTime(config, distance, action = 'move') {
 }
 
 export function validateManifest(config) {
-  // These states are consumed by the shared actor controller; reject incomplete art at load time.
-  for (const [name, loop] of [
-    ['move', true],
-    ['idle', true],
-    ['sleep', true],
-    ['wake', false],
-  ]) {
+  // Actor-specific states: a shopkeeper has no sleeping/waking cat state.
+  const profiles = {
+    cat: { move: true, idle: true, sleep: true, wake: false },
+    shop_manager: {
+      move_left: true,
+      move_right: true,
+      move_up: true,
+      move_down: true,
+      idle: true,
+      attack: false,
+      retreat: true,
+    },
+  };
+  const profile = config.profile ?? 'cat';
+  if (!Object.hasOwn(profiles, profile)) throw new Error('Invalid character profile');
+  for (const [name, loop] of Object.entries(profiles[profile])) {
     if (config.clips[name]?.loop !== loop) {
       throw new Error(`Invalid character clip: ${name} must ${loop ? 'loop' : 'play once'}`);
+    }
+  }
+  if (profile === 'shop_manager') {
+    const directions = ['left', 'right', 'up', 'down'].map((direction) => config.movementClips?.[direction]);
+    if (
+      directions.some((name) => !name) ||
+      new Set(directions).size !== 4 ||
+      Object.values(config.clips).some((clip) => clip.mirrorForRight)
+    ) {
+      throw new Error('Invalid shopkeeper directions: preserve the net hand with separate views');
     }
   }
   for (const [direction, action] of Object.entries(config.movementClips ?? {})) {

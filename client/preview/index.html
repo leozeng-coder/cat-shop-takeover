@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>猫猫 · 毛色与动作预览</title>
+    <title>猫猫夺店计划 · 角色动作预览</title>
     <link rel="stylesheet" href="./preview.css" />
     <script type="module" src="./preview.js"></script>
   </head>
@@ -11,10 +11,14 @@
     <main>
       <header>
         <p class="eyebrow">猫猫夺店计划 / 角色动作</p>
-        <h1>猫猫的动作小剧场。</h1>
+        <h1 id="character-title">角色的动作小剧场。</h1>
+        <nav class="character-tabs" aria-label="选择预览角色">
+          <a href="?character=cat_orange" data-character="cat_orange">猫猫</a>
+          <a href="?character=shop_manager" data-character="shop_manager">店长</a>
+        </nav>
         <p id="animation-summary">正在读取动作配置…</p>
       </header>
-      <section aria-label="角色毛色">
+      <section id="skin-section" aria-label="角色毛色">
         <div class="strip-heading">
           <h2>选一只你的猫猫</h2>
           <span id="skin-status" role="status" aria-label="毛色状态">六套毛色 · 同一套动作</span>
@@ -22,7 +26,7 @@
         <div id="skins" class="skins"></div>
       </section>
       <section class="stage">
-        <canvas id="motion" aria-label="猫猫动作预览"></canvas>
+        <canvas id="motion" aria-label="角色动作预览"></canvas>
         <div class="caption">
           <span id="status" role="status">正在加载…</span><span id="playback">连续循环</span>
         </div>
@@ -49,6 +53,13 @@
             <option value="travel">行进演示</option>
           </select></label
         >
+        <label
+          >尺寸
+          <select id="size">
+            <option value="185">放大检查</option>
+            <option value="36">36 px 小尺寸</option>
+          </select>
+        </label>
         <label><input type="checkbox" id="right" /> 朝右</label>
         <label class="scrub">逐帧 <input id="frame" type="range" min="1" max="8" value="1" /></label>
       </section>
@@ -60,10 +71,10 @@
         <div id="frames" class="frames"></div>
       </section>
       <footer>
-        <span>完整角色逐帧 · 六套毛色共用动作</span>
+        <span id="asset-note">完整角色逐帧</span>
         <nav>
-          <a href="../assets/characters/v1/cat_orange/manifest.json">动作配置</a>
-          <a href="../assets/characters/v1/cat_orange/palettes.json">毛色配置</a>
+          <a id="manifest-link">动作配置</a>
+          <a id="palette-link">毛色配置</a>
         </nav>
       </footer>
     </main>

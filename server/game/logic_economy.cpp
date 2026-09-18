@@ -1,5 +1,6 @@
 #include "logic_economy.h"
 #include "game.h"
+#include "item/logic_random_item.h"
 #include <algorithm>
 namespace snackshop {
 void LogicEconomy::initialize(Player& player, const GameConfig& config) {
@@ -61,10 +62,14 @@ std::string Game::purchaseError(int id, const Cost& cost, const Requirements& re
     return {};
 }
 std::string Game::itemPurchaseError(int id, const ItemConfig& item, int level) const {
+    if (item.behavior == ItemBehavior::RandomItem) {
+        return LogicRandomItem::purchaseError(*this, id, item);
+    }
     if (level == 1 && item.unique) {
         for (const auto& room : dorms) {
-            if (room.owner == id && std::any_of(room.props.begin(), room.props.end(),
-                                                [&](const Prop& prop) { return prop.kind == item.id; })) {
+            if (room.owner == id && std::any_of(room.props.begin(), room.props.end(), [&](const Prop& prop) {
+                    return prop.kind == item.id || prop.rewardKind == item.id;
+                })) {
                 return "已安装" + item.name + "，每位玩家限一件";
             }
         }

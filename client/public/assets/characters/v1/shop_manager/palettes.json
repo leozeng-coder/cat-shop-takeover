@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "default": "original",
+  "source": {},
+  "skins": [
+    {
+      "id": "original",
+      "name": "便利店店长",
+      "original": true,
+      "fur": "#949263",
+      "stripe": "#654837",
+      "highlight": "#bf8651",
+      "white": "#fff0d5"
+    }
+  ]
+}

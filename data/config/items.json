@@ -2,6 +2,7 @@
   {
     "id": "launcher",
     "name": "毛线弹射器",
+    "description": "把毛线团变成守店的武器，瞄准靠近的店长，给他一点猫猫震撼。",
     "category": "attack",
     "behavior": "single_attack",
     "appearance": "launcher",
@@ -142,6 +143,7 @@
   {
     "id": "pantry",
     "name": "罐头储藏柜",
+    "description": "藏好一柜子夜宵，源源不断补充罐头，让猫店越守越富。",
     "category": "currency",
     "behavior": "currency_producer",
     "appearance": "pantry",
@@ -203,6 +205,7 @@
   {
     "id": "repair",
     "name": "自动修补台",
+    "description": "小爪子忙不过来就交给它，自动修补店门，替你多撑一会儿。",
     "category": "utility",
     "behavior": "door_repair",
     "appearance": "repair",
@@ -274,6 +277,7 @@
   {
     "id": "fish_rack",
     "name": "鱼干晾晒架",
+    "description": "把小鱼挂起来，等风送来鱼干香。攒下的小鱼干能升级更厉害的道具。",
     "category": "currency",
     "behavior": "currency_producer",
     "appearance": "fish_rack",
@@ -335,6 +339,7 @@
   {
     "id": "shelf",
     "name": "旧货架",
+    "description": "店主留下的老货架，挤占了一点地方，路过时记得绕开。",
     "category": "utility",
     "behavior": "obstacle",
     "appearance": "shelf",
@@ -355,6 +360,7 @@
   {
     "id": "crate",
     "name": "遗落的罐头箱",
+    "description": "不知道是谁忘在这里的罐头。走过去瞧瞧，今晚的加餐有着落了。",
     "category": "utility",
     "behavior": "pickup",
     "appearance": "crate",
@@ -375,6 +381,7 @@
   {
     "id": "mini_fridge",
     "name": "喵喵小冰箱",
+    "description": "一口凉气吹向门外，让店长的下一次敲门慢半拍。每只猫只能拥有一台。",
     "category": "utility",
     "behavior": "door_attack_delay",
     "appearance": "mini_fridge",
@@ -485,5 +492,16 @@
         "range": 0
       }
     ]
+  },
+  {
+    "id": "magic_trash_bin",
+    "name": "神奇垃圾桶",
+    "description": "里面藏着人类丢弃的小玩意儿，伸爪翻找，说不定就能捡到神奇的宝贝！",
+    "category": "utility",
+    "behavior": "random_item",
+    "appearance": "magic_trash_bin",
+    "currency": "",
+    "buildable": true,
+    "levels": []
   }
 ]

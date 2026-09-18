@@ -187,8 +187,11 @@ Status buildType(Context& c, ItemBehavior behavior, int target, const std::strin
 Status upgradeType(Context& c, ItemBehavior behavior) {
     for (const auto& prop : c.game.dorms[c.cat.room].props) {
         const auto& item = c.game.config().item(prop.kind);
+        if (item.behavior != behavior || !item.buildable) {
+            continue;
+        }
         const int next = item.levels[prop.level - 1].nextLevel;
-        if (item.behavior == behavior && item.buildable && next && canSpend(c, item.levels[next - 1], false) &&
+        if (next && canSpend(c, item.levels[next - 1], false) &&
             c.game.command(c.cat.id, GameAction::Build, -1, prop.cell, item.id).empty()) {
             return Status::Success;
         }

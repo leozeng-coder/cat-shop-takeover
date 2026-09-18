@@ -85,11 +85,34 @@ function effect(g: State, item: ItemConfig, l: LevelConfig) {
   return '';
 }
 function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean) {
+  if (item.behavior === 'random_item') {
+    const offer = g.offers.items[item.id][0];
+    const exhausted = offer.purchased! >= offer.limit!;
+    return action(
+      'build',
+      '翻找' + item.name,
+      details(
+        item.description +
+          ' · 放下后摇晃两下，原地变成随机道具；种类等概率，高等级更稀有，已有唯一道具不重复出。' +
+          '本局已翻找 ' +
+          offer.purchased +
+          '/' +
+          offer.limit +
+          ' 次',
+        [],
+        offer,
+      ),
+      exhausted ? '次数已用完' : price(g, offer.cost!),
+      '🗑',
+      !offer.enabled,
+      item.id,
+    );
+  }
   if (!target)
     return action(
       'build',
       item.levels[item.levels.length - 1].name + ' · 已满级',
-      '已达最高等级',
+      item.description + ' · 已达最高等级',
       '满级',
       '✧',
       true,
@@ -108,7 +131,11 @@ function itemButton(g: State, item: ItemConfig, target: number, upgrade: boolean
   return action(
     'build',
     (upgrade ? '升级为 ' : '安装') + l.name + (upgrade ? ' · ' + target + '级' : ''),
-    details(effect(g, item, l) + (item.unique ? ' · 每位玩家限一件' : ''), l.requirements, offer),
+    details(
+      item.description + ' · ' + effect(g, item, l) + (item.unique ? ' · 每位玩家限一件' : ''),
+      l.requirements,
+      offer,
+    ),
     price(g, l.cost),
     symbol,
     !offer.enabled,
@@ -129,7 +156,9 @@ export function gridMenuView(g: State, cell: number, category: ItemCategory = 'a
       : cell === room.door
         ? room.doorName + (room.closed ? ' · 已关闭' : room.hp <= 0 ? ' · 已破坏' : ' · 敞开')
         : item
-          ? item.levels[prop!.level - 1].name + (item.buildable ? ' · ' + prop!.level + '级' : '')
+          ? item.behavior === 'random_item'
+            ? item.name + ' · 正在翻找'
+            : item.levels[prop!.level - 1].name + (item.buildable ? ' · ' + prop!.level + '级' : '')
           : '空地格';
   let body = '',
     description = mine
@@ -216,14 +245,18 @@ export function gridMenuView(g: State, cell: number, category: ItemCategory = 'a
     if (!room.closed && (room.owner < 0 || mine))
       body += action('move', '走到入口', '从入口进出猫店', '移动', '↗');
   } else if (prop && item) {
-    if (item.behavior === 'pickup') {
+    description = item.description;
+    if (item.behavior === 'random_item') {
+      description += ' 垃圾桶正在摇晃，宝贝马上出现！';
+    } else if (item.behavior === 'pickup') {
       const l = item.levels[prop.level - 1],
         reward = price(g, [{ currency: item.currency, amount: l.amount }]);
       body += action('move', '拾取' + item.name, '走到这个格子，获得 ' + reward, '+' + l.amount, '▣');
     } else if (item.behavior === 'obstacle') {
-      description = '货架挡住了这个格子，猫猫会绕开它行走。';
+      description += ' 货架挡住了这个格子，猫猫会绕开它行走。';
     } else if (mine) {
-      description = effect(g, item, item.levels[prop.level - 1]) + (item.unique ? ' · 每位玩家限一件' : '');
+      description +=
+        ' · ' + effect(g, item, item.levels[prop.level - 1]) + (item.unique ? ' · 每位玩家限一件' : '');
       body += itemButton(g, item, item.levels[prop.level - 1].nextLevel, true);
     }
   } else {

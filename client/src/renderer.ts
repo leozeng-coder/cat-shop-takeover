@@ -27,6 +27,7 @@ export class Renderer {
   private camera = new GameCamera();
   private theme = new MapTheme();
   private lastFrame = 0;
+  private receivedAt = 0;
   private hover = -1;
   private press: {
     id: number;
@@ -145,6 +146,7 @@ export class Renderer {
         });
       }
       const received = performance.now();
+      this.receivedAt = received;
       for (const player of state.players) {
         const key = 'cat' + player.id;
         if (!this.tracks.has(key)) this.tracks.set(key, new MotionTrack());
@@ -207,7 +209,15 @@ export class Renderer {
     const a = this.art,
       c = this.ctx,
       p = this.point(prop.cell);
-    if (prop.appearance === 'shelf') {
+    if (prop.appearance === 'magic_trash_bin') {
+      const elapsed =
+        this.state!.elapsed + Math.min(0.15, Math.max(0, (this.lastFrame - this.receivedAt) / 1000));
+      const progress = Math.max(
+        0,
+        Math.min(1, (elapsed - prop.revealStartedAt!) / (prop.revealAt! - prop.revealStartedAt!)),
+      );
+      a.magicTrashBin(p.x, p.y, progress);
+    } else if (prop.appearance === 'shelf') {
       a.rect(p.x - 12, p.y - 13, 24, 26, '#b0ae87', 3, '#8e9577');
       for (let row = 0; row < 2; row++) {
         a.line(p.x - 11, p.y + row * 12, p.x + 11, p.y + row * 12, '#e3d8ad', 2);
@@ -252,7 +262,7 @@ export class Renderer {
       a.line(p.x - 6, p.y, p.x + 6, p.y, '#94a37e', 4);
       a.line(p.x, p.y - 6, p.x, p.y + 6, '#94a37e', 4);
     }
-    if (prop.appearance !== 'shelf' && prop.appearance !== 'crate')
+    if (prop.appearance !== 'shelf' && prop.appearance !== 'crate' && prop.appearance !== 'magic_trash_bin')
       a.text('' + prop.level, p.x + 11, p.y + 12, 8, '#fffbea', 'center');
   }
   private drawSurface(surface: TileSurface, x: number, y: number, tileSize: number) {

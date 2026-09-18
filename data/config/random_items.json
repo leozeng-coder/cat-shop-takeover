@@ -1,0 +1,18 @@
+[
+  {
+    "item": "magic_trash_bin",
+    "purchase_costs": [
+      [{ "currency": "cans", "amount": 200 }],
+      [
+        { "currency": "cans", "amount": 350 },
+        { "currency": "dried_fish", "amount": 20 }
+      ],
+      [
+        { "currency": "cans", "amount": 500 },
+        { "currency": "dried_fish", "amount": 50 }
+      ]
+    ],
+    "level_weight_decay": 0.55,
+    "reveal_duration_ms": 1200
+  }
+]

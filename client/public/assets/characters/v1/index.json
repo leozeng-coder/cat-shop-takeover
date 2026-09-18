@@ -1,6 +1,7 @@
 {
   "version": 1,
   "characters": [
-    { "id": "cat_orange", "manifest": "cat_orange/manifest.json" }
+    { "id": "cat_orange", "manifest": "cat_orange/manifest.json" },
+    { "id": "shop_manager", "manifest": "shop_manager/manifest.json" }
   ]
 }

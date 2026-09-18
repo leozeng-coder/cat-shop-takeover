@@ -1,5 +1,6 @@
 #include "game_snapshot.h"
 #include "battle/logic_progression.h"
+#include "item/logic_random_item.h"
 #include <algorithm>
 namespace snackshop {
 namespace {
@@ -112,6 +113,7 @@ Json::Value GameSnapshot::catalog(const GameConfig& cfg) {
         Json::Value row;
         row["id"] = id;
         row["name"] = item.name;
+        row["description"] = item.description;
         row["category"] = item.category;
         row["behavior"] = behaviorName(item.behavior);
         row["appearance"] = item.appearance;
@@ -215,7 +217,13 @@ Json::Value GameSnapshot::world(const Game& g) {
             prop["cell"] = p.cell;
             prop["kind"] = p.kind;
             prop["level"] = p.level;
-            prop["appearance"] = cfg.item(p.kind).levels[p.level - 1].appearance;
+            const auto& item = cfg.item(p.kind);
+            prop["appearance"] =
+                item.behavior == ItemBehavior::RandomItem ? item.appearance : item.levels[p.level - 1].appearance;
+            if (item.behavior == ItemBehavior::RandomItem) {
+                prop["revealStartedAt"] = p.revealStartedAt;
+                prop["revealAt"] = p.revealAt;
+            }
             prop["lastShot"] = p.lastShot;
             j["props"].append(prop);
         }
@@ -277,6 +285,17 @@ Json::Value GameSnapshot::personal(const Game& g, int viewer) {
             continue;
         }
         offers["items"][id] = Json::Value(Json::arrayValue);
+        if (item.behavior == ItemBehavior::RandomItem) {
+            const auto& rule = cfg.randomItems.at(id);
+            const int count = LogicRandomItem::purchased(g.players[viewer], id);
+            auto row = offer(g.itemPurchaseError(viewer, item, 1));
+            row["purchased"] = count;
+            row["limit"] = static_cast<int>(rule.purchaseCosts.size());
+            row["cost"] =
+                count < static_cast<int>(rule.purchaseCosts.size()) ? price(rule.purchaseCosts[count]) : price({});
+            offers["items"][id].append(std::move(row));
+            continue;
+        }
         for (const auto& l : item.levels) {
             offers["items"][id].append(offer(g.itemPurchaseError(viewer, item, l.level)));
         }

@@ -4,6 +4,7 @@
 #include "game/game.h"
 #include "game/logic_economy.h"
 #include "item/logic_item.h"
+#include "item/logic_random_item.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -293,6 +294,12 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
             return "这个格子已有其他道具";
         }
         const auto& item = config().item(kind);
+        if (item.behavior == ItemBehavior::RandomItem) {
+            if (existing != room.props.end()) {
+                return "垃圾桶正在摇晃，等待宝贝出现吧";
+            }
+            return LogicRandomItem::purchase(*this, id, cell, item, m_random);
+        }
         const int next = level == 0 ? 1 : item.levels[level - 1].nextLevel;
         if (!next) {
             return "道具已经满级";
@@ -406,6 +413,7 @@ void Game::step(double dt) {
             arrive(p);
         }
     }
+    LogicRandomItem::update(*this);
     LogicItem::updatePassive(*this, dt);
     if (phase == "preparing" && elapsed >= balance.preparation) {
         phase = "running";
