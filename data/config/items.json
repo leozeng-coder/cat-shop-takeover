@@ -1,507 +1,554 @@
 [
   {
-    "id": "launcher",
-    "name": "毛线弹射器",
-    "description": "把毛线团变成守店的武器，瞄准靠近的店长，给他一点猫猫震撼。",
-    "category": "attack",
-    "behavior": "single_attack",
-    "appearance": "launcher",
-    "currency": "",
-    "buildable": true,
-    "levels": [
+    "appearance" : "launcher",
+    "behavior" : "single_attack",
+    "buildable" : true,
+    "category" : "attack",
+    "currency" : "",
+    "description" : "把毛线团变成守店的武器，瞄准靠近的店长，给他一点猫猫震撼。",
+    "id" : "launcher",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 2,
-        "cost": [
+        "amount" : 11,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 55
+            "amount" : 55,
+            "currency" : "cans"
           }
         ],
-        "conditions": [],
-        "amount": 11,
-        "interval_ms": 850,
-        "range": 235
+        "interval_ms" : 850,
+        "level" : 1,
+        "next_level" : 2,
+        "range" : 235
       },
       {
-        "level": 2,
-        "next_level": 3,
-        "cost": [
+        "amount" : 20,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 85
+            "id" : "wood_2",
+            "type" : "door_stage"
           }
         ],
-        "conditions": [
+        "cost" : 
+        [
           {
-            "type": "door_stage",
-            "id": "wood_2"
+            "amount" : 85,
+            "currency" : "cans"
           }
         ],
-        "amount": 20,
-        "interval_ms": 850,
-        "range": 235
+        "interval_ms" : 850,
+        "level" : 2,
+        "next_level" : 3,
+        "range" : 235
       },
       {
-        "level": 3,
-        "next_level": 4,
-        "cost": [
+        "amount" : 34,
+        "appearance" : "launcher_dual",
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 150
+            "id" : "iron_1",
+            "type" : "door_stage"
           }
         ],
-        "conditions": [
+        "cost" : 
+        [
           {
-            "type": "door_stage",
-            "id": "iron_1"
+            "amount" : 150,
+            "currency" : "cans"
           }
         ],
-        "amount": 34,
-        "interval_ms": 850,
-        "range": 235,
-        "name": "双发毛线机",
-        "appearance": "launcher_dual"
+        "interval_ms" : 850,
+        "level" : 3,
+        "name" : "双发毛线机",
+        "next_level" : 4,
+        "range" : 235
       },
       {
-        "level": 4,
-        "next_level": 5,
-        "cost": [
+        "amount" : 70,
+        "appearance" : "launcher_dual",
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 300
+            "id" : "iron_2",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 300,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 8
+            "amount" : 8,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_2"
-          }
-        ],
-        "amount": 70,
-        "interval_ms": 850,
-        "range": 235,
-        "name": "双发毛线机",
-        "appearance": "launcher_dual"
+        "interval_ms" : 850,
+        "level" : 4,
+        "name" : "双发毛线机",
+        "next_level" : 5,
+        "range" : 235
       },
       {
-        "level": 5,
-        "next_level": 6,
-        "cost": [
+        "amount" : 105,
+        "appearance" : "launcher_cannon",
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 700
+            "id" : "iron_3",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 700,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 20
+            "amount" : 20,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_3"
-          }
-        ],
-        "amount": 105,
-        "interval_ms": 850,
-        "range": 235,
-        "name": "喵喵毛线炮",
-        "appearance": "launcher_cannon"
+        "interval_ms" : 850,
+        "level" : 5,
+        "name" : "喵喵毛线炮",
+        "next_level" : 6,
+        "range" : 235
       },
       {
-        "level": 6,
-        "next_level": 0,
-        "cost": [
+        "amount" : 160,
+        "appearance" : "launcher_cannon",
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 1600
+            "id" : "iron_4",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 1600,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 40
+            "amount" : 40,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_4"
-          }
-        ],
-        "amount": 160,
-        "interval_ms": 850,
-        "range": 235,
-        "name": "喵喵毛线炮",
-        "appearance": "launcher_cannon"
+        "interval_ms" : 850,
+        "level" : 6,
+        "name" : "喵喵毛线炮",
+        "next_level" : 0,
+        "range" : 235
       }
-    ]
+    ],
+    "name" : "毛线弹射器"
   },
   {
-    "id": "pantry",
-    "name": "罐头储藏柜",
-    "description": "藏好一柜子夜宵，源源不断补充罐头，让猫店越守越富。",
-    "category": "currency",
-    "behavior": "currency_producer",
-    "appearance": "pantry",
-    "currency": "cans",
-    "buildable": true,
-    "levels": [
+    "appearance" : "pantry",
+    "behavior" : "currency_producer",
+    "buildable" : true,
+    "category" : "currency",
+    "currency" : "cans",
+    "description" : "藏好一柜子夜宵，源源不断补充罐头，让猫店越守越富。",
+    "id" : "pantry",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 2,
-        "cost": [
+        "amount" : 2,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 100
+            "amount" : 100,
+            "currency" : "cans"
           }
         ],
-        "conditions": [],
-        "amount": 2,
-        "interval_ms": 1000,
-        "range": 0
+        "interval_ms" : 1000,
+        "level" : 1,
+        "next_level" : 2,
+        "range" : 0
       },
       {
-        "level": 2,
-        "next_level": 3,
-        "cost": [
+        "amount" : 4,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 200
+            "amount" : 200,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 4
+            "amount" : 4,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [],
-        "amount": 4,
-        "interval_ms": 1000,
-        "range": 0
+        "interval_ms" : 1000,
+        "level" : 2,
+        "next_level" : 3,
+        "range" : 0
       },
       {
-        "level": 3,
-        "next_level": 0,
-        "cost": [
+        "amount" : 7,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 400
+            "amount" : 400,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 12
+            "amount" : 12,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [],
-        "amount": 7,
-        "interval_ms": 1000,
-        "range": 0
+        "interval_ms" : 1000,
+        "level" : 3,
+        "next_level" : 0,
+        "range" : 0
       }
-    ]
+    ],
+    "name" : "罐头储藏柜"
   },
   {
-    "id": "repair",
-    "name": "自动修补台",
-    "description": "小爪子忙不过来就交给它，自动修补店门，替你多撑一会儿。",
-    "category": "utility",
-    "behavior": "door_repair",
-    "appearance": "repair",
-    "currency": "",
-    "buildable": true,
-    "levels": [
+    "appearance" : "repair",
+    "behavior" : "door_repair",
+    "buildable" : true,
+    "category" : "utility",
+    "currency" : "",
+    "description" : "小爪子忙不过来就交给它，自动修补店门，替你多撑一会儿。",
+    "id" : "repair",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 2,
-        "cost": [
+        "amount" : 3,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 75
+            "amount" : 75,
+            "currency" : "cans"
           }
         ],
-        "conditions": [],
-        "amount": 3,
-        "interval_ms": 1000,
-        "range": 0
+        "interval_ms" : 1000,
+        "level" : 1,
+        "next_level" : 2,
+        "range" : 0
       },
       {
-        "level": 2,
-        "next_level": 3,
-        "cost": [
+        "amount" : 7,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 180
+            "id" : "iron_1",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 180,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 5
+            "amount" : 5,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_1"
-          }
-        ],
-        "amount": 7,
-        "interval_ms": 1000,
-        "range": 0
+        "interval_ms" : 1000,
+        "level" : 2,
+        "next_level" : 3,
+        "range" : 0
       },
       {
-        "level": 3,
-        "next_level": 0,
-        "cost": [
+        "amount" : 14,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 450
+            "id" : "iron_2",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 450,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 15
+            "amount" : 15,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_2"
-          }
-        ],
-        "amount": 14,
-        "interval_ms": 1000,
-        "range": 0
+        "interval_ms" : 1000,
+        "level" : 3,
+        "next_level" : 0,
+        "range" : 0
       }
-    ]
+    ],
+    "name" : "自动修补台"
   },
   {
-    "id": "fish_rack",
-    "name": "鱼干晾晒架",
-    "description": "把小鱼挂起来，等风送来鱼干香。攒下的小鱼干能升级更厉害的道具。",
-    "category": "currency",
-    "behavior": "currency_producer",
-    "appearance": "fish_rack",
-    "currency": "dried_fish",
-    "buildable": true,
-    "levels": [
+    "appearance" : "fish_rack",
+    "behavior" : "currency_producer",
+    "buildable" : true,
+    "category" : "currency",
+    "currency" : "dried_fish",
+    "description" : "把小鱼挂起来，等风送来鱼干香。攒下的小鱼干能升级更厉害的道具。",
+    "id" : "fish_rack",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 2,
-        "cost": [
+        "amount" : 1,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 100
+            "amount" : 100,
+            "currency" : "cans"
           }
         ],
-        "conditions": [],
-        "amount": 1,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 1,
+        "next_level" : 2,
+        "range" : 0
       },
       {
-        "level": 2,
-        "next_level": 3,
-        "cost": [
+        "amount" : 2,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 160
+            "amount" : 160,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 4
+            "amount" : 4,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [],
-        "amount": 2,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 2,
+        "next_level" : 3,
+        "range" : 0
       },
       {
-        "level": 3,
-        "next_level": 0,
-        "cost": [
+        "amount" : 4,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 260
+            "amount" : 260,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 12
+            "amount" : 12,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [],
-        "amount": 4,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 3,
+        "next_level" : 0,
+        "range" : 0
       }
-    ]
+    ],
+    "name" : "鱼干晾晒架"
   },
   {
-    "id": "shelf",
-    "name": "旧货架",
-    "description": "店主留下的老货架，挤占了一点地方，路过时记得绕开。",
-    "category": "utility",
-    "behavior": "obstacle",
-    "appearance": "shelf",
-    "currency": "",
-    "buildable": false,
-    "levels": [
+    "appearance" : "shelf",
+    "behavior" : "obstacle",
+    "buildable" : false,
+    "category" : "utility",
+    "currency" : "",
+    "description" : "店主留下的老货架，挤占了一点地方，路过时记得绕开。",
+    "id" : "shelf",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 0,
-        "cost": [],
-        "conditions": [],
-        "amount": 0,
-        "interval_ms": 1000,
-        "range": 0
+        "amount" : 0,
+        "conditions" : [],
+        "cost" : [],
+        "interval_ms" : 1000,
+        "level" : 1,
+        "next_level" : 0,
+        "range" : 0
       }
-    ]
+    ],
+    "name" : "旧货架"
   },
   {
-    "id": "crate",
-    "name": "遗落的罐头箱",
-    "description": "不知道是谁忘在这里的罐头。走过去瞧瞧，今晚的加餐有着落了。",
-    "category": "utility",
-    "behavior": "pickup",
-    "appearance": "crate",
-    "currency": "cans",
-    "buildable": false,
-    "levels": [
+    "appearance" : "crate",
+    "behavior" : "pickup",
+    "buildable" : false,
+    "category" : "utility",
+    "currency" : "cans",
+    "description" : "不知道是谁忘在这里的罐头。走过去瞧瞧，今晚的加餐有着落了。",
+    "id" : "crate",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 0,
-        "cost": [],
-        "conditions": [],
-        "amount": 35,
-        "interval_ms": 1000,
-        "range": 0
+        "amount" : 35,
+        "conditions" : [],
+        "cost" : [],
+        "interval_ms" : 1000,
+        "level" : 1,
+        "next_level" : 2,
+        "range" : 0
+      },
+      {
+        "amount" : 80,
+        "conditions" : [],
+        "cost" : [],
+        "interval_ms" : 1000,
+        "level" : 2,
+        "next_level" : 0,
+        "range" : 0
       }
-    ]
+    ],
+    "name" : "遗落的罐头箱"
   },
   {
-    "id": "mini_fridge",
-    "name": "喵喵小冰箱",
-    "description": "一口凉气吹向门外，让店长的下一次敲门慢半拍。每只猫只能拥有一台。",
-    "category": "utility",
-    "behavior": "door_attack_delay",
-    "appearance": "mini_fridge",
-    "currency": "",
-    "buildable": true,
-    "unique": true,
-    "levels": [
+    "appearance" : "mini_fridge",
+    "behavior" : "door_attack_delay",
+    "buildable" : true,
+    "category" : "utility",
+    "currency" : "",
+    "description" : "一口凉气吹向门外，让店长的下一次敲门慢半拍。每只猫只能拥有一台。",
+    "id" : "mini_fridge",
+    "levels" : 
+    [
       {
-        "level": 1,
-        "next_level": 2,
-        "cost": [
+        "amount" : 200,
+        "conditions" : [],
+        "cost" : 
+        [
           {
-            "currency": "cans",
-            "amount": 80
+            "amount" : 80,
+            "currency" : "cans"
           }
         ],
-        "conditions": [],
-        "amount": 200,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 1,
+        "next_level" : 2,
+        "range" : 0
       },
       {
-        "level": 2,
-        "next_level": 3,
-        "cost": [
+        "amount" : 400,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 160
+            "id" : "wood_2",
+            "type" : "door_stage"
           }
         ],
-        "conditions": [
+        "cost" : 
+        [
           {
-            "type": "door_stage",
-            "id": "wood_2"
+            "amount" : 160,
+            "currency" : "cans"
           }
         ],
-        "amount": 400,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 2,
+        "next_level" : 3,
+        "range" : 0
       },
       {
-        "level": 3,
-        "next_level": 4,
-        "cost": [
+        "amount" : 600,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 360
+            "id" : "iron_1",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 360,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 6
+            "amount" : 6,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_1"
-          }
-        ],
-        "amount": 600,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 3,
+        "next_level" : 4,
+        "range" : 0
       },
       {
-        "level": 4,
-        "next_level": 5,
-        "cost": [
+        "amount" : 800,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 750
+            "id" : "iron_2",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 750,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 15
+            "amount" : 15,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_2"
-          }
-        ],
-        "amount": 800,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 4,
+        "next_level" : 5,
+        "range" : 0
       },
       {
-        "level": 5,
-        "next_level": 0,
-        "cost": [
+        "amount" : 1000,
+        "conditions" : 
+        [
           {
-            "currency": "cans",
-            "amount": 1400
+            "id" : "iron_3",
+            "type" : "door_stage"
+          }
+        ],
+        "cost" : 
+        [
+          {
+            "amount" : 1400,
+            "currency" : "cans"
           },
           {
-            "currency": "dried_fish",
-            "amount": 30
+            "amount" : 30,
+            "currency" : "dried_fish"
           }
         ],
-        "conditions": [
-          {
-            "type": "door_stage",
-            "id": "iron_3"
-          }
-        ],
-        "amount": 1000,
-        "interval_ms": 2000,
-        "range": 0
+        "interval_ms" : 2000,
+        "level" : 5,
+        "next_level" : 0,
+        "range" : 0
       }
-    ]
+    ],
+    "name" : "喵喵小冰箱",
+    "unique" : true
   },
   {
-    "id": "magic_trash_bin",
-    "name": "神奇垃圾桶",
-    "description": "里面藏着人类丢弃的小玩意儿，伸爪翻找，说不定就能捡到神奇的宝贝！",
-    "category": "utility",
-    "behavior": "random_item",
-    "appearance": "magic_trash_bin",
-    "currency": "",
-    "buildable": true,
-    "levels": []
+    "appearance" : "magic_trash_bin",
+    "behavior" : "random_item",
+    "buildable" : true,
+    "category" : "utility",
+    "currency" : "",
+    "description" : "里面藏着人类丢弃的小玩意儿，伸爪翻找，说不定就能捡到神奇的宝贝！",
+    "id" : "magic_trash_bin",
+    "levels" : [],
+    "name" : "神奇垃圾桶"
   }
 ]

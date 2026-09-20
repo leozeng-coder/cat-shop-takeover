@@ -53,7 +53,7 @@ export const modules: Module[] = [
     pages: [
       { id: "maps", name: "地图生成" },
       { id: "themes", name: "主题贴图" },
-      { id: "map-items", name: "开局物资", table: "map_items" },
+      { id: "map-items", name: "默认开局物资", table: "map_items" },
     ],
   },
   {

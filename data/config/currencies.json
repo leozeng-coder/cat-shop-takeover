@@ -1,16 +1,16 @@
 [
   {
-    "id": "cans",
-    "name": "罐头",
-    "symbol": "🥫",
-    "initial": 120,
-    "limit": 999999
+    "id" : "cans",
+    "initial" : 120,
+    "limit" : 999999,
+    "name" : "罐头",
+    "symbol" : "🥫"
   },
   {
-    "id": "dried_fish",
-    "name": "小鱼干",
-    "symbol": "🐟",
-    "initial": 0,
-    "limit": 999999
+    "id" : "dried_fish",
+    "initial" : 0,
+    "limit" : 999999,
+    "name" : "小鱼干",
+    "symbol" : "🐟"
   }
 ]

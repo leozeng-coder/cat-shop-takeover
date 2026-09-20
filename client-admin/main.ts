@@ -1,3 +1,14 @@
+import "./map_editor.css";
+import { pickupLevelAction } from "./pickup_editor";
+import { isMapItemReference, validateDefaultMapItems } from "./item_choices";
+import {
+  editMapField,
+  mapAction,
+  mapTabKeydown,
+  revealMapField,
+  switchMapTab,
+  validateMapSettings,
+} from "./map_editor";
 import "./style.css";
 import "./workspace.css";
 import "./audio.css";
@@ -10,6 +21,7 @@ import {
   refreshRewardTotals,
   rememberRewardDisclosure,
   validateRandomRewards,
+  validateMapRewards,
 } from "./random_rewards";
 import { AudioAdmin } from "./audio";
 import type { AudioWorkspace } from "../shared/audio";
@@ -175,6 +187,7 @@ async function save() {
   const invalid = app.querySelector<HTMLInputElement>("input:invalid");
   if (invalid) {
     revealItemField(invalid, app);
+    revealMapField(invalid);
     for (
       let parent = invalid.parentElement;
       parent;
@@ -187,6 +200,9 @@ async function save() {
   }
   if (!dirty) return;
   validateRandomRewards(workspace.draft.tables);
+  validateDefaultMapItems(workspace.draft.tables);
+  validateMapSettings(workspace.draft.tables);
+  validateMapRewards(workspace.draft.tables);
   accept(
     await api<Workspace>("draft", {
       revision: workspace.draft.revision,
@@ -285,6 +301,17 @@ app.addEventListener("submit", (event) => {
 app.addEventListener("input", (event) => {
   const target = event.target as HTMLInputElement | HTMLTextAreaElement;
   if (audioAdmin.input(target)) return;
+  if (
+    target instanceof HTMLInputElement &&
+    target.dataset.mapField &&
+    editMapField(target, workspace.draft.tables)
+  ) {
+    dirty = true;
+    checked = "";
+    refreshRewardTotals(app, workspace.draft.tables);
+    status();
+    return;
+  }
   if (target instanceof HTMLInputElement && target.dataset.rewardField) {
     editRandomReward(target, workspace.draft.tables);
     dirty = true;
@@ -330,6 +357,16 @@ app.addEventListener("input", (event) => {
 });
 app.addEventListener("change", (event) => {
   const target = event.target as HTMLSelectElement;
+  if (target instanceof HTMLSelectElement && target.dataset.path) {
+    const path = JSON.parse(target.dataset.path) as FieldPath;
+    if (isMapItemReference(path)) {
+      setPath(workspace.draft.tables, path, target.value);
+      dirty = true;
+      checked = "";
+      render();
+      return;
+    }
+  }
   if (
     target instanceof HTMLSelectElement &&
     editRandomReward(target, workspace.draft.tables)
@@ -373,7 +410,7 @@ app.addEventListener("dblclick", (event) => {
   if (card) void audioAdmin.click(card);
 });
 app.addEventListener("keydown", (event) => {
-  if (!busy && itemTabKeydown(event, app)) return;
+  if (!busy && (itemTabKeydown(event, app) || mapTabKeydown(event))) return;
   if (busy || (event.key !== "Enter" && event.key !== " ")) return;
   const card = event.target as HTMLElement;
   if (!card.matches("[data-audio-card]")) return;
@@ -385,7 +422,22 @@ app.addEventListener("click", (event) => {
     "button,a[data-action],a[data-nav]",
   );
   if (!button || busy) return;
-  if (switchItemTab(button, app)) return;
+  if (switchItemTab(button, app) || switchMapTab(button)) return;
+  if (
+    button.dataset.pickupAction &&
+    pickupLevelAction(button, workspace.draft.tables)
+  ) {
+    dirty = true;
+    checked = "";
+    render();
+    return;
+  }
+  if (button.dataset.mapAction && mapAction(button, workspace.draft.tables)) {
+    dirty = true;
+    checked = "";
+    render();
+    return;
+  }
   if (
     button.dataset.rewardAction &&
     randomRewardAction(button, workspace.draft.tables)

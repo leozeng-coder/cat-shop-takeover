@@ -126,9 +126,9 @@ class Client {
       check();
     });
   }
-  async create(capacity = 1) {
+  async create(capacity = 1, mapId = "") {
     await this.open();
-    this.send({ type: "create", capacity, name: "Config test" });
+    this.send({ type: "create", capacity, mapId, name: "Config test" });
     await this.wait((m) => m.type === "joined");
     return this.wait((m) => m.type === "state");
   }
@@ -179,14 +179,52 @@ try {
   );
   tables.nests[0].amount = oldIncome + 3;
   tables.currencies.find((c) => c.id === "dried_fish").initial = 4;
-  for (const name of ["nests", "currencies"]) {
+  const mapProfile = tables.map_generation.profiles[0];
+  mapProfile.match = { preparation_ms: 45000, duration_ms: 675000 };
+  mapProfile.initial_items = {
+    min_per_room: 2,
+    max_per_room: 2,
+    rewards: [
+      {
+        item: "launcher",
+        weight: 1,
+        min_level: 2,
+        max_level: 2,
+        level_weights: [{ level: 2, weight: 1 }],
+      },
+    ],
+  };
+  for (const name of ["nests", "currencies", "map_generation"]) {
     await fs.writeFile(
       path.join(directory, name + ".json"),
       JSON.stringify(tables[name]),
     );
   }
   const fresh = new Client();
-  const next = await fresh.create();
+  const next = await fresh.create(6, mapProfile.id);
+  assert.equal(next.map.id, mapProfile.id);
+  assert.equal(next.preparation, 45);
+  assert.equal(next.duration, 675);
+  assert.ok(
+    next.dorms.every(
+      (room) =>
+        room.props.length === 2 &&
+        room.props.every(
+          (prop) => prop.kind === "launcher" && prop.level === 2,
+        ),
+    ),
+  );
+  const mapFriend = new Client();
+  await mapFriend.open();
+  mapFriend.send({ type: "join", code: fresh.code, name: "Map friend" });
+  const sharedMap = await mapFriend.wait((m) => m.type === "state");
+  assert.deepEqual(
+    sharedMap.dorms.map((r) => r.props),
+    next.dorms.map((r) => r.props),
+    "friends see the same server-generated item levels and positions",
+  );
+  assert.equal(sharedMap.preparation, next.preparation);
+  assert.equal(sharedMap.duration, next.duration);
   assert.notEqual(next.configVersion, oldVersion);
   assert.equal(fresh.catalog.nests[0].amount, oldIncome + 3);
   assert.equal(next.players[0].wallet.dried_fish, 4);
@@ -194,6 +232,8 @@ try {
     (m) => m.type === "state" && m.tick > old.tick,
   );
   assert.equal(unchanged.configVersion, oldVersion);
+  assert.equal(unchanged.preparation, old.preparation);
+  assert.equal(unchanged.duration, old.duration);
   assert.equal(host.catalog.nests[0].amount, oldIncome);
   assert.equal(host.catalogs, 1, "catalog is sent once per version");
   assert.equal(unchanged.players[0].wallet.dried_fish, 0);
@@ -228,6 +268,8 @@ try {
   assert.equal(exit, 2, "invalid first load fails startup validation");
   assert.match(log, /Config reload rejected/);
   // An isolated accelerated match exercises coalesced upgrades through real sockets.
+  delete mapProfile.match;
+  delete mapProfile.initial_items;
   tables.items[0].behavior = "single_attack";
   tables.match.preparation_ms = 1000;
   tables.match.duration_ms = 1000;
@@ -240,7 +282,7 @@ try {
     if (level.level > 1)
       level.level_up_announcement = "测试怒气播报 " + level.level;
   }
-  for (const name of ["items", "match", "manager"]) {
+  for (const name of ["items", "match", "manager", "map_generation"]) {
     await fs.writeFile(
       path.join(directory, name + ".json"),
       JSON.stringify(tables[name]),

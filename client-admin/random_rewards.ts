@@ -1,4 +1,5 @@
 import { escape as e } from "./editor";
+import { itemChoices } from "./item_choices";
 import type { Row, Tables } from "./types";
 
 const expandedRewards = new Map<string, string>();
@@ -14,16 +15,8 @@ export function rememberRewardDisclosure(root: HTMLElement): void {
   });
 }
 
-function eligible(tables: Tables): Row[] {
-  return (tables.items as Row[])
-    .filter(
-      (item) =>
-        item.buildable &&
-        item.behavior !== "random_item" &&
-        Array.isArray(item.levels) &&
-        item.levels.length > 0,
-    )
-    .sort((a, b) => String(a.id).localeCompare(String(b.id), "en"));
+function eligible(tables: Tables, map = false): Row[] {
+  return itemChoices(tables, map ? "map" : "installable");
 }
 function legacyWeights(weights: number[]): number[] {
   const total = weights.reduce((a, b) => a + b, 0);
@@ -93,8 +86,8 @@ function chance(rows: Row[], weight: unknown): string {
     ? "<0.01%"
     : `${Number(percent.toFixed(2))}%`;
 }
-function rewardError(tables: Tables, reward: Row): string {
-  const item = eligible(tables).find((item) => item.id === reward.item);
+function rewardError(tables: Tables, reward: Row, map = false): string {
+  const item = eligible(tables, map).find((item) => item.id === reward.item);
   if (!item) return "道具不存在或不可抽取，请重新选择";
   const levels = (item.levels as Row[]).map((l) => Number(l.level));
   const min = Number(reward.min_level),
@@ -124,7 +117,18 @@ function rewardError(tables: Tables, reward: Row): string {
     return "等级权重须完整覆盖所选范围";
   return distributionError(chances);
 }
-function poolError(rows: Row[]): string {
+function poolError(rows: Row[], rule?: Row, tables?: Tables): string {
+  if (rule && tables) {
+    if (!rows.length && rule.max_per_room === 0) return "";
+    const active = rows.filter((r) => Number(r.weight) > 0);
+    const items = eligible(tables, true);
+    if (
+      active.length &&
+      active.every((r) => items.find((i) => i.id === r.item)?.unique) &&
+      Number(rule.max_per_room) > active.length
+    )
+      return "唯一道具数量不足，请增加可重复道具或减少每房数量";
+  }
   if (new Set(rows.map((r) => r.item)).size !== rows.length)
     return "奖池中存在重复道具";
   return distributionError(rows);
@@ -142,6 +146,30 @@ export function validateRandomRewards(tables: Tables): void {
     }
   }
 }
+function mapRule(tables: Tables, index: number): Row {
+  return ((tables.map_generation as Row).profiles as Row[])[index]
+    .initial_items as Row;
+}
+function poolRule(pool: HTMLElement, tables: Tables): Row {
+  const index = Number(pool.dataset.rewardPool);
+  return pool.dataset.rewardContext === "map"
+    ? mapRule(tables, index)
+    : (tables.random_items as Row[])[index];
+}
+export function validateMapRewards(tables: Tables): void {
+  for (const profile of (tables.map_generation as Row).profiles as Row[]) {
+    const rule = profile.initial_items as Row | undefined;
+    if (!rule) continue;
+    const rows = rewards(tables, rule);
+    const error =
+      poolError(rows, rule, tables) ||
+      rows.map((r) => rewardError(tables, r, true)).find(Boolean);
+    if (error) throw new Error(`${profile.name}：${error}`);
+  }
+}
+export function mapRewardsView(tables: Tables, index: number): string {
+  return randomRewardsView(tables, index, true);
+}
 function weightInput(value: unknown, label: string, attrs: string): string {
   return `<label class="reward-chance"><input type="number" min="0" max="1000000000" step="1" required value="${e(value)}" aria-label="${e(label)}" ${attrs}></label>`;
 }
@@ -149,16 +177,26 @@ function levelOptions(item: Row | undefined, selected: unknown): string {
   const levels = (item?.levels ?? []) as Row[];
   return `${levels.some((l) => l.level === selected) ? "" : `<option value="${e(selected)}">${e(selected)} 级（无效）</option>`}${levels.map((level) => `<option value="${e(level.level)}" ${level.level === selected ? "selected" : ""}>${e(level.level)} 级</option>`).join("")}`;
 }
-export function randomRewardsView(tables: Tables, index: number): string {
-  const rule = (tables.random_items as Row[])[index];
+export function randomRewardsView(
+  tables: Tables,
+  index: number,
+  map = false,
+): string {
+  const rule = map
+    ? mapRule(tables, index)
+    : (tables.random_items as Row[])[index];
   if (!rule) return "";
   const rows = rewards(tables, rule),
-    items = eligible(tables);
+    items = eligible(tables, map);
   const source = (tables.items as Row[]).find((i) => i.id === rule.item);
+  const sourceKey = map
+    ? `map:${((tables.map_generation as Row).profiles as Row[])[index].id}`
+    : String(rule.item);
+  const errorForPool = poolError(rows, map ? rule : undefined, tables);
   const remaining = items.filter((i) => !rows.some((r) => r.item === i.id));
-  return `<section class="reward-pool" data-reward-pool="${index}" data-reward-source="${e(rule.item)}">
-    <div class="reward-heading"><div><h3>${e(source?.name ?? rule.item)} · 随机奖池</h3><small>先抽道具，再抽等级 · 权重越大越容易抽到，0 不参与</small></div><span class="reward-total" data-reward-total>${rows.length} 种道具</span></div>
-    <p class="reward-error" data-reward-error>${e(poolError(rows))}</p>
+  return `<section class="reward-pool" data-reward-pool="${index}" data-reward-source="${e(sourceKey)}" data-reward-context="${map ? "map" : "random"}">
+    <div class="reward-heading"><div><h3>${map ? "开局道具池" : `${e(source?.name ?? rule.item)} · 随机奖池`}</h3><small>先抽道具，再抽等级 · 权重越大越容易抽到，0 不参与</small></div><span class="reward-total" data-reward-total>${rows.length} 种道具</span></div>
+    <p class="reward-error" data-reward-error>${e(errorForPool)}</p>
     <div class="reward-list"><div class="reward-list-heading" aria-hidden="true"><span>道具</span><span>等级范围</span><span>权重</span><span>抽中概率</span><span></span></div>${rows
       .map((row, i) => {
         const item = items.find((item) => item.id === row.item);
@@ -169,13 +207,13 @@ export function randomRewardsView(tables: Tables, index: number): string {
         const levels = Array.isArray(row.level_weights)
           ? (row.level_weights as Row[])
           : [];
-        const error = rewardError(tables, row);
-        return `<details class="reward-row" data-reward-row="${i}" data-reward-item="${e(row.item)}" name="reward-pool-${index}" ${expandedRewards.get(String(rule.item)) === row.item ? "open" : ""}>
-        <summary class="reward-summary" aria-label="${e(item?.name ?? row.item)}配置"><span class="reward-name"><span class="reward-ordinal">${String(i + 1).padStart(2, "0")}</span><strong>${e(item?.name ?? row.item)}</strong><small class="reward-row-error" data-row-error ${error || !validWeight(row.weight) ? "" : "hidden"}>需检查</small></span><span class="reward-summary-range">${e(row.min_level)}${row.min_level === row.max_level ? "" : `–${e(row.max_level)}`} 级</span><span class="reward-summary-weight" data-summary-weight>${e(row.weight)}</span><strong class="reward-summary-chance" data-item-chance title="按当前完整奖池计算；已拥有的唯一道具会被排除，并按剩余权重计算概率">${e(chance(rows, row.weight))}</strong><svg class="reward-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 5 5 5-5 5"/></svg></summary>
+        const error = rewardError(tables, row, map);
+        return `<details class="reward-row" data-reward-row="${i}" data-reward-item="${e(row.item)}" name="reward-pool-${e(sourceKey)}" ${expandedRewards.get(sourceKey) === row.item ? "open" : ""}>
+        <summary class="reward-summary" aria-label="${e(item?.name ?? row.item)}配置"><span class="reward-name"><span class="reward-ordinal">${String(i + 1).padStart(2, "0")}</span><strong>${e(item?.name ?? row.item)}</strong><small class="reward-row-error" data-row-error ${error || !validWeight(row.weight) ? "" : "hidden"}>需检查</small></span><span class="reward-summary-range">${e(row.min_level)}${row.min_level === row.max_level ? "" : `–${e(row.max_level)}`} 级</span><span class="reward-summary-weight" data-summary-weight>${e(row.weight)}</span><strong class="reward-summary-chance" data-item-chance title="按当前完整奖池计算；唯一道具已${map ? "在房内生成" : "拥有"}时会被排除，并按剩余权重计算概率">${e(chance(rows, row.weight))}</strong><svg class="reward-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 5 5 5-5 5"/></svg></summary>
         <div class="reward-body"><div class="reward-card-heading"><label class="reward-item"><span>抽取道具</span><select data-reward-field="item" aria-label="第 ${i + 1} 项道具">${item ? "" : `<option value="${e(row.item)}">${e(row.item)}（无效）</option>`}${options.map((option) => `<option value="${e(option.id)}" ${option.id === row.item ? "selected" : ""}>${e(option.name)}</option>`).join("")}</select></label><div><span class="reward-label">道具权重</span>${weightInput(row.weight, `第 ${i + 1} 项道具权重`, 'data-reward-field="weight"')}</div><button class="text-btn danger" data-reward-action="remove" aria-label="移除第 ${i + 1} 项">移除</button></div>
         <div class="reward-range"><span>等级范围</span><select data-reward-field="min_level" aria-label="第 ${i + 1} 项最低等级">${levelOptions(item, row.min_level)}</select><span>—</span><select data-reward-field="max_level" aria-label="第 ${i + 1} 项最高等级">${levelOptions(item, row.max_level)}</select><span class="reward-level-total" data-level-total>${levels.length} 个等级</span></div>
         <div class="reward-levels">${levels.map((level, j) => `<div><span>${e(level.level)} 级权重</span>${weightInput(level.weight, `第 ${i + 1} 项 ${level.level} 级权重`, `data-reward-field="level_weight" data-level-index="${j}"`)}<small data-level-chance>${e(chance(levels, level.weight))}</small></div>`).join("")}</div>
-        <div class="reward-card-footer"><span>${item?.unique ? "唯一道具 · 已拥有时不再抽取" : ""}</span><button class="text-btn" data-reward-action="equal-levels">等级等权重</button><button class="text-btn" data-reward-action="decay-levels">高等级递减</button></div>
+        <div class="reward-card-footer"><span>${item?.unique ? (map ? "唯一道具 · 每房最多一个" : "唯一道具 · 已拥有时不再抽取") : ""}</span><button class="text-btn" data-reward-action="equal-levels">等级等权重</button><button class="text-btn" data-reward-action="decay-levels">高等级递减</button></div>
         <p class="reward-error" data-level-error>${e(error)}</p>
         </div></details>`;
       })
@@ -185,11 +223,10 @@ export function randomRewardsView(tables: Tables, index: number): string {
 }
 export function refreshRewardTotals(root: HTMLElement, tables: Tables): void {
   root.querySelectorAll<HTMLElement>("[data-reward-pool]").forEach((pool) => {
-    const rule = (tables.random_items as Row[])[
-      Number(pool.dataset.rewardPool)
-    ];
+    const map = pool.dataset.rewardContext === "map";
+    const rule = poolRule(pool, tables);
     const rows = rewards(tables, rule),
-      error = poolError(rows);
+      error = poolError(rows, map ? rule : undefined, tables);
     const badge = pool.querySelector<HTMLElement>("[data-reward-total]")!;
     badge.textContent = `${rows.length} 种道具`;
     badge.classList.toggle("invalid", !!error);
@@ -198,7 +235,7 @@ export function refreshRewardTotals(root: HTMLElement, tables: Tables): void {
       .querySelectorAll<HTMLElement>("[data-reward-row]")
       .forEach((card, i) => {
         const levels = rows[i].level_weights as Row[];
-        const message = rewardError(tables, rows[i]);
+        const message = rewardError(tables, rows[i], map);
         const badge = card.querySelector<HTMLElement>("[data-level-total]")!;
         badge.textContent = `${Array.isArray(levels) ? levels.length : 0} 个等级`;
         badge.classList.toggle("invalid", !!message);
@@ -225,10 +262,11 @@ export function editRandomReward(
   const field = target.dataset.rewardField;
   if (!field) return false;
   const pool = target.closest<HTMLElement>("[data-reward-pool]")!;
-  const rule = (tables.random_items as Row[])[Number(pool.dataset.rewardPool)];
+  const map = pool.dataset.rewardContext === "map";
+  const rule = poolRule(pool, tables);
   const rows = editable(tables, rule);
   if (field === "add") {
-    const item = eligible(tables).find((i) => i.id === target.value);
+    const item = eligible(tables, map).find((i) => i.id === target.value);
     if (item && !rows.some((r) => r.item === item.id))
       rows.push(rewardFor(item));
     return true;
@@ -244,7 +282,7 @@ export function editRandomReward(
       (row.level_weights as Row[])[Number(target.dataset.levelIndex)].weight =
         value;
   } else if (field === "item") {
-    const item = eligible(tables).find((i) => i.id === target.value);
+    const item = eligible(tables, map).find((i) => i.id === target.value);
     if (item) {
       rows[index] = rewardFor(item, Number(row.weight));
       target.closest<HTMLElement>("[data-reward-row]")!.dataset.rewardItem =
@@ -281,10 +319,7 @@ export function randomRewardAction(
     return true;
   }
   const pool = button.closest<HTMLElement>("[data-reward-pool]")!;
-  const rows = editable(
-    tables,
-    (tables.random_items as Row[])[Number(pool.dataset.rewardPool)],
-  );
+  const rows = editable(tables, poolRule(pool, tables));
   const index = Number(
     button.closest<HTMLElement>("[data-reward-row]")?.dataset.rewardRow,
   );

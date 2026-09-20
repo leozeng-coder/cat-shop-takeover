@@ -1,10 +1,11 @@
 {
-  "cost": [
+  "amount" : 140,
+  "cooldown_ms" : 5000,
+  "cost" : 
+  [
     {
-      "currency": "cans",
-      "amount": 45
+      "amount" : 45,
+      "currency" : "cans"
     }
-  ],
-  "amount": 140,
-  "cooldown_ms": 5000
+  ]
 }

@@ -1,5 +1,6 @@
 import { escape as e, form } from "./editor";
 import { randomRewardsView } from "./random_rewards";
+import { pickupLevels } from "./pickup_editor";
 import type { Row, Tables } from "./types";
 
 const selectedSections = new Map<string, string>();
@@ -12,7 +13,14 @@ function sectionsFor(item: Row): readonly (readonly [string, string])[] {
       ]
     : [
         ["basic", "基本信息"],
-        ["levels", item.buildable ? "等级与购买" : "效果配置"],
+        [
+          "levels",
+          item.behavior === "pickup"
+            ? "等级与拾取"
+            : item.buildable
+              ? "等级与购买"
+              : "效果配置",
+        ],
       ];
 }
 function selectedSection(item: Row): string {
@@ -99,8 +107,12 @@ export function itemSettings(tables: Tables, index: number): string {
   const source = String(item.id),
     id = encodeURIComponent(source);
   const { levels, ...basic } = item;
+  if (item.behavior === "pickup") delete basic.buildable;
   const content: Record<string, string> = {
-    basic: form(basic, ["items", index], tables),
+    basic:
+      (item.behavior === "pickup"
+        ? '<p class="pill">地图生成 · 不可购买</p>'
+        : "") + form(basic, ["items", index], tables),
   };
   if (item.behavior === "random_item") {
     const ruleIndex = (tables.random_items as Row[]).findIndex(
@@ -112,6 +124,8 @@ export function itemSettings(tables: Tables, index: number): string {
       ? `<div class="purchase-heading"><h3>购买信息</h3><span class="pill">每局最多购买 ${(rule.purchase_costs as Row[]).length} 次</span></div>${form({ purchase_costs: rule.purchase_costs, reveal_duration_ms: rule.reveal_duration_ms }, ["random_items", ruleIndex], tables)}`
       : create;
     content.rewards = rule ? randomRewardsView(tables, ruleIndex) : create;
+  } else if (item.behavior === "pickup") {
+    content.levels = pickupLevels(tables, index);
   } else if (item.behavior === "obstacle") {
     content.levels =
       '<div class="item-effect-empty"><span>道具效果</span><strong>无</strong></div>';

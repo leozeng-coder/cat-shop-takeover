@@ -1,145 +1,155 @@
 [
   {
-    "id": "wood_1",
-    "stage": 1,
-    "name": "木门",
-    "display_level": 1,
-    "appearance": "wood",
-    "health": 300,
-    "cost": [],
-    "next_stage": 2,
-    "conditions": []
+    "appearance" : "wood",
+    "conditions" : [],
+    "cost" : [],
+    "display_level" : 1,
+    "health" : 300,
+    "id" : "wood_1",
+    "name" : "木门",
+    "next_stage" : 2,
+    "stage" : 1
   },
   {
-    "id": "wood_2",
-    "stage": 2,
-    "name": "木门",
-    "display_level": 2,
-    "appearance": "wood",
-    "health": 550,
-    "cost": [
+    "appearance" : "wood",
+    "conditions" : [],
+    "cost" : 
+    [
       {
-        "currency": "cans",
-        "amount": 90
+        "amount" : 90,
+        "currency" : "cans"
       }
     ],
-    "next_stage": 3,
-    "conditions": []
+    "display_level" : 2,
+    "health" : 550,
+    "id" : "wood_2",
+    "name" : "木门",
+    "next_stage" : 3,
+    "stage" : 2
   },
   {
-    "id": "iron_1",
-    "stage": 3,
-    "name": "铁门",
-    "display_level": 1,
-    "appearance": "iron",
-    "health": 950,
-    "cost": [
+    "appearance" : "iron",
+    "conditions" : [],
+    "cost" : 
+    [
       {
-        "currency": "cans",
-        "amount": 210
+        "amount" : 210,
+        "currency" : "cans"
       }
     ],
-    "next_stage": 4,
-    "conditions": []
+    "display_level" : 1,
+    "health" : 950,
+    "id" : "iron_1",
+    "name" : "铁门",
+    "next_stage" : 4,
+    "stage" : 3
   },
   {
-    "id": "iron_2",
-    "stage": 4,
-    "name": "铁门",
-    "display_level": 2,
-    "appearance": "iron",
-    "health": 2200,
-    "cost": [
+    "appearance" : "iron",
+    "conditions" : 
+    [
       {
-        "currency": "cans",
-        "amount": 500
+        "level" : 3,
+        "type" : "nest_level"
+      }
+    ],
+    "cost" : 
+    [
+      {
+        "amount" : 500,
+        "currency" : "cans"
       },
       {
-        "currency": "dried_fish",
-        "amount": 8
+        "amount" : 8,
+        "currency" : "dried_fish"
       }
     ],
-    "next_stage": 5,
-    "conditions": [
-      {
-        "type": "nest_level",
-        "level": 3
-      }
-    ]
+    "display_level" : 2,
+    "health" : 2200,
+    "id" : "iron_2",
+    "name" : "铁门",
+    "next_stage" : 5,
+    "stage" : 4
   },
   {
-    "id": "iron_3",
-    "stage": 5,
-    "name": "铁门",
-    "display_level": 3,
-    "appearance": "iron",
-    "health": 4200,
-    "cost": [
+    "appearance" : "iron",
+    "conditions" : 
+    [
       {
-        "currency": "cans",
-        "amount": 1000
-      },
-      {
-        "currency": "dried_fish",
-        "amount": 20
+        "level" : 4,
+        "type" : "nest_level"
       }
     ],
-    "next_stage": 6,
-    "conditions": [
+    "cost" : 
+    [
       {
-        "type": "nest_level",
-        "level": 4
+        "amount" : 1000,
+        "currency" : "cans"
+      },
+      {
+        "amount" : 20,
+        "currency" : "dried_fish"
       }
-    ]
+    ],
+    "display_level" : 3,
+    "health" : 4200,
+    "id" : "iron_3",
+    "name" : "铁门",
+    "next_stage" : 6,
+    "stage" : 5
   },
   {
-    "id": "iron_4",
-    "stage": 6,
-    "name": "铁门",
-    "display_level": 4,
-    "appearance": "iron",
-    "health": 7200,
-    "cost": [
+    "appearance" : "iron",
+    "conditions" : 
+    [
       {
-        "currency": "cans",
-        "amount": 2200
-      },
-      {
-        "currency": "dried_fish",
-        "amount": 40
+        "level" : 5,
+        "type" : "nest_level"
       }
     ],
-    "next_stage": 7,
-    "conditions": [
+    "cost" : 
+    [
       {
-        "type": "nest_level",
-        "level": 5
+        "amount" : 2200,
+        "currency" : "cans"
+      },
+      {
+        "amount" : 40,
+        "currency" : "dried_fish"
       }
-    ]
+    ],
+    "display_level" : 4,
+    "health" : 7200,
+    "id" : "iron_4",
+    "name" : "铁门",
+    "next_stage" : 7,
+    "stage" : 6
   },
   {
-    "id": "steel_1",
-    "stage": 7,
-    "name": "钢门",
-    "display_level": 1,
-    "appearance": "steel",
-    "health": 11000,
-    "cost": [
+    "appearance" : "steel",
+    "conditions" : 
+    [
       {
-        "currency": "cans",
-        "amount": 4000
-      },
-      {
-        "currency": "dried_fish",
-        "amount": 80
+        "level" : 6,
+        "type" : "nest_level"
       }
     ],
-    "next_stage": 0,
-    "conditions": [
+    "cost" : 
+    [
       {
-        "type": "nest_level",
-        "level": 6
+        "amount" : 4000,
+        "currency" : "cans"
+      },
+      {
+        "amount" : 80,
+        "currency" : "dried_fish"
       }
-    ]
+    ],
+    "display_level" : 1,
+    "health" : 11000,
+    "id" : "steel_1",
+    "name" : "钢门",
+    "next_stage" : 0,
+    "stage" : 7
   }
 ]

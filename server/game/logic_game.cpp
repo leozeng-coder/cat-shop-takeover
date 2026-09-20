@@ -14,6 +14,7 @@ Game::Game(std::string value, int size, std::uint32_t seed, std::shared_ptr<cons
     : code(std::move(value)), selectedMap(std::move(mapId)), capacity(size), balance(rules->balance),
       m_config(std::move(rules)), m_random(seed) {
     map.generate(seed, dorms, config(), selectedMap);
+    balance = config().mapProfile(map.profileId)->balance;
     monster.hp = monster.maxHp = config().enemy.levels.front().maxHp;
     monster.position = map.center(map.shopkeeperSpawn);
     for (int i = 0; i < Seats; ++i) {
@@ -174,6 +175,7 @@ void Game::resetBoard() {
     events.clear();
     phase = "lobby";
     map.generate(m_random(), dorms, config(), selectedMap);
+    balance = config().mapProfile(map.profileId)->balance;
     monster = Monster{};
     monster.hp = monster.maxHp = config().enemy.levels.front().maxHp;
     monster.position = map.center(map.shopkeeperSpawn);

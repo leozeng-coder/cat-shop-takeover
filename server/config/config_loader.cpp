@@ -86,6 +86,52 @@ std::string id(const JsonValue& v, const std::string& at) {
     }
     return result;
 }
+std::vector<RandomItemReward> itemRewards(const JsonValue& entries, const GameConfig& cfg, const std::string& source,
+                                          bool allowPickup = false, bool allowEmpty = false) {
+    std::vector<RandomItemReward> result;
+    std::set<std::string> seenItems;
+    std::int64_t total = 0;
+    for (const auto& entry : array(entries, source, allowEmpty ? 0 : 1, 128)) {
+        const auto at = source + "[" + std::to_string(result.size()) + "]";
+        object(entry, at, {"item", "weight", "min_level", "max_level", "level_weights"});
+        RandomItemReward reward;
+        reward.item = id(entry["item"], at + ".item");
+        const auto found = cfg.items.find(reward.item);
+        if (found == cfg.items.end() ||
+            (!found->second.buildable && !(allowPickup && found->second.behavior == ItemBehavior::Pickup)) ||
+            found->second.behavior == ItemBehavior::RandomItem || found->second.levels.empty()) {
+            fail(at, "奖池道具不存在或不可抽取：" + reward.item);
+        }
+        if (!seenItems.insert(reward.item).second) {
+            fail(at, "奖池中有重复道具：" + reward.item);
+        }
+        reward.weight = rewardWeight(entry["weight"], at + ".weight");
+        total += reward.weight;
+        const auto count = static_cast<int>(found->second.levels.size());
+        const int min = integer(entry["min_level"], at + ".min_level", 1, count);
+        const int max = integer(entry["max_level"], at + ".max_level", min, count);
+        std::set<int> seenLevels;
+        std::int64_t levelTotal = 0;
+        for (const auto& value : array(entry["level_weights"], at + ".level_weights", max - min + 1, max - min + 1)) {
+            object(value, at + ".level_weights", {"level", "weight"});
+            const int level = integer(value["level"], at + ".level", min, max);
+            if (!seenLevels.insert(level).second) {
+                fail(at, "等级权重中有重复等级");
+            }
+            const int weight = rewardWeight(value["weight"], at + ".level[" + std::to_string(level) + "]");
+            levelTotal += weight;
+            reward.levels.push_back({level, weight});
+        }
+        if (levelTotal == 0) {
+            fail(at, "至少一个等级的权重须大于 0");
+        }
+        result.push_back(std::move(reward));
+    }
+    if (total == 0 && !(allowEmpty && result.empty())) {
+        fail(source, "奖池中至少一个道具的权重须大于 0");
+    }
+    return result;
+}
 bool boolean(const JsonValue& v, const std::string& at) {
     if (!v.isBool()) {
         fail(at, "expected boolean");
@@ -254,7 +300,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         object(row, at,
                {"id", "name", "theme", "weight", "width", "height", "min_rooms", "max_rooms", "min_room_width",
                 "max_room_width", "min_room_height", "max_room_height", "min_room_area", "max_room_area",
-                "corridor_width", "bands", "layout_complexity"});
+                "corridor_width", "bands", "layout_complexity", "match", "initial_items"});
         MapProfileConfig layout;
         layout.id = id(row["id"], at + ".id");
         if (!ids.insert(layout.id).second) {
@@ -394,9 +440,9 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         if (item.unique && !item.buildable) {
             fail(item.id, "only buildable items can be unique");
         }
-        const bool terrain = item.behavior == ItemBehavior::Obstacle || item.behavior == ItemBehavior::Pickup;
-        if (terrain && item.buildable) {
-            fail(item.id, "terrain item cannot be purchased");
+        const bool obstacle = item.behavior == ItemBehavior::Obstacle;
+        if ((obstacle || item.behavior == ItemBehavior::Pickup) && item.buildable) {
+            fail(item.id, "obstacles and pickups cannot be purchased");
         }
         const bool randomItem = item.behavior == ItemBehavior::RandomItem;
         if (randomItem && (!item.buildable || item.unique)) {
@@ -404,7 +450,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         }
         const auto& levels = array(row["levels"], item.id + ".levels", randomItem ? 0 : 1,
                                    randomItem ? 0
-                                   : terrain  ? 1
+                                   : obstacle ? 1
                                               : 64);
         for (const auto& data : levels) {
             const int ordinal = static_cast<int>(item.levels.size()) + 1;
@@ -447,47 +493,7 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             if (row.isMember("level_weight_decay")) {
                 fail(key, "配置奖池后请移除旧的 level_weight_decay 字段");
             }
-            std::set<std::string> seenItems;
-            std::int64_t total = 0;
-            for (const auto& entry : array(row["rewards"], key + ".rewards", 1, 128)) {
-                const auto at = key + ".rewards[" + std::to_string(rules.rewards.size()) + "]";
-                object(entry, at, {"item", "weight", "min_level", "max_level", "level_weights"});
-                RandomItemReward reward;
-                reward.item = id(entry["item"], at + ".item");
-                const auto found = cfg->items.find(reward.item);
-                if (found == cfg->items.end() || !found->second.buildable ||
-                    found->second.behavior == ItemBehavior::RandomItem || found->second.levels.empty()) {
-                    fail(at, "奖池道具不存在或不可抽取：" + reward.item);
-                }
-                if (!seenItems.insert(reward.item).second) {
-                    fail(at, "奖池中有重复道具：" + reward.item);
-                }
-                reward.weight = rewardWeight(entry["weight"], at + ".weight");
-                total += reward.weight;
-                const auto count = static_cast<int>(found->second.levels.size());
-                const int min = integer(entry["min_level"], at + ".min_level", 1, count);
-                const int max = integer(entry["max_level"], at + ".max_level", min, count);
-                std::set<int> seenLevels;
-                std::int64_t levelTotal = 0;
-                for (const auto& value :
-                     array(entry["level_weights"], at + ".level_weights", max - min + 1, max - min + 1)) {
-                    object(value, at + ".level_weights", {"level", "weight"});
-                    const int level = integer(value["level"], at + ".level", min, max);
-                    if (!seenLevels.insert(level).second) {
-                        fail(at, "等级权重中有重复等级");
-                    }
-                    const int weight = rewardWeight(value["weight"], at + ".level[" + std::to_string(level) + "]");
-                    levelTotal += weight;
-                    reward.levels.push_back({level, weight});
-                }
-                if (levelTotal == 0) {
-                    fail(at, "至少一个等级的权重须大于 0");
-                }
-                rules.rewards.push_back(std::move(reward));
-            }
-            if (total == 0) {
-                fail(key, "奖池中至少一个道具的权重须大于 0");
-            }
+            rules.rewards = itemRewards(row["rewards"], *cfg, key + ".rewards");
         } else {
             const double decay = number(row["level_weight_decay"], key + ".level_weight_decay", 0.01, 0.99);
             for (const auto& [id, item] : cfg->items) {
@@ -566,6 +572,47 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     cfg->pickupItem = id(root["pickup_item"], "pickup_item");
     if (!cfg->items.contains(cfg->pickupItem) || cfg->item(cfg->pickupItem).behavior != ItemBehavior::Pickup) {
         fail("pickup_item", "must reference a pickup behavior");
+    }
+    // Resolve overrides only after global match rules and item definitions have been validated.
+    for (std::size_t index = 0; index < cfg->mapGeneration.profiles.size(); ++index) {
+        auto& profile = cfg->mapGeneration.profiles[index];
+        const auto& row = map["profiles"][static_cast<Json::ArrayIndex>(index)];
+        const auto at = "map_generation." + profile.id;
+        profile.balance = cfg->balance;
+        if (row.isMember("match")) {
+            const auto& rules = row["match"];
+            object(rules, at + ".match", {"preparation_ms", "duration_ms"});
+            profile.balance.preparation =
+                integer(rules["preparation_ms"], at + ".match.preparation_ms", 0, 3600000) / 1000.0;
+            profile.balance.duration = integer(rules["duration_ms"], at + ".match.duration_ms", 1000, 3600000) / 1000.0;
+        }
+        if (!row.isMember("initial_items")) {
+            continue;
+        }
+        const auto& rules = row["initial_items"];
+        object(rules, at + ".initial_items", {"min_per_room", "max_per_room", "rewards"});
+        MapInitialItemsConfig initial;
+        const int limit = std::min(64, profile.minRoomArea - 1);
+        initial.minPerRoom = integer(rules["min_per_room"], at + ".initial_items.min_per_room", 0, limit);
+        initial.maxPerRoom =
+            integer(rules["max_per_room"], at + ".initial_items.max_per_room", initial.minPerRoom, limit);
+        initial.rewards =
+            itemRewards(rules["rewards"], *cfg, at + ".initial_items.rewards", true, initial.maxPerRoom == 0);
+        int uniqueCount = 0;
+        bool repeatable = false;
+        for (const auto& reward : initial.rewards) {
+            if (reward.weight > 0) {
+                if (cfg->item(reward.item).unique) {
+                    ++uniqueCount;
+                } else {
+                    repeatable = true;
+                }
+            }
+        }
+        if (!repeatable && initial.maxPerRoom > uniqueCount) {
+            fail(at + ".initial_items", "唯一道具数量不足以填满每房最大数量，请增加可重复道具或减少数量");
+        }
+        profile.initialItems = std::move(initial);
     }
     const auto& repair = root["repair"];
     object(repair, "repair", {"cost", "amount", "cooldown_ms"});

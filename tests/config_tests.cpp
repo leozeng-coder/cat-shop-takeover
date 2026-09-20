@@ -832,6 +832,167 @@ void customMapProfiles() {
         }
     }
 }
+void mapRulesAndInitialItems() {
+    auto data = document();
+    auto& profiles = data["map_generation"]["profiles"];
+    for (auto& p : profiles) {
+        p.removeMember("match");
+        p.removeMember("initial_items");
+    }
+    auto reward = [](const char* item, int level, int weight) {
+        Json::Value row, chance;
+        row["item"] = item;
+        row["weight"] = weight;
+        row["min_level"] = row["max_level"] = level;
+        chance["level"] = level;
+        chance["weight"] = 1;
+        row["level_weights"].append(chance);
+        return row;
+    };
+    auto& profile = profiles[0];
+    const auto id = profile["id"].asString();
+    profile["match"]["preparation_ms"] = 12000;
+    profile["match"]["duration_ms"] = 240000;
+    auto& initial = profile["initial_items"];
+    initial["min_per_room"] = initial["max_per_room"] = 2;
+    initial["rewards"].append(reward("launcher", 2, 1000000000));
+    initial["rewards"].append(reward("pantry", 1, 0));
+    auto cfg = parse(data);
+    Game game("MAP", 1, 17, cfg, id);
+    check(game.balance.preparation == 12 && game.balance.duration == 240,
+          "selected map supplies night and defense durations");
+    for (const auto& room : game.dorms) {
+        check(room.props.size() == 2, "map controls exact per-room item count");
+        for (const auto& prop : room.props) {
+            check(prop.kind == "launcher" && prop.level == 2 && prop.cell != room.nest,
+                  "configured item and level replace defaults without occupying the nest");
+        }
+    }
+    game.addHuman("Host");
+    check(game.selectMap(0, profiles[1]["id"].asString()).empty() && game.balance.duration == cfg->balance.duration &&
+              game.balance.preparation == cfg->balance.preparation,
+          "switching to an unconfigured map restores global timing");
+    for (const auto& room : game.dorms) {
+        check(room.props.size() >= 1 && room.props.size() <= 2 &&
+                  (room.props.size() != 2 || room.props[1].kind == cfg->pickupItem),
+              "unconfigured maps retain legacy initial generation");
+    }
+    check(game.selectMap(0, id).empty() && game.balance.preparation == 12, "lobby map selection reapplies map timing");
+    check(game.start(0).empty(), "custom map starts normally");
+    game.elapsed = 11.9;
+    game.step(.05);
+    check(game.phase == "preparing", "custom night persists until its configured end");
+    game.elapsed = 12;
+    game.step(.05);
+    check(game.phase == "running", "custom night ends on the server");
+    game.elapsed = 252;
+    game.step(.05);
+    check(game.phase == "won", "match ends after custom night plus defense duration");
+    profile["match"]["duration_ms"] = 300000;
+    initial["min_per_room"] = initial["max_per_room"] = 0;
+    initial["rewards"] = Json::Value(Json::arrayValue);
+    auto next = parse(data);
+    check(game.balance.duration == 240, "new configuration does not mutate an existing match");
+    check(game.rematch(0, next).empty() && game.balance.duration == 300,
+          "rematch adopts the latest selected map rules");
+    check(std::all_of(game.dorms.begin(), game.dorms.end(), [](const auto& r) { return r.props.empty(); }),
+          "zero count with an empty pool disables initial props");
+    initial["min_per_room"] = initial["max_per_room"] = 3;
+    initial["rewards"].append(reward("mini_fridge", 3, 1000000000));
+    initial["rewards"].append(reward("crate", 1, 1));
+    Game unique("UNIQUE", 1, 17, parse(data), id);
+    for (const auto& room : unique.dorms) {
+        check(room.props.size() == 3 && std::count_if(room.props.begin(), room.props.end(),
+                                                      [](const auto& p) { return p.kind == "mini_fridge"; }) <= 1,
+              "unique initial items occur at most once per room and remaining draws use eligible items");
+    }
+    auto invalid = [&](const std::function<void(Json::Value&)>& mutate, const char* message) {
+        auto bad = data;
+        mutate(bad["map_generation"]["profiles"][0]);
+        bool rejected = false;
+        try {
+            parse(bad);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected, message);
+    };
+    invalid([](auto& p) { p["match"]["duration_ms"] = 0; }, "zero daytime rejected");
+    invalid([](auto& p) { p["match"]["preparation_ms"] = -1; }, "negative nighttime rejected");
+    invalid([](auto& p) { p["initial_items"]["max_per_room"] = 100; }, "too many initial props rejected");
+    invalid([](auto& p) { p["initial_items"]["min_per_room"] = 4; }, "reversed count range rejected");
+    invalid([](auto& p) { p["initial_items"]["rewards"][1]["weight"] = 0; }, "insufficient unique pool rejected");
+    for (const auto* item : {"missing", "magic_trash_bin", "shelf"}) {
+        invalid([&](auto& p) { p["initial_items"]["rewards"][0]["item"] = item; },
+                "invalid, consumable and blocking initial props rejected");
+    }
+    invalid([](auto& p) { p["initial_items"]["rewards"][0]["weight"] = 1.5; }, "fractional map weight rejected");
+    invalid([](auto& p) { p["initial_items"]["rewards"][0]["max_level"] = 99; }, "invalid map reward level rejected");
+}
+void pickupItemLevels() {
+    auto data = document();
+    for (auto& item : data["items"]) {
+        if (item["id"].asString() != "crate") {
+            continue;
+        }
+        const auto original = item["levels"][0];
+        item["levels"] = Json::Value(Json::arrayValue);
+        for (int i = 1; i <= 3; ++i) {
+            auto level = original;
+            level["level"] = i;
+            level["next_level"] = i < 3 ? i + 1 : 0;
+            level["amount"] = i * 90;
+            item["levels"].append(level);
+        }
+    }
+    auto& profile = data["map_generation"]["profiles"][0];
+    auto& initial = profile["initial_items"];
+    initial["min_per_room"] = initial["max_per_room"] = 1;
+    Json::Value reward, chance;
+    reward["item"] = "crate";
+    reward["weight"] = 1;
+    reward["min_level"] = reward["max_level"] = 3;
+    chance["level"] = 3;
+    chance["weight"] = 1;
+    reward["level_weights"].append(chance);
+    initial["rewards"] = Json::Value(Json::arrayValue);
+    initial["rewards"].append(reward);
+    auto cfg = parse(data);
+    check(!cfg->item("crate").buildable && cfg->item("crate").levels.size() == 3,
+          "non-purchasable pickups support independently configured tiers");
+    Game game("PICKUP", 1, 17, cfg, profile["id"].asString());
+    game.addHuman("Collector");
+    game.start(0);
+    for (auto& player : game.players) {
+        player.decisionAt = 10000;
+    }
+    const auto prop = game.dorms[0].props[0];
+    check(prop.kind == "crate" && prop.level == 3, "map spawns the configured pickup tier");
+    auto& player = game.players[0];
+    player.position = game.map.center(prop.cell);
+    const auto before = player.wallet.at("cans");
+    game.step(.05);
+    check(player.wallet.at("cans") == before + 270 && game.propAt(prop.cell) == nullptr,
+          "pickup credits its own tier amount and consumes the item");
+    game.step(.05);
+    check(player.wallet.at("cans") == before + 270, "the same crate cannot be collected twice");
+    player.room = 0;
+    game.dorms[0].owner = 0;
+    check(!game.command(0, GameAction::Build, -1, prop.cell, "crate").empty() && game.propAt(prop.cell) == nullptr,
+          "a pickup remains unavailable for purchase after adding tiers");
+    for (auto& item : data["items"]) {
+        if (item["id"].asString() == "crate") {
+            item["buildable"] = true;
+        }
+    }
+    bool rejected = false;
+    try {
+        parse(data);
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected, "configuration cannot accidentally make pickups purchasable");
+}
 void snapshots() {
     const auto filename =
         std::filesystem::temp_directory_path() /
@@ -917,6 +1078,8 @@ int main() {
         randomItemPurchases();
         configuredRandomRewards();
         customMapProfiles();
+        mapRulesAndInitialItems();
+        pickupItemLevels();
         snapshots();
         std::cout << "PASS " << checks << " configuration/economy checks\n";
     } catch (const std::exception& e) {

@@ -1,4 +1,5 @@
 #include "grid_map.h"
+#include "common/weighted_random.h"
 #include "map_layout.h"
 #include <algorithm>
 #include <cmath>
@@ -112,7 +113,8 @@ std::vector<int> GridMap::route(int from, int to, const std::function<bool(int)>
     std::reverse(path.begin(), path.end());
     return path;
 }
-void GridMap::generate(std::uint32_t value, std::vector<Dorm>& rooms, const GameConfig& config, const std::string& selectedMap) {
+void GridMap::generate(std::uint32_t value, std::vector<Dorm>& rooms, const GameConfig& config,
+                       const std::string& selectedMap) {
     seed = value;
     std::mt19937 random(value);
     auto pick = [&](int low, int high) { return std::uniform_int_distribution<int>(low, high)(random); };
@@ -261,13 +263,32 @@ void GridMap::generate(std::uint32_t value, std::vector<Dorm>& rooms, const Game
             }
         }
         std::shuffle(room.floor.begin(), room.floor.end(), random);
-        const int wanted = pick(1, 2);
+        const auto& initial = rules.initialItems;
+        const int wanted = initial ? pick(initial->minPerRoom, initial->maxPerRoom) : pick(1, 2);
         // Initial items are buildable props or pickups; neither blocks movement.
         for (int cell : room.floor) {
             if (static_cast<int>(room.props.size()) >= wanted) {
                 break;
             }
             if (cell == room.nest) {
+                continue;
+            }
+            if (initial) {
+                std::vector<int> weights;
+                for (const auto& reward : initial->rewards) {
+                    const bool duplicate = config.item(reward.item).unique &&
+                                           std::any_of(room.props.begin(), room.props.end(),
+                                                       [&](const auto& prop) { return prop.kind == reward.item; });
+                    weights.push_back(duplicate ? 0 : reward.weight);
+                }
+                const auto& reward = initial->rewards[weightedDraw(weights, random)];
+                weights.clear();
+                for (const auto& level : reward.levels) {
+                    weights.push_back(level.weight);
+                }
+                Prop prop{cell, reward.item};
+                prop.level = reward.levels[weightedDraw(weights, random)].level;
+                room.props.push_back(std::move(prop));
                 continue;
             }
             const auto& kind = room.props.empty()

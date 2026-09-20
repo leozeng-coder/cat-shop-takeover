@@ -1,18 +1,36 @@
 [
   {
-    "item": "magic_trash_bin",
-    "purchase_costs": [
-      [{ "currency": "cans", "amount": 100 }],
+    "item" : "magic_trash_bin",
+    "level_weight_decay" : 0.55000000000000004,
+    "purchase_costs" : 
+    [
       [
-        { "currency": "cans", "amount": 150 },
-        { "currency": "dried_fish", "amount": 20 }
+        {
+          "amount" : 100,
+          "currency" : "cans"
+        }
       ],
       [
-        { "currency": "cans", "amount": 200 },
-        { "currency": "dried_fish", "amount": 50 }
+        {
+          "amount" : 150,
+          "currency" : "cans"
+        },
+        {
+          "amount" : 20,
+          "currency" : "dried_fish"
+        }
+      ],
+      [
+        {
+          "amount" : 200,
+          "currency" : "cans"
+        },
+        {
+          "amount" : 50,
+          "currency" : "dried_fish"
+        }
       ]
     ],
-    "level_weight_decay": 0.55,
-    "reveal_duration_ms": 1200
+    "reveal_duration_ms" : 1200
   }
 ]

@@ -234,6 +234,71 @@ try {
     tables: w.draft.tables,
   });
   assert.deepEqual(w.draft.tables.random_items[0].rewards, pool.rewards);
+  const crate = w.draft.tables.items.find((item) => item.id === "crate");
+  crate.levels[0].next_level = 2;
+  crate.levels.push({
+    ...structuredClone(crate.levels[0]),
+    level: 2,
+    next_level: 0,
+    amount: 180,
+  });
+  const mapProfile = w.draft.tables.map_generation.profiles[0];
+  mapProfile.match = { preparation_ms: 45000, duration_ms: 675000 };
+  mapProfile.initial_items = {
+    min_per_room: 2,
+    max_per_room: 3,
+    rewards: [
+      {
+        item: "launcher",
+        weight: 1,
+        min_level: 2,
+        max_level: 2,
+        level_weights: [{ level: 2, weight: 1 }],
+      },
+    ],
+  };
+  mapProfile.initial_items.rewards.push({
+    item: "crate",
+    weight: 2,
+    min_level: 2,
+    max_level: 2,
+    level_weights: [{ level: 2, weight: 1 }],
+  });
+  for (const invalidate of [
+    (p) => {
+      p.match.duration_ms = 0;
+    },
+    (p) => {
+      p.initial_items.rewards[0].item = "deleted_item";
+    },
+    (p) => {
+      p.initial_items.rewards[0].weight = -1;
+    },
+    (p) => {
+      p.initial_items.rewards[0].max_level = 99;
+    },
+    (p) => {
+      p.initial_items.max_per_room = 100;
+    },
+  ]) {
+    const invalid = structuredClone(w.draft.tables);
+    invalidate(invalid.map_generation.profiles[0]);
+    await request(
+      "draft",
+      { revision: w.draft.revision, tables: invalid },
+      422,
+    );
+    assert.equal(
+      (await request("workspace")).draft.revision,
+      w.draft.revision,
+      "invalid map rules must preserve the saved draft",
+    );
+  }
+  w = await request("draft", {
+    revision: w.draft.revision,
+    tables: w.draft.tables,
+  });
+  assert.deepEqual(w.draft.tables.map_generation.profiles[0], mapProfile);
   const valid = structuredClone(w.draft.tables);
   w.draft.tables.items[0].levels[0].cost[0].currency = "missing_currency";
   await request(
@@ -270,6 +335,12 @@ try {
     w.current.tables.random_items[0].rewards,
     pool.rewards,
     "published relative weights are preserved without requiring a total of 100",
+  );
+
+  assert.deepEqual(
+    w.current.tables.map_generation.profiles[0],
+    mapProfile,
+    "published map rules round-trip unchanged",
   );
   assert.notEqual(w.current.release, "source");
   assert.deepEqual(

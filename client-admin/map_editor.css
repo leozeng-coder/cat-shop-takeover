@@ -1,0 +1,36 @@
+.map-rule-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 280px));
+  gap: 24px;
+}
+.map-rule-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 18px 0 28px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.map-rule-inherited {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 24px;
+  background: #f4f7ef;
+  border-radius: 16px;
+}
+.map-rule-inherited p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .map-rule-fields {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}

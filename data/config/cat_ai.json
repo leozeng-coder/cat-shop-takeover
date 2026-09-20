@@ -1,81 +1,88 @@
 {
-  "decision_interval_ms": 1400,
-  "decision_jitter_ms": 800,
-  "danger_interval_ms": 250,
-  "start_delay_ms": 1500,
-  "seat_delay_ms": 250,
-  "move_timeout_ms": 12000,
-  "escape_repath_ms": 750,
-  "repair_threshold_percent": 65,
-  "danger_radius": 192,
-  "escape_candidates": 8,
-  "build_attempts": 8,
-  "profiles": [
+  "build_attempts" : 8,
+  "danger_interval_ms" : 250,
+  "danger_radius" : 192,
+  "decision_interval_ms" : 1400,
+  "decision_jitter_ms" : 800,
+  "escape_candidates" : 8,
+  "escape_repath_ms" : 750,
+  "move_timeout_ms" : 12000,
+  "profiles" : 
+  [
     {
-      "id": "economist",
-      "preference": "economy",
-      "reserve": [
+      "attack_count" : 4,
+      "id" : "economist",
+      "preference" : "economy",
+      "producers" : 
+      [
         {
-          "currency": "cans",
-          "amount": 30
-        }
-      ],
-      "attack_count": 4,
-      "repair_count": 1,
-      "producers": [
-        {
-          "currency": "cans",
-          "count": 1
+          "count" : 1,
+          "currency" : "cans"
         },
         {
-          "currency": "dried_fish",
-          "count": 1
+          "count" : 1,
+          "currency" : "dried_fish"
+        }
+      ],
+      "repair_count" : 1,
+      "reserve" : 
+      [
+        {
+          "amount" : 30,
+          "currency" : "cans"
         }
       ]
     },
     {
-      "id": "guardian",
-      "preference": "defense",
-      "reserve": [
+      "attack_count" : 4,
+      "id" : "guardian",
+      "preference" : "defense",
+      "producers" : 
+      [
         {
-          "currency": "cans",
-          "amount": 45
-        }
-      ],
-      "attack_count": 4,
-      "repair_count": 1,
-      "producers": [
-        {
-          "currency": "cans",
-          "count": 1
+          "count" : 1,
+          "currency" : "cans"
         },
         {
-          "currency": "dried_fish",
-          "count": 1
+          "count" : 1,
+          "currency" : "dried_fish"
+        }
+      ],
+      "repair_count" : 1,
+      "reserve" : 
+      [
+        {
+          "amount" : 45,
+          "currency" : "cans"
         }
       ]
     },
     {
-      "id": "fighter",
-      "preference": "attack",
-      "reserve": [
+      "attack_count" : 4,
+      "id" : "fighter",
+      "preference" : "attack",
+      "producers" : 
+      [
         {
-          "currency": "cans",
-          "amount": 20
-        }
-      ],
-      "attack_count": 4,
-      "repair_count": 1,
-      "producers": [
-        {
-          "currency": "cans",
-          "count": 1
+          "count" : 1,
+          "currency" : "cans"
         },
         {
-          "currency": "dried_fish",
-          "count": 1
+          "count" : 1,
+          "currency" : "dried_fish"
+        }
+      ],
+      "repair_count" : 1,
+      "reserve" : 
+      [
+        {
+          "amount" : 20,
+          "currency" : "cans"
         }
       ]
     }
-  ]
+  ],
+  "repair_threshold_percent" : 65,
+  "seat_delay_ms" : 250,
+  "start_delay_ms" : 1500
 }

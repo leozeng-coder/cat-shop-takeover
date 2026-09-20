@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 namespace snackshop {
@@ -110,6 +111,10 @@ struct ManagerAiConfig {
     double retreatHealth = 0, resumeHealth = 0, outOfCombatDelay = 0, outOfCombatHealing = 0;
     double retreatSpeed = 0, repathInterval = 0;
 };
+struct MapInitialItemsConfig {
+    int minPerRoom = 1, maxPerRoom = 2;
+    std::vector<RandomItemReward> rewards;
+};
 struct MapProfileConfig {
     std::string id, name, theme;
     int weight = 1, width = 44, height = 36;
@@ -121,6 +126,8 @@ struct MapProfileConfig {
     int minRoomArea = 18, maxRoomArea = 63;
     // Complexity: 0 rectangles, 1 adds L/recesses, 2 adds steps/T, 3 adds U shapes.
     int corridorWidth = 2, bands = 3, complexity = 2;
+    Balance balance;
+    std::optional<MapInitialItemsConfig> initialItems;
 };
 struct MapGenerationConfig {
     std::vector<MapProfileConfig> profiles;

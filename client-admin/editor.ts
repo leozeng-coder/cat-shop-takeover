@@ -1,4 +1,9 @@
 import type { FieldPath, Json, Row, Tables } from "./types";
+import {
+  defaultItemChoices,
+  isMapItemReference,
+  itemChoices,
+} from "./item_choices";
 export const escape = (value: unknown) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -19,7 +24,7 @@ export const tableNames: Record<string, string> = {
   cat_ai: "猫猫 AI",
   manager_ai: "店长 AI",
   map_generation: "地图生成",
-  map_items: "开局物资",
+  map_items: "默认开局物资",
   characters: "可选角色",
   manifest: "版本信息",
 };
@@ -79,6 +84,8 @@ const labels: Record<string, string> = {
   theme: "地图主题",
   weight: "权重",
   profiles: "配置方案",
+  initial_items: "随机安装道具",
+  pickup_item: "拾取道具",
   purchase_costs: "每次购买价格",
   level_weight_decay: "等级权重衰减",
   reveal_duration_ms: "揭晓时间（毫秒）",
@@ -108,6 +115,13 @@ function options(
   path: FieldPath,
   tables: Tables,
 ): [string, string][] | undefined {
+  if (isMapItemReference(path)) {
+    const items =
+      key === "pickup_item"
+        ? itemChoices(tables, "pickup")
+        : defaultItemChoices(tables, Number(path[2]));
+    return items.map((item) => [String(item.id), `${item.name} · ${item.id}`]);
+  }
   if (key === "currency")
     return [
       ["", "无"],
@@ -132,18 +146,33 @@ function field(
   compact = false,
 ): string {
   const key = String(path.at(-1));
-  const title = label(key);
+  const item =
+    path[0] === "items" ? (tables.items as Row[])[Number(path[1])] : undefined;
+  const pickupAmount = item?.behavior === "pickup" && key === "amount";
+  const currency = (tables.currencies as Row[]).find(
+    (row) => row.id === item?.currency,
+  );
+  const title = pickupAmount
+    ? `拾取${currency?.name ?? "货币"}数量`
+    : isMapItemReference(path) && key !== "pickup_item"
+      ? "开局道具"
+      : label(key);
   const attrs = `data-path="${encoded(path)}" aria-label="${escape(title)}"`;
   let input: string;
   if (typeof value === "boolean")
     input = `<input type="checkbox" ${attrs} ${value ? "checked" : ""}>`;
   else if (typeof value === "number")
-    input = `<input type="number" step="any" ${attrs} value="${value}">`;
+    input = `<input type="number" ${pickupAmount ? 'step="1" min="1" max="1000000" required' : 'step="any"'} ${attrs} value="${value}">`;
   else {
     const values = options(key, path, tables);
     if (values) {
       if (!values.some(([id]) => id === value))
-        values.unshift([String(value), String(value)]);
+        values.unshift([
+          String(value),
+          isMapItemReference(path)
+            ? `${value}（已失效，请重新选择）`
+            : String(value),
+        ]);
       input = `<select ${attrs}>${values.map(([id, text]) => `<option value="${escape(id)}" ${id === value ? "selected" : ""}>${escape(text)}</option>`).join("")}</select>`;
     } else if (key === "description")
       input = `<textarea rows="3" ${attrs}>${escape(value)}</textarea>`;
@@ -156,6 +185,9 @@ function field(
 export function form(value: Json, path: FieldPath, tables: Tables): string {
   if (Array.isArray(value)) {
     const key = String(path.at(-1));
+    const mapItems = path[0] === "map_items" && key === "initial_items";
+    const noAvailableItems =
+      mapItems && defaultItemChoices(tables).length === 0;
     const table = path[0] === "manager" && key === "levels";
     const content =
       table && value.length
@@ -170,11 +202,14 @@ export function form(value: Json, path: FieldPath, tables: Tables): string {
                 ? row.name ||
                   row.id ||
                   (row.level ? `${row.level} 级` : `第 ${index + 1} 项`)
-                : `第 ${index + 1} 项`;
+                : mapItems
+                  ? ((tables.items as Row[]).find((item) => item.id === entry)
+                      ?.name ?? `${entry}（已失效）`)
+                  : `第 ${index + 1} 项`;
               return `<details class="entry"><summary><span>${escape(heading)}</span><button type="button" class="text-btn danger" data-remove="${encoded([...path, index])}">移除</button></summary><div class="entry-body">${form(entry, [...path, index], tables)}</div></details>`;
             })
             .join("");
-    return `<section class="collection"><div class="section-title"><h3>${escape(label(key))}<small>${value.length} 项</small></h3><button type="button" class="text-btn" data-add="${encoded(path)}">＋ 添加一项</button></div>${content || '<p class="muted">暂无条目</p>'}</section>`;
+    return `<section class="collection"><div class="section-title"><h3>${escape(label(key))}<small>${value.length} 项</small></h3><button type="button" class="text-btn" data-add="${encoded(path)}" ${noAvailableItems ? "disabled" : ""}>${noAvailableItems ? "暂无可添加道具" : "＋ 添加一项"}</button></div>${content || '<p class="muted">暂无条目</p>'}</section>`;
   }
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value);
@@ -218,6 +253,11 @@ export function setPath(root: Json, path: FieldPath, value: Json) {
 export function addEntry(tables: Tables, path: FieldPath) {
   const rows = readPath(tables, path) as Json[];
   const key = path.at(-1);
+  if (path[0] === "map_items" && key === "initial_items") {
+    const item = defaultItemChoices(tables)[0];
+    if (item) rows.push(item.id);
+    return;
+  }
   let value: Json = rows.length ? structuredClone(rows.at(-1)!) : {};
   if (key === "cost" || key === "retreat_reward" || key === "reserve")
     value = { currency: (tables.currencies as Row[])[0].id, amount: 0 };

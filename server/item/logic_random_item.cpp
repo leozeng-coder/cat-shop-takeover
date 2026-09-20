@@ -1,27 +1,9 @@
 #include "logic_random_item.h"
+#include "common/weighted_random.h"
 #include "game/logic_economy.h"
 #include <algorithm>
 #include <stdexcept>
 namespace snackshop {
-namespace {
-std::size_t draw(const std::vector<int>& weights, std::mt19937& random) {
-    std::int64_t total = 0;
-    for (const auto weight : weights) {
-        total += weight;
-    }
-    if (total <= 0) {
-        throw std::logic_error("empty random reward distribution");
-    }
-    auto ticket = std::uniform_int_distribution<std::int64_t>(1, total)(random);
-    for (std::size_t i = 0; i < weights.size(); ++i) {
-        ticket -= weights[i];
-        if (ticket <= 0) {
-            return i;
-        }
-    }
-    throw std::logic_error("empty random reward distribution");
-}
-} // namespace
 int LogicRandomItem::purchased(const Player& player, const std::string& item) {
     const auto found = player.itemPurchases.find(item);
     return found == player.itemPurchases.end() ? 0 : found->second;
@@ -70,12 +52,12 @@ std::string LogicRandomItem::purchase(Game& game, int player, int cell, const It
     for (const auto* candidate : candidates) {
         weights.push_back(candidate->weight);
     }
-    const auto& reward = *candidates[draw(weights, random)];
+    const auto& reward = *candidates[weightedDraw(weights, random)];
     weights.clear();
     for (const auto& level : reward.levels) {
         weights.push_back(level.weight);
     }
-    const int level = reward.levels[draw(weights, random)].level;
+    const int level = reward.levels[weightedDraw(weights, random)].level;
     const int count = purchased(cat, item.id);
     LogicEconomy::pay(cat, rule.purchaseCosts[count]);
     Prop prop{cell, item.id};
