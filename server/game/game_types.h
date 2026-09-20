@@ -69,6 +69,13 @@ struct Notice {
     double time;
     std::string text;
 };
+struct GameEvent {
+    std::uint64_t id;
+    double time;
+    std::string type, target;
+    Point position;
+    int player = -1;
+};
 enum class GameAction { Move, EnterNest, UpgradeNest, UpgradeBarricade, Build, Repair };
 } // namespace snackshop
 #endif

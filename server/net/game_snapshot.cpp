@@ -152,6 +152,19 @@ Json::Value GameSnapshot::world(const Game& g) {
     value["preparation"] = g.balance.preparation;
     value["minimumHumans"] = g.minimumHumans();
     value["tick"] = Json::UInt64(g.tick);
+    value["eventSequence"] = Json::UInt64(g.eventSequence);
+    value["events"] = Json::Value(Json::arrayValue);
+    for (const auto& event : g.events) {
+        Json::Value row;
+        row["id"] = Json::UInt64(event.id);
+        row["time"] = event.time;
+        row["type"] = event.type;
+        row["target"] = event.target;
+        row["player"] = event.player;
+        row["x"] = event.position.x;
+        row["y"] = event.position.y;
+        value["events"].append(row);
+    }
     auto& map = value["map"];
     map["id"] = g.map.profileId;
     map["name"] = g.map.name;

@@ -1,4 +1,5 @@
 import './style.css';
+import { AudioSystem } from './audio/audio_system';
 import { characterLibrary } from './characters/character_library';
 import { MANAGER_CHARACTER } from './characters/manager_motion';
 import { characterKey, type CharacterOption, type CharacterSelection } from './characters/types';
@@ -17,6 +18,32 @@ import { GameConnection, type ClientMessage } from './net/game_connection';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = APP_SHELL;
+const audio = new AudioSystem();
+for (const container of Array.from(app.querySelectorAll('.header-end,.hud-left'))) {
+  container.insertAdjacentHTML(
+    'beforeend',
+    '<button class="text-button" data-audio-toggle aria-label="切换声音"></button>',
+  );
+}
+audio.onChange = () => {
+  for (const button of Array.from(app.querySelectorAll('[data-audio-toggle]'))) {
+    button.textContent = audio.isMuted() ? '声音：关' : '声音：开';
+    button.setAttribute('aria-pressed', String(!audio.isMuted()));
+  }
+};
+audio.onChange();
+document.addEventListener(
+  'click',
+  (event) => {
+    audio.unlock();
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!button || button.disabled) return;
+    if (button.hasAttribute('data-audio-toggle')) audio.toggleMute();
+    else audio.play('ui.click');
+  },
+  { capture: true },
+);
+document.addEventListener('keydown', () => audio.unlock(), { capture: true });
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const renderer = new Renderer(el<HTMLCanvasElement>('board'));
 const managerPortraitUrl = () => characterLibrary.card(MANAGER_CHARACTER)?.portrait;
@@ -123,6 +150,7 @@ function clearSession() {
   connection.forgetSession();
   managerAnnouncement.reset();
   state = null;
+  audio.setState(null);
   itemCategory = 'attack';
   combatExpanded = false;
   sequence = 0;
@@ -159,6 +187,7 @@ const connection = new GameConnection({
     render();
   },
   onJoined(lastSequence) {
+    audio.resetEvents();
     sequence = lastSequence;
     busy = false;
   },
@@ -166,7 +195,10 @@ const connection = new GameConnection({
     el('connection').classList.toggle('online', online);
     el('connection').textContent = online ? '小街已连接' : '连接小街中';
     el('offline').classList.toggle('hidden', online || !state);
-    if (!online) busy = false;
+    if (!online) {
+      busy = false;
+      audio.resetEvents();
+    }
     render();
   },
   onState(next) {
@@ -183,6 +215,7 @@ const connection = new GameConnection({
       combatExpanded = false;
     }
     state = next;
+    audio.setState(next);
     if (previous?.code === next.code && previous.map.seed === next.map.seed) {
       const mine = next.players[next.you].room;
       if (mine >= 0) {
@@ -458,6 +491,7 @@ app.addEventListener('click', async (event) => {
     const selection = { character: button.dataset.character!, skin: button.dataset.skin! };
     if (op === 'menu-character') {
       rememberCharacter(selection);
+      audio.play('character.meow', selection.character);
       render();
     } else if (!state || characterKey(state.players[state.you].character) !== characterKey(selection))
       send({ type: 'select_character', character: selection });

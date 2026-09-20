@@ -11,6 +11,7 @@ public:
     Json::Value catalog() const;
     Json::Value clients() const;
     std::filesystem::path file(const std::string& relative) const;
+    const std::filesystem::path& root() const { return m_source; }
 
 private:
     std::filesystem::path m_source;

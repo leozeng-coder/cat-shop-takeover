@@ -1,4 +1,5 @@
 #include "asset_catalog.h"
+#include "audio_repository.h"
 #include "config_repository.h"
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
@@ -89,6 +90,8 @@ int main(int argc, char** argv) {
         auto repository = std::make_shared<ConfigRepository>(config, storage);
         repository->workspace();
         auto art = std::make_shared<AssetCatalog>(assetSource);
+        auto audio = std::make_shared<AudioRepository>(art->root(), storage);
+        registerAudioRoutes(art->root());
         drogon::app().registerHandler(
             "/api/admin/health",
             [](const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
@@ -100,9 +103,9 @@ int main(int argc, char** argv) {
             {drogon::Get});
         drogon::app().registerHandler(
             "/api/admin/{1}",
-            [repository, token, art, port](const drogon::HttpRequestPtr& request,
-                                           std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-                                           const std::string& action) {
+            [repository, token, art, audio, port](const drogon::HttpRequestPtr& request,
+                                                  std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+                                                  const std::string& action) {
                 Json::Value value;
                 int status = 200;
                 try {
@@ -115,7 +118,18 @@ int main(int argc, char** argv) {
                         throw AdminError(401, "请使用本机访问密钥登录工作台");
                     }
                     if (request->method() == drogon::Get) {
-                        if (action == "workspace") {
+                        if (action == "audio") {
+                            value = audio->workspace();
+                        } else if (action == "audio-preview") {
+                            auto response = drogon::HttpResponse::newFileResponse(
+                                audio->previewFile(request->getParameter("file")).string());
+                            response->setContentTypeString(
+                                request->getParameter("file").ends_with(".wav") ? "audio/wav" : "audio/mpeg");
+                            response->addHeader("Cache-Control", "no-store");
+                            response->addHeader("X-Content-Type-Options", "nosniff");
+                            callback(response);
+                            return;
+                        } else if (action == "workspace") {
                             value = repository->workspace();
                         } else if (action == "history") {
                             value = repository->history();
@@ -126,7 +140,17 @@ int main(int argc, char** argv) {
                         } else {
                             throw AdminError(404, "找不到这个管理接口");
                         }
+                    } else if (action == "audio-upload") {
+                        Json::Value metadata;
+                        for (const auto* key : {"revision", "id", "name", "category"}) {
+                            metadata[key] = request->getParameter(key);
+                        }
+                        value =
+                            audio->upload(std::string(request->body()), request->getParameter("extension"), metadata);
                     } else {
+                        if (request->body().size() > 2 * 1024 * 1024) {
+                            throw AdminError(413, "JSON 请求过大");
+                        }
                         if (request->getHeader("content-type").find("application/json") != 0) {
                             throw AdminError(415, "请使用 JSON 请求");
                         }
@@ -134,7 +158,13 @@ int main(int argc, char** argv) {
                         if (!body || !body->isObject()) {
                             throw AdminError(400, "请求内容不是有效的 JSON 对象");
                         }
-                        if (action == "draft") {
+                        if (action == "audio-save") {
+                            value = audio->save(*body);
+                        } else if (action == "audio-validate") {
+                            value = audio->validate(*body);
+                        } else if (action == "audio-publish") {
+                            value = audio->publish(*body);
+                        } else if (action == "draft") {
                             value = repository->save(*body);
                         } else if (action == "validate") {
                             value = repository->validate(*body);
@@ -185,7 +215,7 @@ int main(int argc, char** argv) {
             },
             {drogon::Get});
         drogon::app().setLogLevel(trantor::Logger::kWarn);
-        drogon::app().setClientMaxBodySize(2 * 1024 * 1024);
+        drogon::app().setClientMaxBodySize(20 * 1024 * 1024);
         drogon::app()
             .setThreadNum(2)
             .setDocumentRoot(web.string())

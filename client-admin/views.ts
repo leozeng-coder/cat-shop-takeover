@@ -26,7 +26,7 @@ export function shell(page: string) {
       <button class="logout" data-action="logout">退出登录</button>
     </aside>
     <div class="main">
-      <header class="topbar"><div><div class="breadcrumb"><span>${active.module.name}</span><b>/</b>${active.page.group ? `<span>${active.module.groups?.find((g) => g.id === active.page.group)?.name}</span><b>/</b>` : ""}<span>${active.page.name}</span></div><h1>${active.module.name}</h1></div><div class="top-actions"><span id="save-status" class="save-status"></span><button class="button" data-action="save">保存草稿</button><button class="button" data-action="validate">校验</button><button class="button primary" data-action="publish">发布</button></div></header>
+      <header class="topbar"><div><div class="breadcrumb"><span>${active.module.name}</span><b>/</b>${active.page.group ? `<span>${active.module.groups?.find((g) => g.id === active.page.group)?.name}</span><b>/</b>` : ""}<span>${active.page.name}</span></div><h1>${active.module.name}</h1></div><div class="top-actions"><span id="save-status" class="save-status"></span><button class="button" data-action="save">保存草稿</button><button class="button" data-action="validate">校验</button><button class="button primary" data-action="publish">${page === "audio" ? "发布音效" : "发布"}</button></div></header>
       <div id="notice" class="notice" role="status" hidden></div><main id="content" data-module="${active.module.id}"></main>
     </div>
   </div><dialog id="confirm"><form method="dialog"><div id="dialog-content"></div><div class="dialog-actions"><button class="button" value="cancel">取消</button><button class="button primary" value="confirm">确认</button></div></form></dialog>`;

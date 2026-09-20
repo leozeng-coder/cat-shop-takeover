@@ -62,6 +62,7 @@ std::string LogicRandomItem::purchase(Game& game, int player, int cell, const It
     prop.revealAt = game.elapsed + rule.revealDuration;
     game.dorms[cat.room].props.push_back(std::move(prop));
     cat.itemPurchases[item.id] = count + 1;
+    game.emitEvent("item.install", item.id, game.map.center(cell), player);
     return {};
 }
 void LogicRandomItem::update(Game& game) {
@@ -71,6 +72,7 @@ void LogicRandomItem::update(Game& game) {
                 continue;
             }
             const auto source = game.config().item(prop.kind).name;
+            game.emitEvent("item.reveal", prop.kind, game.map.center(prop.cell), room.owner);
             prop.kind = std::move(prop.rewardKind);
             prop.rewardKind.clear();
             prop.level = prop.rewardLevel;

@@ -10,6 +10,7 @@ void LogicEnemy::update(Game& game, double dt) {
         return;
     }
     auto& m = game.monster;
+    const int previousLevel = m.level;
     const double combatTime = std::min(dt, std::max(0.0, game.elapsed - game.balance.preparation));
     if (LogicProgression::advanceTime(m, combatTime, game.config().enemy) > 0) {
         game.notify("店长越等越生气，升至 Lv." + std::to_string(m.level));
@@ -20,6 +21,9 @@ void LogicEnemy::update(Game& game, double dt) {
     }
     ManagerAiContext context{game, game.m_random, dt};
     ManagerBehavior::tree().tick(context, m.behavior);
+    for (int level = previousLevel; level < m.level; ++level) {
+        game.emitEvent("match.level", "shop_manager");
+    }
     const auto& ai = game.config().managerAi;
     if (m.hp > 0 && m.state != "resting" && m.state != "defeated") {
         // Heal only the part of this tick after the combat grace period has elapsed.

@@ -68,6 +68,12 @@ export const modules: Module[] = [
     ],
   },
   {
+    id: "audio",
+    name: "音效管理",
+    icon: "audio",
+    pages: [{ id: "audio", name: "音效与音乐" }],
+  },
+  {
     id: "resources",
     name: "资源管理",
     icon: "image",
@@ -97,6 +103,8 @@ export function locationFor(page: string) {
 }
 
 const paths: Record<string, string> = {
+  audio:
+    '<path d="M9 18V5l11-2v13M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/>',
   home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
   cat: '<path d="M4 11V4l5 3a12 12 0 0 1 6 0l5-3v7c3 12-19 12-16 0Z"/><path d="M8 12h.01M16 12h.01m-5 3h2l-1 1Z"/>',
   map: '<path d="m3 5 6-2 6 3 6-2v15l-6 2-6-3-6 2Zm6-2v15m6-12v15"/>',

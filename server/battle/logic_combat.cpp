@@ -29,6 +29,7 @@ bool LogicCombat::hitDoor(Game& game, int id) {
     monster.lastCombatAt = game.elapsed;
     ++monster.doorHits;
     ++monster.attackSequence;
+    game.emitEvent("door.hit", game.config().door(room.level).appearance, game.map.center(room.door), room.owner);
     if (LogicProgression::grant(monster, game.config().enemy.doorRage, game.config().enemy) > 0) {
         game.notify("店长敲门积累怒气值，升至 Lv." + std::to_string(monster.level));
     }
@@ -36,6 +37,10 @@ bool LogicCombat::hitDoor(Game& game, int id) {
         auto& owner = game.players[room.owner];
         const bool returningToNest = owner.nestIntent >= 0;
         LogicCatAi::stop(game, owner);
+        game.emitEvent("door.break", game.config().door(room.level).appearance, game.map.center(room.door), room.owner);
+        if (owner.sleeping) {
+            game.emitEvent("character.wake", owner.character.character, owner.position, owner.id);
+        }
         owner.sleeping = false;
         owner.nestIntent = -1;
         owner.decisionAt = 0;
@@ -78,6 +83,7 @@ void LogicCombat::capture(Game& game, int id) {
         return;
     }
     auto& cat = game.players[id];
+    game.emitEvent("character.caught", cat.character.character, cat.position, id);
     LogicCatAi::stop(game, cat);
     cat.alive = false;
     cat.sleeping = false;

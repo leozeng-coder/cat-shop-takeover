@@ -1,0 +1,215 @@
+[
+  {
+    "clip" : "audio_b60cb194-db61-4c2e-a95f-97b48235a4bf",
+    "cooldownMs" : 60,
+    "enabled" : true,
+    "event" : "ui.click",
+    "maxVoices" : 3,
+    "playbackRate" : 1.45,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "character.meow",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "character.nest",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "character.wake",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "character.caught",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "audio_7437a0bd-3fc5-4093-8e67-14f0fadd1bac",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "item.install",
+    "maxVoices" : 3,
+    "playbackRate" : 2,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "audio_a9276599-51e5-4e5e-9684-07c28758b59c",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "item.upgrade",
+    "maxVoices" : 3,
+    "playbackRate" : 2,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "audio_1174b8a9-0526-427d-9d3f-4f284807b3a6",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "item.fire",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "item.freeze",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "item.reveal",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "door.close",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "audio_23bb1873-5fdb-4254-873b-94702fe524ab",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "door.hit",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "door.break",
+    "maxVoices" : 3,
+    "range" : 12,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "match.day",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "match.level",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "match.won",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "match.lost",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "music.home",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "music.background",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "music.night",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  },
+  {
+    "clip" : "",
+    "cooldownMs" : 120,
+    "enabled" : true,
+    "event" : "music.day",
+    "maxVoices" : 3,
+    "range" : 0,
+    "target" : "*",
+    "volume" : 1
+  }
+]

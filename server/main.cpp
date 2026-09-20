@@ -1,3 +1,4 @@
+#include "assets/audio_library.h"
 #include "config/config_loader.h"
 #include "net/net_handler_game.h"
 #include "service/game_server.h"
@@ -7,6 +8,7 @@
 int main(int argc, char** argv) {
     int port = 8787;
     std::string bind = "127.0.0.1", web = "client/dist", configPath = "data/config";
+    std::filesystem::path assets = "assets";
     bool checkConfig = false;
     for (int i = 1; i < argc; ++i) {
         const std::string key = argv[i];
@@ -21,6 +23,8 @@ int main(int argc, char** argv) {
         const char* argument = argv[++i];
         if (key == "--config") {
             configPath = argument;
+        } else if (key == "--assets") {
+            assets = argument;
         } else if (key == "--port") {
             port = std::stoi(argument);
         } else if (key == "--bind") {
@@ -52,6 +56,7 @@ int main(int argc, char** argv) {
     }
     auto gameServer = std::make_shared<snackshop::GameServer>(configs);
     drogon::app().registerController(std::make_shared<snackshop::NetHandlerGame>(gameServer));
+    snackshop::registerAudioRoutes(assets);
     drogon::app().registerHandler(
         "/api/health",
         [gameServer, configs](const drogon::HttpRequestPtr&,
@@ -73,8 +78,8 @@ int main(int argc, char** argv) {
         .setThreadNum(1)
         .setDocumentRoot(web)
         // Theme manifests are public client assets, alongside the images they reference.
-        .setFileTypes({"html", "js", "css", "xml", "xsl", "txt", "svg", "ttf", "otf", "woff2", "woff", "eot",
-                       "png", "jpg", "jpeg", "gif", "bmp", "ico", "icns", "json", "webp"})
+        .setFileTypes({"html", "js",  "css", "xml",  "xsl", "txt", "svg", "ttf",  "otf",  "woff2", "woff",
+                       "eot",  "png", "jpg", "jpeg", "gif", "bmp", "ico", "icns", "json", "webp"})
         .setStaticFilesCacheTime(-1)
         .setHomePage("index.html")
         .addListener(bind, static_cast<std::uint16_t>(port));

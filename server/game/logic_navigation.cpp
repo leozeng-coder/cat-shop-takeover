@@ -106,6 +106,7 @@ void Game::arrive(Player& p) {
         }
         p.room = room.id;
         room.owner = p.id;
+        emitEvent("door.close", config().door(room.level).appearance, map.center(room.door), p.id);
         for (auto& other : players) {
             if (other.id == p.id || !other.alive ||
                 (other.nestIntent != room.id && (!other.ai.active || other.ai.targetRoom != room.id))) {
@@ -118,6 +119,9 @@ void Game::arrive(Player& p) {
             other.decisionAt = 0;
         }
         notify(p.name + " 占领了 " + std::to_string(room.id + 1) + " 号猫店，店门已关闭，走动也能赚罐头");
+    }
+    if (!p.sleeping) {
+        emitEvent("character.nest", p.character.character, p.position, p.id);
     }
     p.sleeping = true;
     p.nestIntent = -1;

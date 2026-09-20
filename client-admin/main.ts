@@ -1,5 +1,8 @@
 import "./style.css";
 import "./workspace.css";
+import "./audio.css";
+import { AudioAdmin } from "./audio";
+import type { AudioWorkspace } from "../shared/audio";
 import { api, ApiError, setAccess } from "./api";
 import { addEntry, differences, escape, readPath, setPath } from "./editor";
 import { locationFor } from "./navigation";
@@ -58,6 +61,15 @@ let item = 0,
 let renderedPage = "";
 const el = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
+const audioAdmin = new AudioAdmin({
+  render,
+  status,
+  notice,
+  run,
+  dialog,
+  tables: () => workspace.draft.tables,
+  assets: () => assets,
+});
 function remember(token: string) {
   setAccess(token);
   try {
@@ -70,6 +82,14 @@ function remember(token: string) {
 }
 function status() {
   const label = document.getElementById("save-status");
+  if (label && page === "audio") {
+    label.textContent = audioAdmin.dirty
+      ? "● 音效有未保存修改"
+      : audioAdmin.checked
+        ? "✓ 音效校验通过"
+        : "✓ 音效草稿已保存";
+    return;
+  }
   if (label)
     label.textContent =
       dirty || rawDirty
@@ -138,6 +158,10 @@ function applyRaw() {
   checked = "";
 }
 async function save() {
+  if (page === "audio") {
+    await audioAdmin.save();
+    return;
+  }
   applyRaw();
   const invalid = app.querySelector<HTMLInputElement>("input:invalid");
   if (invalid) {
@@ -179,6 +203,7 @@ function render() {
   app.innerHTML = shell(page);
   const content = el("content");
   if (page === "home") content.innerHTML = home(workspace, assets);
+  else if (page === "audio") content.innerHTML = audioAdmin.render();
   else if (page === "items")
     content.innerHTML = itemsView(workspace, item, query);
   else if (active.page.table)
@@ -211,14 +236,16 @@ function render() {
 }
 async function connect(token: string) {
   remember(token);
-  const [value, info, targets] = await Promise.all([
+  const [value, info, targets, sounds] = await Promise.all([
     api<Workspace>("workspace"),
     api<Assets>("assets"),
     api<ClientTarget[]>("clients"),
+    api<AudioWorkspace>("audio"),
   ]);
   accept(value);
   assets = info;
   clients = targets;
+  audioAdmin.accept(sounds);
   render();
 }
 app.addEventListener("submit", (event) => {
@@ -231,6 +258,7 @@ app.addEventListener("submit", (event) => {
 });
 app.addEventListener("input", (event) => {
   const target = event.target as HTMLInputElement | HTMLTextAreaElement;
+  if (audioAdmin.input(target)) return;
   if (target.id === "item-search") {
     query = target.value;
     app
@@ -268,6 +296,10 @@ app.addEventListener("input", (event) => {
 });
 app.addEventListener("change", (event) => {
   const target = event.target as HTMLSelectElement;
+  if (target.id === "audio-upload") {
+    void audioAdmin.upload(event.target as HTMLInputElement);
+    return;
+  }
   if (target.id === "table-select") {
     try {
       applyRaw();
@@ -284,6 +316,10 @@ app.addEventListener("click", (event) => {
     "button,a[data-action],a[data-nav]",
   );
   if (!button || busy) return;
+  if (button.dataset.audio) {
+    void audioAdmin.click(button);
+    return;
+  }
   if (button.dataset.nav) {
     event.preventDefault();
     try {
@@ -293,6 +329,7 @@ app.addEventListener("click", (event) => {
       return;
     }
     const next = locationFor(button.dataset.nav);
+    if (page === "audio" && next.page.id !== "audio") audioAdmin.stop();
     if (page !== next.page.id) raw = false;
     page = next.page.id;
     if (next.page.table) table = next.page.table;
@@ -353,6 +390,23 @@ app.addEventListener("click", (event) => {
     return;
   }
   const action = button.dataset.action;
+  if (
+    page === "audio" &&
+    ["save", "validate", "publish"].includes(action ?? "")
+  ) {
+    void run(async () => {
+      if (action === "publish") await audioAdmin.publish();
+      else if (action === "validate") {
+        await audioAdmin.validate();
+        notice("音效校验通过");
+      } else {
+        await audioAdmin.save();
+        render();
+        notice("音效草稿已保存");
+      }
+    });
+    return;
+  }
   if (action === "save")
     void run(async () => {
       await save();
@@ -507,17 +561,18 @@ async function reset() {
 }
 async function logout() {
   if (
-    (dirty || rawDirty) &&
+    (dirty || rawDirty || audioAdmin.dirty) &&
     !(await dialog("退出工作台", "<p>退出将丢弃未保存的修改。</p>", "退出"))
   )
     return;
   remember("");
+  audioAdmin.stop();
   dirty = false;
   rawDirty = false;
   app.innerHTML = login();
 }
 window.addEventListener("beforeunload", (event) => {
-  if (dirty || rawDirty) {
+  if (dirty || rawDirty || audioAdmin.dirty) {
     event.preventDefault();
     event.returnValue = "";
   }

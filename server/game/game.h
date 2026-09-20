@@ -5,7 +5,8 @@
 namespace snackshop {
 class Game {
 public:
-    explicit Game(std::string code, int capacity, std::uint32_t seed, std::shared_ptr<const GameConfig> config, std::string selectedMap = "");
+    explicit Game(std::string code, int capacity, std::uint32_t seed, std::shared_ptr<const GameConfig> config,
+                  std::string selectedMap = "");
     std::string code;
     std::string selectedMap;
     int capacity, host = -1;
@@ -15,6 +16,8 @@ public:
     std::vector<Dorm> dorms;
     Monster monster;
     std::deque<Notice> notices;
+    std::deque<GameEvent> events;
+    std::uint64_t eventSequence = 0;
     double elapsed = 0, lobbyAge = 0;
     std::uint64_t tick = 0;
     Balance balance;
@@ -31,6 +34,7 @@ public:
     std::string command(int id, GameAction action, int room = -1, int cell = -1, const std::string& kind = "launcher");
     void step(double dt);
     void notify(const std::string& message);
+    void emitEvent(const std::string& type, const std::string& target = "*", Point position = {}, int player = -1);
     double income(const Player& player, const std::string& currency = "cans") const;
     bool isEscaping(const Player& player) const;
     bool validRoom(int id) const { return id >= 0 && id < static_cast<int>(dorms.size()); }

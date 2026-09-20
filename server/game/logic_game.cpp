@@ -125,6 +125,7 @@ std::string Game::selectCharacter(int id, const CharacterSelection& selection) {
         return {};
     }
     player.character = selection;
+    emitEvent("character.meow", selection.character, player.position, id);
     player.ready = id == host;
     return {};
 }
@@ -170,6 +171,7 @@ void Game::resetBoard() {
     elapsed = 0;
     tick = 0;
     notices.clear();
+    events.clear();
     phase = "lobby";
     map.generate(m_random(), dorms, config(), selectedMap);
     monster = Monster{};
@@ -252,6 +254,9 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
             return "这里走不到：墙体、关闭的店门和固定货架不能穿过，安家后请在屋内活动";
         }
         p.path = std::move(route);
+        if (p.sleeping) {
+            emitEvent("character.wake", p.character.character, p.position, id);
+        }
         p.sleeping = false;
         p.nestIntent = intent;
         return {};
@@ -269,6 +274,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
         LogicEconomy::pay(p, next.cost);
         p.bed = next.level;
         p.productionRemainder = 0;
+        emitEvent("item.upgrade", "nest", map.center(room.nest), id);
     } else if (action == GameAction::UpgradeBarricade) {
         const auto error = doorUpgradeError(id);
         if (!error.empty()) {
@@ -279,6 +285,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
         LogicEconomy::pay(p, next.cost);
         room.level = next.stage;
         room.hp += next.health - previous.health;
+        emitEvent("item.upgrade", "door", map.center(room.door), id);
     } else if (action == GameAction::Build) {
         if (!map.valid(cell) || map.roomAt(cell) != p.room || map.wall(cell) || cell == room.door ||
             cell == room.nest) {
@@ -316,6 +323,7 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
             existing->level = next;
             existing->cooldown = 0;
         }
+        emitEvent(level == 0 ? "item.install" : "item.upgrade", kind, map.center(cell), id);
     } else if (action == GameAction::Repair) {
         const auto error = repairError(id, targetRoom);
         if (!error.empty()) {
@@ -335,6 +343,12 @@ void Game::notify(const std::string& text) {
     notices.push_front({++m_noticeId, elapsed, text});
     while (notices.size() > 12) {
         notices.pop_back();
+    }
+}
+void Game::emitEvent(const std::string& type, const std::string& target, Point position, int player) {
+    events.push_back({++eventSequence, elapsed, type, target, position, player});
+    while (events.size() > 128) {
+        events.pop_front();
     }
 }
 void Game::step(double dt) {
@@ -368,6 +382,9 @@ void Game::step(double dt) {
         return;
     }
     elapsed += dt;
+    while (!events.empty() && elapsed - events.front().time > 2) {
+        events.pop_front();
+    }
     for (auto& p : players) {
         if (p.alive && (!p.human || (!p.connected && p.disconnectedFor >= balance.reconnectGrace))) {
             LogicCatAi::update(*this, p);
@@ -417,6 +434,7 @@ void Game::step(double dt) {
     LogicItem::updatePassive(*this, dt);
     if (phase == "preparing" && elapsed >= balance.preparation) {
         phase = "running";
+        emitEvent("match.day");
         monster.state = "hunting";
         notify("天亮了！店长回来了，会拆门进店抓猫。街上的猫快找地方躲起来");
     }
@@ -425,9 +443,11 @@ void Game::step(double dt) {
         const bool alive = std::any_of(players.begin(), players.end(), [](const Player& p) { return p.alive; });
         if (!alive) {
             phase = "lost";
+            emitEvent("match.lost");
             notify("所有小猫都被店长抱走了");
         } else if (elapsed >= balance.preparation + balance.duration) {
             phase = "won";
+            emitEvent("match.won");
             notify("店长放弃啦，这条街的罐头归猫猫们了！");
         }
     }

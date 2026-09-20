@@ -148,7 +148,8 @@ void generatedMaps() {
             check(room.props.size() >= 1 && room.props.size() <= 2, "one or two initial props besides nest");
             check(g.map.roomAt(room.nest) == room.id && !g.propAt(room.nest), "each shop has a dedicated nest");
             check(g.map.roomAt(room.door) == room.id &&
-                      std::all_of(room.floor.begin(), room.floor.end(), [&](int cell) { return g.map.roomAt(cell) == room.id; }),
+                      std::all_of(room.floor.begin(), room.floor.end(),
+                                  [&](int cell) { return g.map.roomAt(cell) == room.id; }),
                   "all room floors and doors decode consistently, including rooms above ten");
             check(!room.doorClosed() && g.walkable(room.door), "unclaimed entrance is open to all actors");
             check(room.nest == same.dorms[room.id].nest && room.props.size() == same.dorms[room.id].props.size(),
@@ -838,6 +839,53 @@ void fullMatches() {
         }
     }
 }
+void presentationEvents() {
+    auto g = solo();
+    for (int id = 1; id < Seats; ++id) {
+        g.players[id].alive = false;
+    }
+    settle(g);
+    const auto has = [&](const char* type) {
+        return std::any_of(g.events.begin(), g.events.end(),
+                           [&](const auto& event) { return event.type == type && event.player == 0; });
+    };
+    check(has("door.close") && has("character.nest"), "arrival emits close and nest events after claiming");
+    auto sequence = g.eventSequence;
+    check(!g.command(0, GameAction::Move, -1, -1).empty() && g.eventSequence == sequence,
+          "rejected movement cannot emit a wake sound");
+    auto& room = g.dorms[g.players[0].room];
+    const auto target = *std::find_if(room.floor.begin(), room.floor.end(), [&](int cell) {
+        return cell != room.nest && !g.propAt(cell) && g.walkable(cell, 0, room.id);
+    });
+    check(g.command(0, GameAction::Move, -1, target).empty() && has("character.wake"),
+          "accepted movement wakes the cat once");
+    g.players[0].wallet["cans"] = 100000;
+    g.players[0].wallet["dried_fish"] = 100000;
+    check(g.command(0, GameAction::Build, room.id, target, "launcher").empty() && has("item.install"),
+          "successful purchase emits installation");
+    sequence = g.eventSequence;
+    check(!g.command(0, GameAction::Build, room.id, target, "missing").empty() && g.eventSequence == sequence,
+          "rejected purchase does not emit installation");
+    g.monster.position = g.map.center(target);
+    LogicItem::updateAttack(g, .1);
+    check(has("item.fire"), "actual launcher shot emits a presentation event");
+    g.phase = "running";
+    g.monster.state = "hunting";
+    g.monster.position = g.map.center(room.entrance);
+    g.monster.attackCooldown = 0;
+    room.props.clear();
+    room.hp = 1;
+    check(LogicCombat::hitDoor(g, room.id) && has("door.hit") && has("door.break"),
+          "actual door hit and breach emit separate events");
+    g.monster.position = g.players[0].position;
+    check(LogicCombat::catchCat(g, 0) && has("character.caught"), "capture emits a cat interaction");
+    sequence = g.eventSequence;
+    check(!LogicCombat::catchCat(g, 0) && g.eventSequence == sequence,
+          "capture cannot be replayed on an already captured cat");
+    g.phase = "won";
+    g.rematch(0);
+    check(g.events.empty() && g.eventSequence == sequence, "rematch clears old events without reusing event IDs");
+}
 } // namespace
 int main() {
     try {
@@ -856,6 +904,7 @@ int main() {
         incomingHitRage();
         doorCombatAndAttackTarget();
         fullMatches();
+        presentationEvents();
         std::cout << "PASS " << checks << " checks\n";
         return 0;
     } catch (const std::exception& e) {

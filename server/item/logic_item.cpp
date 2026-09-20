@@ -84,6 +84,7 @@ void LogicItem::updateDoorDefense(Game& game, Dorm& room) {
             std::max(room.attackDelayUntil, game.elapsed + game.monster.attackCooldown) + effect->amount / 1000.0;
         room.doorDefenseReadyAt = game.elapsed + effect->intervalMs / 1000.0;
         source->lastShot = game.elapsed;
+        game.emitEvent("item.freeze", source->kind, game.map.center(source->cell), room.owner);
     }
 }
 void LogicItem::updateAttack(Game& game, double dt) {
@@ -105,6 +106,7 @@ void LogicItem::updateAttack(Game& game, double dt) {
             }
             prop.cooldown = level.intervalMs / 1000.0;
             prop.lastShot = game.elapsed;
+            game.emitEvent("item.fire", prop.kind, game.map.center(prop.cell), room.owner);
             const double hpBefore = monster.hp;
             monster.hp = std::max(0.0, monster.hp - level.amount);
             const double damage = hpBefore - monster.hp;

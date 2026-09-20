@@ -1,0 +1,56 @@
+[
+  {
+    "bytes" : 241742,
+    "category" : "ui",
+    "duration" : 1.3699773242630386,
+    "enabled" : true,
+    "file" : "08CF6D5B9AE7C2FE00C15779D2D0AEB757DF08A935105A6D77CA9714D4A21296.wav",
+    "id" : "audio_23bb1873-5fdb-4254-873b-94702fe524ab",
+    "name" : "敲门"
+  },
+  {
+    "bytes" : 94286,
+    "category" : "ui",
+    "duration" : 0.53405895691609973,
+    "enabled" : true,
+    "file" : "8407D5899E8A2934B9C69E9DBAA82CD8A1E1B417A56D31BE88F298B0D6DAA5AE.wav",
+    "id" : "audio_b71a6e27-01e4-4f89-bc72-a45d2260b10f",
+    "name" : "毛线弹射器"
+  },
+  {
+    "bytes" : 114766,
+    "category" : "ui",
+    "duration" : 0.65015873015873016,
+    "enabled" : true,
+    "file" : "2E0238F39BB961AE7493358BB5371FBA85071D4CFEA29F7A737128AAE5289155.wav",
+    "id" : "audio_b60cb194-db61-4c2e-a95f-97b48235a4bf",
+    "name" : "点击音效-沉闷版"
+  },
+  {
+    "bytes" : 155726,
+    "category" : "item",
+    "duration" : 0.88235827664399091,
+    "enabled" : true,
+    "file" : "04A2948B21AC9DFA48E47BF2895C08F442145F742EE25F30BC4917870127C83C.wav",
+    "id" : "audio_7437a0bd-3fc5-4093-8e67-14f0fadd1bac",
+    "name" : "积木放置音效"
+  },
+  {
+    "bytes" : 139342,
+    "category" : "item",
+    "duration" : 0.78947845804988659,
+    "enabled" : true,
+    "file" : "5EE870AF967D034BAB5AF41A7749A0BC1956C4DE5A8E4905B919C6D9CD14F118.wav",
+    "id" : "audio_a9276599-51e5-4e5e-9684-07c28758b59c",
+    "name" : "生长音效"
+  },
+  {
+    "bytes" : 94286,
+    "category" : "item",
+    "duration" : 0.53405895691609973,
+    "enabled" : true,
+    "file" : "8407D5899E8A2934B9C69E9DBAA82CD8A1E1B417A56D31BE88F298B0D6DAA5AE.wav",
+    "id" : "audio_1174b8a9-0526-427d-9d3f-4f284807b3a6",
+    "name" : "毛线弹射器"
+  }
+]

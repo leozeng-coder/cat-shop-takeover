@@ -1,4 +1,5 @@
 import type { CharacterOption, CharacterSelection } from './characters/types';
+import type { PresentationEvent } from '../../shared/audio';
 export type Appearance =
   | 'shelf'
   | 'crate'
@@ -150,6 +151,8 @@ export interface ManagerLevelUp {
   text: string;
 }
 export interface State {
+  eventSequence: number;
+  events: PresentationEvent[];
   type: 'state';
   code: string;
   capacity: number;
