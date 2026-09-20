@@ -6,7 +6,6 @@
 namespace snackshop {
 class ConfigLoader {
 public:
-    static std::filesystem::path sourceDirectory(const std::filesystem::path& path);
     static std::shared_ptr<const GameConfig> parse(const std::string& text);
     static std::shared_ptr<const GameConfig> load(const std::filesystem::path& path);
 };

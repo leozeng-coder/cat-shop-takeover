@@ -383,7 +383,8 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             ItemLevelConfig l;
             static_cast<LevelConfig&>(l) = level(data, *cfg, at, ordinal, levels.size(), nests.size());
             l.name = data.isMember("name") ? string(data["name"], at + ".name") : item.name;
-            l.appearance = data.isMember("appearance") ? string(data["appearance"], at + ".appearance") : item.appearance;
+            l.appearance =
+                data.isMember("appearance") ? string(data["appearance"], at + ".appearance") : item.appearance;
             if (!appearances.contains(l.appearance)) {
                 fail(at, "unknown level appearance");
             }
@@ -602,33 +603,11 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     return cfg;
 }
 
-std::filesystem::path ConfigLoader::sourceDirectory(const std::filesystem::path& path) {
-    const auto base = std::filesystem::canonical(path);
-    const auto pointer = base / "active.json";
-    if (!std::filesystem::exists(pointer)) {
-        return base;
-    }
-    if (std::filesystem::file_size(pointer) > 1024) {
-        fail("active.json", "invalid release pointer");
-    }
-    std::ifstream file(pointer);
-    Json::Value active;
-    file >> active;
-    const auto id = active["release"].asString();
-    if (id.empty() || id.size() > 80 || id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") != std::string::npos) {
-        fail("active.json", "invalid release id");
-    }
-    const auto releases = std::filesystem::canonical(base / ".releases");
-    const auto selected = std::filesystem::canonical(releases / id);
-    if (releases.parent_path() != base || selected.parent_path() != releases) {
-        fail("active.json", "release outside configuration directory");
-    }
-    return selected;
-}
 std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path& base) {
-    const auto directory = sourceDirectory(base);
-    if (!std::filesystem::is_directory(directory)) {
-        fail(directory.string(), "expected configuration directory");
+    const auto directory = std::filesystem::canonical(base);
+    const auto publishing = directory / ".publishing.json";
+    if (std::filesystem::exists(publishing)) {
+        fail(directory.string(), "configuration publication is incomplete; retry after admin recovery");
     }
     auto read = [](const std::filesystem::path& path) {
         std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -677,6 +656,11 @@ std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path
         if (read(directory / (name + ".json")) != text) {
             fail(name, "table changed during loading; retry after saving");
         }
+    }
+    // The publisher writes manifest last. Check it again after the second table pass,
+    // so a whole publication between our marker checks cannot produce a mixed bundle.
+    if (std::filesystem::exists(publishing) || read(directory / "manifest.json") != sources.at("manifest")) {
+        fail(directory.string(), "configuration changed during loading; retry");
     }
     auto result = tables.at("manifest");
     object(result, "manifest.json", {"schema_version", "version"});

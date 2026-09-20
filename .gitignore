@@ -10,9 +10,8 @@ client-cocos/build/
 tools/vcpkg/
 vcpkg_installed/
 .run/
-data/admin/
-data/config/active.json
-data/config/.releases/
+client-admin/data/
+data/config/.publishing.json
 data/config/.admin.lock
 *.log
 uploads/tmp/

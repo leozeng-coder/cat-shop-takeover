@@ -27,7 +27,7 @@ bool sameSecret(const std::string& a, const std::string& b) {
 int main(int argc, char** argv) {
     try {
         int port = 8790;
-        std::filesystem::path web = "client-admin/dist", config = "data/config", storage = "data/admin",
+        std::filesystem::path web = "client-admin/dist", config = "data/config", storage = "client-admin/data",
                               tokenFile = ".run/admin-access.key";
         std::filesystem::path assetSource;
         for (int i = 1; i < argc; ++i) {

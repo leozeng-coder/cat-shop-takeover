@@ -1,6 +1,10 @@
 import "./style.css";
+import "./workspace.css";
 import { api, ApiError, setAccess } from "./api";
 import { addEntry, differences, escape, readPath, setPath } from "./editor";
+import { locationFor } from "./navigation";
+import { mapsView, resourcesView } from "./catalog_views";
+import type { CharacterRole } from "./characters";
 import {
   charactersView,
   clientsView,
@@ -9,7 +13,7 @@ import {
   home,
   itemsView,
   login,
-  managerView,
+  pageNavigation,
   shell,
   sharedArtBanner,
   tablesView,
@@ -37,8 +41,13 @@ let clients: ClientTarget[] = [];
 let releases: Release[] = [];
 let page = "home",
   table = "manager",
-  character = "cat_orange",
   theme = "snack_street";
+const selectedCharacters: Record<CharacterRole, string> = {
+  cats: "cat_orange",
+  managers: "shop_manager",
+};
+let mapIndex = 0,
+  assetKind = "all";
 let item = 0,
   query = "",
   raw = false,
@@ -164,6 +173,7 @@ async function dialog(
   );
 }
 function render() {
+  const active = locationFor(page);
   const changedPage = renderedPage !== page;
   renderedPage = page;
   app.innerHTML = shell(page);
@@ -171,17 +181,26 @@ function render() {
   if (page === "home") content.innerHTML = home(workspace, assets);
   else if (page === "items")
     content.innerHTML = itemsView(workspace, item, query);
-  else if (page === "manager") content.innerHTML = managerView(workspace);
+  else if (active.page.table)
+    content.innerHTML = tablesView(workspace, active.page.table, raw, true);
   else if (page === "tables")
     content.innerHTML = tablesView(workspace, table, raw);
-  else if (page === "characters")
+  else if (page === "characters" || page === "manager-characters") {
+    const role = active.page.group as CharacterRole;
     content.innerHTML =
-      sharedArtBanner(assets) + charactersView(assets, character);
+      sharedArtBanner(assets) +
+      charactersView(assets, selectedCharacters[role], role);
+  } else if (page === "maps")
+    content.innerHTML = mapsView(workspace, assets, mapIndex);
+  else if (page === "resources")
+    content.innerHTML =
+      sharedArtBanner(assets) + resourcesView(assets, assetKind);
   else if (page === "themes")
     content.innerHTML = sharedArtBanner(assets) + themesView(assets, theme);
   else if (page === "history")
     content.innerHTML = historyView(workspace, releases);
   else if (page === "clients") content.innerHTML = clientsView(assets, clients);
+  content.insertAdjacentHTML("afterbegin", pageNavigation(page));
   if (changedPage) window.scrollTo(0, 0);
   status();
   if (workspace.conflict)
@@ -273,7 +292,16 @@ app.addEventListener("click", (event) => {
       notice(String(error), true);
       return;
     }
-    page = button.dataset.nav;
+    const next = locationFor(button.dataset.nav);
+    if (page !== next.page.id) raw = false;
+    page = next.page.id;
+    if (next.page.table) table = next.page.table;
+    if (button.dataset.selectCharacter && next.page.group)
+      selectedCharacters[next.page.group as CharacterRole] =
+        button.dataset.selectCharacter;
+    if (button.dataset.selectTheme) theme = button.dataset.selectTheme;
+    if (button.dataset.selectMap !== undefined)
+      mapIndex = Number(button.dataset.selectMap);
     if (page === "history")
       void run(async () => {
         releases = await api<Release[]>("history");
@@ -288,12 +316,23 @@ app.addEventListener("click", (event) => {
     return;
   }
   if (button.dataset.character) {
-    character = button.dataset.character;
+    const role = locationFor(page).page.group as CharacterRole;
+    selectedCharacters[role] = button.dataset.character;
     render();
     return;
   }
   if (button.dataset.theme) {
     theme = button.dataset.theme;
+    render();
+    return;
+  }
+  if (button.dataset.mapIndex !== undefined) {
+    mapIndex = Number(button.dataset.mapIndex);
+    render();
+    return;
+  }
+  if (button.dataset.assetKind) {
+    assetKind = button.dataset.assetKind;
     render();
     return;
   }
@@ -318,14 +357,14 @@ app.addEventListener("click", (event) => {
     void run(async () => {
       await save();
       render();
-      notice("草稿已保存，正式对局不受影响。");
+      notice("草稿已保存");
     });
   else if (action === "validate")
     void run(async () => {
       await save();
       await api("validate", { revision: workspace.draft.revision });
       checked = workspace.draft.revision;
-      notice("14 张配表整包校验通过，等级、货币和前置条件引用有效。");
+      notice("校验通过");
     });
   else if (action === "publish") void publish();
   else if (button.dataset.rollback) void rollback(button.dataset.rollback);
@@ -348,7 +387,7 @@ app.addEventListener("click", (event) => {
     try {
       applyRaw();
       status();
-      notice("JSON 已应用到本地草稿，点击保存后持久化。");
+      notice("已应用，待保存");
     } catch (error) {
       notice("JSON 格式错误：" + String(error), true);
     }
@@ -386,7 +425,7 @@ app.addEventListener("click", (event) => {
       assets = info;
       clients = targets;
       render();
-      notice("已重新读取共享美术资源与客户端接入配置。");
+      notice("资源已刷新");
     });
   else if (action === "refresh")
     void run(async () => {
@@ -406,14 +445,14 @@ async function publish() {
   });
   if (checked !== workspace.draft.revision) return;
   if (!differences(workspace.current.tables, workspace.draft.tables).length) {
-    notice("没有需要发布的修改。");
+    notice("无待发布修改");
     return;
   }
   const revision = workspace.draft.revision;
   if (
     !(await dialog(
       "发布新的数值版本",
-      `<p>本次修改将用于新对局。已经开始的对局继续使用原配置。</p>${diffView(workspace)}<label class="field"><span>发布备注</span><input id="release-note" maxlength="500" placeholder="例如：降低冰箱升级价格"></label>`,
+      `<p>仅对新对局生效。</p>${diffView(workspace)}<label class="field"><span>发布备注</span><input id="release-note" maxlength="500" placeholder="例如：降低冰箱升级价格"></label>`,
       "发布到新对局",
     ))
   )
@@ -422,7 +461,7 @@ async function publish() {
   void run(async () => {
     accept(await api<Workspace>("publish", { revision, note }));
     render();
-    notice("发布成功。新建或重新开始的对局将使用这个版本。");
+    notice("已发布，新对局生效");
   });
 }
 async function rollback(id: string) {
@@ -432,7 +471,7 @@ async function rollback(id: string) {
   if (
     !(await dialog(
       "回滚到历史版本",
-      `<p>将恢复 <strong>${escape(release.version)}</strong> 的数值并生成新版本。</p><p>${escape(release.note)}</p><p class="error-text">当前草稿也会被替换。如需保留，请取消并先导出草稿。</p>`,
+      `<p>恢复版本 <strong>${escape(release.version)}</strong></p><p class="error-text">将覆盖当前草稿，生成新版本。仅对新对局生效。</p>`,
       "确认回滚",
     ))
   )
@@ -447,14 +486,14 @@ async function rollback(id: string) {
     );
     releases = await api<Release[]>("history");
     render();
-    notice("已恢复历史配置，并保留了本次回滚记录。");
+    notice("回滚成功");
   });
 }
 async function reset() {
   if (
     !(await dialog(
       "从正式版重新载入",
-      "<p>这会替换当前草稿，包括尚未保存的修改。需要保留时请先导出草稿。</p>",
+      "<p>以正式版覆盖草稿，未发布的修改将丢失。</p>",
       "重新载入",
     ))
   )
@@ -469,11 +508,7 @@ async function reset() {
 async function logout() {
   if (
     (dirty || rawDirty) &&
-    !(await dialog(
-      "退出工作台",
-      "<p>还有未保存的修改。确认退出后，这些修改不会保存。</p>",
-      "退出",
-    ))
+    !(await dialog("退出工作台", "<p>退出将丢弃未保存的修改。</p>", "退出"))
   )
     return;
   remember("");

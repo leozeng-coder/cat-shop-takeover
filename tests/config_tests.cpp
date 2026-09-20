@@ -549,10 +549,12 @@ void uniqueFridgePurchases() {
 void randomItemPurchases() {
     rejects([](auto& d) { d["random_items"][0]["level_weight_decay"] = 1; }, "equal level weights rejected");
     rejects([](auto& d) { d["random_items"][0]["level_weight_decay"] = 0; }, "unreachable high levels rejected");
-    rejects([](auto& d) {
-        const int firstPrice = d["random_items"][0]["purchase_costs"][0][0]["amount"].asInt();
-        d["random_items"][0]["purchase_costs"][1][0]["amount"] = firstPrice - 1;
-    }, "decreasing price rejected");
+    rejects(
+        [](auto& d) {
+            const int firstPrice = d["random_items"][0]["purchase_costs"][0][0]["amount"].asInt();
+            d["random_items"][0]["purchase_costs"][1][0]["amount"] = firstPrice - 1;
+        },
+        "decreasing price rejected");
     rejects([](auto& d) { d["random_items"][0]["purchase_costs"] = Json::Value(Json::arrayValue); },
             "empty purchase limit rejected");
     rejects([](auto& d) { d["random_items"][0]["item"] = "launcher"; }, "random rule needs consumable behavior");
@@ -774,6 +776,14 @@ void snapshots() {
     check(oldGame.config().managerAi.outOfCombatDelay == before->managerAi.outOfCombatDelay &&
               newGame.config().managerAi.outOfCombatDelay == 8,
           "manager strategy is frozen per match and reloaded for new matches");
+    {
+        std::ofstream marker(filename / ".publishing.json");
+        marker << "{}";
+    }
+    check(!store.reload(error) && store.current() == after,
+          "incomplete publication retains the running server's last good snapshot");
+    std::filesystem::remove(filename / ".publishing.json");
+    check(store.reload(error), "completed publication resumes normal loading");
     data["nests"][0]["amount"] = -1;
     save();
     check(!store.reload(error) && !error.empty() && store.current() == after,
@@ -794,8 +804,10 @@ int main() {
     try {
         validation();
         rejects([](auto& data) { data["characters"][0]["skins"].append("orange"); }, "duplicate skin ID rejected");
-        rejects([](auto& data) { data["characters"][0]["skins"] = Json::Value(Json::arrayValue); }, "empty skin list rejected");
-        rejects([](auto& data) { data["characters"].append(data["characters"][0]); }, "duplicate character ID rejected");
+        rejects([](auto& data) { data["characters"][0]["skins"] = Json::Value(Json::arrayValue); },
+                "empty skin list rejected");
+        rejects([](auto& data) { data["characters"].append(data["characters"][0]); },
+                "duplicate character ID rejected");
         progressionAndMoney();
         extendedProgression();
         steelDoorProgression();

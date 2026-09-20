@@ -144,21 +144,37 @@ void writeAdminJson(const std::filesystem::path& path, const Json::Value& value)
 ConfigRepository::ConfigRepository(std::filesystem::path config, std::filesystem::path storage)
     : m_config(std::filesystem::canonical(config)), m_storage(std::filesystem::absolute(storage)) {
     std::filesystem::create_directories(m_storage);
-    std::filesystem::create_directories(m_config / ".releases");
+    m_storage = std::filesystem::canonical(m_storage);
+    const auto relative = m_storage.lexically_relative(m_config);
+    if (relative.empty() || (!relative.is_absolute() && *relative.begin() != "..")) {
+        throw AdminError(400, "管理端历史目录不能放在游戏配置目录内");
+    }
+    if (std::filesystem::exists(m_config / "active.json")) {
+        throw AdminError(409, "请先将旧版发布快照迁移到管理端，并恢复最新正式配表");
+    }
+    std::filesystem::create_directories(m_storage / "releases");
+    recoverPublication();
 }
 Json::Value ConfigRepository::current() const {
-    const auto source = ConfigLoader::sourceDirectory(m_config);
-    const auto bundle = readTables(source);
-    const auto config = validateTables(bundle);
-    // Never build a candidate out of files that changed during reading.
-    if (bundle != readTables(source) || source != ConfigLoader::sourceDirectory(m_config)) {
+    if (std::filesystem::exists(m_config / ".publishing.json")) {
+        throw AdminError(409, "配置发布未完成，请重启管理服务恢复");
+    }
+    const auto bundle = readTables(m_config);
+    const auto config = ConfigLoader::load(m_config);
+    if (bundle != readTables(m_config) || std::filesystem::exists(m_config / ".publishing.json")) {
         throw AdminError(409, "正式配置正在变化，请刷新后重试");
     }
     Json::Value result;
     result["tables"] = bundle;
     result["revision"] = revision(bundle);
     result["version"] = config->version;
-    result["release"] = source == m_config ? "source" : source.filename().string();
+    result["release"] = "source";
+    if (std::filesystem::exists(m_storage / "current.json")) {
+        const auto record = readAdminJson(m_storage / "current.json");
+        if (record["revision"] == result["revision"]) {
+            result["release"] = record["release"];
+        }
+    }
     return result;
 }
 Json::Value ConfigRepository::makeDraft(const Json::Value& active) {
@@ -212,39 +228,137 @@ Json::Value ConfigRepository::validate(const Json::Value& request) {
     result["revision"] = value["revision"];
     return result;
 }
-std::string ConfigRepository::snapshot(const Json::Value& bundle, const std::string& note, const std::string& from) {
+std::filesystem::path ConfigRepository::releasePath(const std::string& id) const {
+    if (id.empty() || id.size() > 80 ||
+        id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") != std::string::npos) {
+        throw AdminError(400, "无效的版本编号");
+    }
+    const auto root = std::filesystem::canonical(m_storage / "releases");
+    const auto target = root / id;
+    if (!std::filesystem::exists(target / "release.json")) {
+        throw AdminError(404, "找不到这个版本");
+    }
+    if (std::filesystem::canonical(target).parent_path() != root) {
+        throw AdminError(400, "无效的版本目录");
+    }
+    return target;
+}
+Json::Value ConfigRepository::readSnapshot(const std::string& id) const {
+    const auto target = releasePath(id);
+    const auto bundle = readTables(target);
+    const auto meta = readAdminJson(target / "release.json");
+    if (meta["revision"].asString() != revision(bundle)) {
+        throw AdminError(409, "历史版本内容已被修改");
+    }
+    ConfigLoader::load(target);
+    return bundle;
+}
+std::string ConfigRepository::snapshot(const Json::Value& bundle, const std::string& note, const std::string& from,
+                                       bool published) {
     const auto id = drogon::utils::getUuid();
-    const auto target = m_config / ".releases" / id;
+    const auto target = m_storage / "releases" / id;
     std::filesystem::create_directory(target);
     for (const auto* name : tables) {
         writeAdminJson(target / (std::string(name) + ".json"), bundle[name]);
     }
-    // Validate the serialized files through the exact loader used by the game.
     const auto verified = ConfigLoader::load(target);
     Json::Value meta;
     meta["id"] = id;
     meta["version"] = verified->version;
+    meta["revision"] = revision(bundle);
     meta["createdAt"] = now();
     meta["note"] = note;
     meta["rollbackFrom"] = from;
+    meta["published"] = published;
     writeAdminJson(target / "release.json", meta);
     return id;
 }
+void ConfigRepository::writeCurrent(const Json::Value& bundle, const std::string& id) {
+    for (const auto* name : tables) {
+        if (std::string(name) != "manifest") {
+            writeAdminJson(m_config / (std::string(name) + ".json"), bundle[name]);
+        }
+    }
+    writeAdminJson(m_config / "manifest.json", bundle["manifest"]);
+    if (readTables(m_config) != bundle) {
+        throw AdminError(409, "写入期间配表被外部修改");
+    }
+    Json::Value current;
+    current["release"] = id;
+    current["revision"] = revision(bundle);
+    writeAdminJson(m_storage / "current.json", current);
+}
+void ConfigRepository::finishPublication(const Json::Value& bundle, const std::string& id) {
+    const auto path = releasePath(id) / "release.json";
+    auto meta = readAdminJson(path);
+    meta["published"] = true;
+    writeAdminJson(path, meta);
+    Json::Value active;
+    active["tables"] = bundle;
+    active["revision"] = revision(bundle);
+    makeDraft(active);
+    std::filesystem::remove(m_config / ".publishing.json");
+    std::filesystem::remove(m_storage / "pending.json");
+}
+void ConfigRepository::recoverPublication() {
+    const auto pendingPath = m_storage / "pending.json";
+    if (!std::filesystem::exists(pendingPath)) {
+        if (std::filesystem::exists(m_config / ".publishing.json")) {
+            throw AdminError(409, "发布恢复记录缺失，请使用原管理端数据目录启动");
+        }
+        return;
+    }
+    const auto pending = readAdminJson(pendingPath);
+    if (pending["configRoot"].asString() != m_config.generic_string() ||
+        (pending["phase"] != "applying" && pending["phase"] != "committed")) {
+        throw AdminError(409, "发布恢复记录不匹配");
+    }
+    const bool committed = pending["phase"] == "committed";
+    const auto id = pending[committed ? "after" : "before"].asString();
+    const auto bundle = readSnapshot(id);
+    Json::Value marker;
+    marker["release"] = id;
+    writeAdminJson(m_config / ".publishing.json", marker);
+    writeCurrent(bundle, id);
+    if (committed) {
+        finishPublication(bundle, id);
+    } else {
+        // Keep the user's draft when rolling back an interrupted write.
+        std::filesystem::remove(m_config / ".publishing.json");
+        std::filesystem::remove(pendingPath);
+    }
+}
 Json::Value ConfigRepository::activate(Json::Value bundle, const std::string& note, const std::string& from) {
+    recoverPublication();
     const auto before = current();
     validateTables(bundle);
-    if (before["release"] == "source") {
-        snapshot(before["tables"], "首次发布前的原始配置");
-    }
+    const auto previous =
+        before["release"] == "source" ? snapshot(before["tables"], "发布前的正式配置") : before["release"].asString();
+    // Check the recovery source before modifying any live files.
+    readSnapshot(previous);
     bundle["manifest"]["version"] = "admin-" + drogon::utils::getUuid().substr(0, 8);
-    const auto id = snapshot(bundle, note, from);
+    const auto id = snapshot(bundle, note, from, false);
     if (current()["revision"] != before["revision"]) {
         throw AdminError(409, "发布期间正式配置已变化，请刷新后重试");
     }
-    Json::Value pointer;
-    pointer["release"] = id;
-    writeAdminJson(m_config / "active.json", pointer);
-    makeDraft(current());
+    Json::Value pending;
+    pending["configRoot"] = m_config.generic_string();
+    pending["before"] = previous;
+    pending["after"] = id;
+    pending["phase"] = "applying";
+    writeAdminJson(m_storage / "pending.json", pending);
+    try {
+        Json::Value marker;
+        marker["release"] = id;
+        writeAdminJson(m_config / ".publishing.json", marker);
+        writeCurrent(bundle, id);
+        pending["phase"] = "committed";
+        writeAdminJson(m_storage / "pending.json", pending);
+        finishPublication(bundle, id);
+    } catch (...) {
+        recoverPublication();
+        throw;
+    }
     return workspaceUnlocked();
 }
 Json::Value ConfigRepository::publish(const Json::Value& request) {
@@ -263,18 +377,10 @@ Json::Value ConfigRepository::rollback(const Json::Value& request) {
         throw AdminError(409, "正式版本已变化，请刷新发布历史");
     }
     const auto id = request["release"].asString();
-    if (id.empty() || id.size() > 80 ||
-        id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") != std::string::npos) {
-        throw AdminError(400, "无效的版本编号");
+    if (!readAdminJson(releasePath(id) / "release.json")["published"].asBool()) {
+        throw AdminError(400, "这个版本尚未发布");
     }
-    const auto target = m_config / ".releases" / id;
-    if (!std::filesystem::exists(target / "release.json")) {
-        throw AdminError(404, "找不到这个版本");
-    }
-    if (std::filesystem::canonical(target).parent_path() != std::filesystem::canonical(m_config / ".releases")) {
-        throw AdminError(400, "无效的版本目录");
-    }
-    return activate(readTables(target), message(request, "回滚数值配置"), id);
+    return activate(readSnapshot(id), message(request, "回滚数值配置"), id);
 }
 Json::Value ConfigRepository::reset(const Json::Value& request) {
     std::lock_guard lock(m_mutex);
@@ -285,9 +391,12 @@ Json::Value ConfigRepository::reset(const Json::Value& request) {
 Json::Value ConfigRepository::history() {
     std::lock_guard lock(m_mutex);
     std::vector<Json::Value> records;
-    for (const auto& entry : std::filesystem::directory_iterator(m_config / ".releases")) {
+    for (const auto& entry : std::filesystem::directory_iterator(m_storage / "releases")) {
         if (entry.is_directory() && std::filesystem::exists(entry.path() / "release.json")) {
-            records.push_back(readAdminJson(entry.path() / "release.json"));
+            const auto meta = readAdminJson(releasePath(entry.path().filename().string()) / "release.json");
+            if (meta["published"].asBool()) {
+                records.push_back(meta);
+            }
         }
     }
     std::sort(records.begin(), records.end(),

@@ -26,11 +26,20 @@ export interface Release {
 }
 export interface CharacterAsset {
   id: string;
-  profile: string;
+  assetBaseUrl: string;
+  name?: string;
+  profile?: string;
   frameSize: number[];
   animations: Record<
     string,
-    { frameCount: number; durationsMs: number[]; loop: boolean; facing: string }
+    {
+      src: string;
+      columns: number;
+      frameCount: number;
+      durationsMs: number[];
+      loop: boolean;
+      facing: string;
+    }
   >;
   movementClips: Record<string, string>;
   retreatClips?: Record<string, string>;

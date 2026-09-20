@@ -49,6 +49,10 @@ Json::Value AssetCatalog::catalog() const {
     for (const auto& entry : characterIndex["characters"]) {
         const auto path = contained(characters, entry["manifest"].asString());
         auto manifest = readAdminJson(path);
+        if (entry.isMember("name")) {
+            manifest["name"] = entry["name"];
+        }
+        manifest["assetBaseUrl"] = "/assets/" + path.parent_path().lexically_relative(m_source).generic_string() + "/";
         manifest["palettes"] = readAdminJson(contained(path.parent_path(), manifest["palettes"].asString()));
         result["characters"].append(manifest);
     }

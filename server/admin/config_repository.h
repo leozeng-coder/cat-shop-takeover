@@ -31,7 +31,13 @@ private:
     Json::Value workspaceUnlocked();
     void checkRevision(const Json::Value& request, const Json::Value& draft) const;
     Json::Value makeDraft(const Json::Value& current);
-    std::string snapshot(const Json::Value& tables, const std::string& note, const std::string& from = "");
+    std::string snapshot(const Json::Value& tables, const std::string& note, const std::string& from = "",
+                         bool published = true);
+    std::filesystem::path releasePath(const std::string& id) const;
+    Json::Value readSnapshot(const std::string& id) const;
+    void writeCurrent(const Json::Value& tables, const std::string& id);
+    void finishPublication(const Json::Value& tables, const std::string& id);
+    void recoverPublication();
     Json::Value activate(Json::Value tables, const std::string& note, const std::string& from = "");
 };
 Json::Value readAdminJson(const std::filesystem::path& path);
