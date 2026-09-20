@@ -1,5 +1,5 @@
 import { loadCharacterAnimations } from './animation.js';
-import { loadPalettes, PaletteAtlases } from './palette-atlases.js';
+import { loadPalettes, loadSkinAtlases, skinAtlasUrl } from './baked-atlases.js';
 import {
   characterKey,
   type AnimationConfig,
@@ -7,18 +7,18 @@ import {
   type CharacterOption,
   type CharacterSelection,
   type Palettes,
+  type SkinAtlases,
 } from './types';
 
-type AtlasImage = ImageBitmap | HTMLCanvasElement;
+type AtlasImage = ImageBitmap;
 interface CharacterResource {
   config: AnimationConfig;
   palettes: Palettes;
-  tint: PaletteAtlases;
-  sources: Map<string, Promise<ImageBitmap>>;
+  skinAtlases: SkinAtlases;
 }
 const ROOT = '/assets/characters/v1/';
 
-// Presentation registry: shared atlases, palette cache and portraits, no player/game rules.
+// Presentation registry: baked atlases and portraits, no player/game rules.
 export class CharacterLibrary {
   private resources = new Map<string, Promise<CharacterResource>>();
   private loaded = new Map<string, CharacterResource>();
@@ -72,7 +72,7 @@ export class CharacterLibrary {
     return true;
   }
   async loadOptions(options: CharacterOption[]): Promise<void> {
-    // Serial palette jobs keep mobile peak memory bounded.
+    // Serial atlas decoding keeps mobile peak memory bounded.
     for (const option of options) {
       for (const skin of option.skins) await this.prepare({ character: option.id, skin }, ['idle']);
     }
@@ -86,8 +86,7 @@ export class CharacterLibrary {
       if (this.images.has(key)) continue;
       if (!this.pending.has(key)) {
         const job = (async () => {
-          const source = await this.source(resource, action);
-          const { image } = await resource.tint.get(action, source, palette);
+          const image = await this.source(resource, selection.skin, action);
           this.images.set(key, image);
           if (action === 'idle') {
             const atlas = resource.config.atlases[resource.config.clips.idle.atlas];
@@ -137,8 +136,7 @@ export class CharacterLibrary {
         const resource = {
           config,
           palettes,
-          tint: new PaletteAtlases(palettes, palettes.skins.length * Object.keys(config.clips).length),
-          sources: new Map<string, Promise<ImageBitmap>>(),
+          skinAtlases: await loadSkinAtlases(config, palettes),
         };
         this.loaded.set(id, resource);
         return resource;
@@ -155,35 +153,28 @@ export class CharacterLibrary {
     if (!response.ok) throw new Error('无法读取角色资源目录');
     return response.json() as Promise<{ characters: { id: string; manifest: string }[] }>;
   }
-  private source(resource: CharacterResource, action: string): Promise<ImageBitmap> {
-    if (!resource.sources.has(action)) {
-      const pending = (async () => {
-        const atlas = resource.config.atlases[resource.config.clips[action].atlas];
-        const response = await fetch(atlas.src, { signal: AbortSignal.timeout(12000) });
-        if (!response.ok) throw new Error('无法加载角色动作：' + action);
-        const original = await createImageBitmap(await response.blob());
-        if (original.width !== atlas.width || original.height !== atlas.height) {
-          original.close();
-          throw new Error('角色图集尺寸与配置不符');
-        }
-        // 160px per frame is sufficient at the closest game camera; previews retain full size.
-        const ratio = Math.min(1, 160 / atlas.frames[0].rect[2]);
-        try {
-          return await createImageBitmap(original, {
-            resizeWidth: Math.round(atlas.width * ratio),
-            resizeHeight: Math.round(atlas.height * ratio),
-            resizeQuality: 'high',
-          });
-        } finally {
-          original.close();
-        }
-      })().catch((error) => {
-        resource.sources.delete(action);
-        throw error;
-      });
-      resource.sources.set(action, pending);
+  private async source(resource: CharacterResource, skin: string, action: string): Promise<ImageBitmap> {
+    const atlas = resource.config.atlases[resource.config.clips[action].atlas];
+    const response = await fetch(skinAtlasUrl(resource.skinAtlases, skin, action), {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) throw new Error('无法加载角色动作：' + action);
+    const original = await createImageBitmap(await response.blob());
+    if (original.width !== atlas.width || original.height !== atlas.height) {
+      original.close();
+      throw new Error('角色图集尺寸与配置不符');
     }
-    return resource.sources.get(action)!;
+    // 160px per frame is sufficient at the closest game camera; previews retain full size.
+    const ratio = Math.min(1, 160 / atlas.frames[0].rect[2]);
+    try {
+      return await createImageBitmap(original, {
+        resizeWidth: Math.round(atlas.width * ratio),
+        resizeHeight: Math.round(atlas.height * ratio),
+        resizeQuality: 'high',
+      });
+    } finally {
+      original.close();
+    }
   }
 }
 export const characterLibrary = new CharacterLibrary();

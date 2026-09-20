@@ -549,7 +549,10 @@ void uniqueFridgePurchases() {
 void randomItemPurchases() {
     rejects([](auto& d) { d["random_items"][0]["level_weight_decay"] = 1; }, "equal level weights rejected");
     rejects([](auto& d) { d["random_items"][0]["level_weight_decay"] = 0; }, "unreachable high levels rejected");
-    rejects([](auto& d) { d["random_items"][0]["purchase_costs"][1][0]["amount"] = 100; }, "decreasing price rejected");
+    rejects([](auto& d) {
+        const int firstPrice = d["random_items"][0]["purchase_costs"][0][0]["amount"].asInt();
+        d["random_items"][0]["purchase_costs"][1][0]["amount"] = firstPrice - 1;
+    }, "decreasing price rejected");
     rejects([](auto& d) { d["random_items"][0]["purchase_costs"] = Json::Value(Json::arrayValue); },
             "empty purchase limit rejected");
     rejects([](auto& d) { d["random_items"][0]["item"] = "launcher"; }, "random rule needs consumable behavior");

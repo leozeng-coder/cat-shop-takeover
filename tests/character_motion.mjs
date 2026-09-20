@@ -9,7 +9,7 @@ import {
 const manifest = JSON.parse(
   fs.readFileSync(
     new URL(
-      "../client/public/assets/characters/v1/cat_orange/manifest.json",
+      "../assets/characters/v1/cat_orange/manifest.json",
       import.meta.url,
     ),
   ),

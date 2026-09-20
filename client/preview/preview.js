@@ -1,5 +1,5 @@
 import { clipDuration, sampleClip, loadCharacterAnimations } from '../src/characters/animation.js';
-import { loadPalettes, PaletteAtlases } from '../src/characters/palette-atlases.js';
+import { loadPalettes, loadSkinAtlases, BakedAtlases } from '../src/characters/baked-atlases.js';
 
 const labels = {
   move: '横向移动',
@@ -41,14 +41,13 @@ const elements = Object.fromEntries(
   ].map((id) => [id, document.getElementById(id)]),
 );
 let config,
-  images,
   paused = false,
   elapsed = 0,
   lastTime = 0,
   rate = 1,
   action = 'move';
 let cards = [];
-let palettes, paletteAtlases, displayImage, selectedSkin;
+let palettes, bakedAtlases, displayImage, selectedSkin;
 let wantedAction = 'move',
   wantedSkin,
   appearanceRevision = 0;
@@ -192,10 +191,10 @@ async function selectAppearance(nextAction, nextSkin) {
   const skin = palettes.skins.find((entry) => entry.id === nextSkin);
   elements['skin-status'].textContent = `正在切换 · ${skin.name}`;
   try {
-    const result = await paletteAtlases.get(nextAction, images[nextAction], skin);
+    const result = await bakedAtlases.get(nextAction, nextSkin);
     if (revision !== appearanceRevision) return;
     displayImage = result.image;
-    paletteAtlases.pin(result.key);
+    bakedAtlases.pin(result.key);
     selectedSkin = nextSkin;
     if (action !== nextAction) selectAction(nextAction);
     else {
@@ -217,8 +216,10 @@ async function selectAppearance(nextAction, nextSkin) {
 
 async function createSkinChoices() {
   const atlas = config.atlases[config.clips.idle.atlas];
-  const rect = atlas.frames[0].rect;
-  const thumbnails = palettes.skins.map(async (skin) => {
+  const frame = atlas.frames[0].rect;
+  const crop = config.portraitRect ?? [0, 0, frame[2], frame[3]];
+  const rect = [frame[0] + crop[0], frame[1] + crop[1], crop[2], crop[3]];
+  const thumbnails = palettes.skins.map((skin) => {
     const button = document.createElement('button');
     button.className = 'skin-card';
     button.setAttribute('aria-label', skin.name);
@@ -241,12 +242,18 @@ async function createSkinChoices() {
     button.append(canvas, label, swatches);
     elements.skins.append(button);
     skinButtons.set(skin.id, button);
-    const thumbnail = await paletteAtlases.tint(images.idle, skin, rect);
-    canvas.getContext('2d').drawImage(thumbnail, 0, 0);
-    thumbnail.close?.();
+    return async () => {
+      const { image } = await bakedAtlases.get('idle', skin.id);
+      canvas.getContext('2d').drawImage(image, ...rect, 0, 0, canvas.width, canvas.height);
+    };
   });
-  for (const result of await Promise.allSettled(thumbnails)) {
-    if (result.status === 'rejected') console.error('毛色缩略图加载失败', result.reason);
+  // Decode one full atlas at a time; the cache retains only recent selections.
+  for (const thumbnail of thumbnails) {
+    try {
+      await thumbnail();
+    } catch (error) {
+      console.error('毛色缩略图加载失败', error);
+    }
   }
 }
 
@@ -272,7 +279,14 @@ function tick(now) {
 }
 
 async function start() {
+  const params = new URLSearchParams(location.search);
   const root = new URL('../assets/characters/v1/', location.href);
+  if (params.get('embedded') === '1') document.body.classList.add('embedded');
+  for (const link of document.querySelectorAll('[data-character]')) {
+    const target = new URL(link.href);
+    if (params.has('embedded')) target.searchParams.set('embedded', '1');
+    link.href = target.href;
+  }
   const response = await fetch(new URL('index.json', root), { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error('无法读取角色目录');
   const { characters } = await response.json();
@@ -300,23 +314,12 @@ async function start() {
     ...Object.keys(config.clips).map((name) => new Option(labels[name] ?? name, name)),
   );
   palettes = await loadPalettes(config.paletteUrl);
-  paletteAtlases = new PaletteAtlases(palettes);
+  bakedAtlases = new BakedAtlases(config, await loadSkinAtlases(config, palettes));
   selectedSkin = wantedSkin = palettes.default;
-  images = Object.fromEntries(
-    await Promise.all(
-      Object.entries(config.clips).map(async ([name, clip]) => {
-        const image = new Image(),
-          atlas = config.atlases[clip.atlas];
-        image.src = atlas.src;
-        await image.decode();
-        if (image.naturalWidth !== atlas.width || image.naturalHeight !== atlas.height)
-          throw new Error(`${name}: 图集尺寸不符`);
-        return [name, image];
-      }),
-    ),
-  );
   const initialAction = manager ? 'idle' : 'move';
-  displayImage = images[initialAction];
+  const initial = await bakedAtlases.get(initialAction, selectedSkin);
+  displayImage = initial.image;
+  bakedAtlases.pin(initial.key);
   elements.action.addEventListener('change', (event) => selectAppearance(event.target.value, wantedSkin));
   elements.pause.addEventListener('click', () => {
     const clip = config.clips[action];

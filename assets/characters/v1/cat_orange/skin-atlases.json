@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skins": {
+    "orange": {
+      "move": "move.png",
+      "move_down": "move_down.png",
+      "move_up": "move_up.png",
+      "idle": "idle.png",
+      "wake": "wake.png",
+      "sleep": "sleep.png"
+    },
+    "blue_gray": {
+      "move": "skins/blue_gray/move.png",
+      "move_down": "skins/blue_gray/move_down.png",
+      "move_up": "skins/blue_gray/move_up.png",
+      "idle": "skins/blue_gray/idle.png",
+      "wake": "skins/blue_gray/wake.png",
+      "sleep": "skins/blue_gray/sleep.png"
+    },
+    "purple_white": {
+      "move": "skins/purple_white/move.png",
+      "move_down": "skins/purple_white/move_down.png",
+      "move_up": "skins/purple_white/move_up.png",
+      "idle": "skins/purple_white/idle.png",
+      "wake": "skins/purple_white/wake.png",
+      "sleep": "skins/purple_white/sleep.png"
+    },
+    "milk_tea": {
+      "move": "skins/milk_tea/move.png",
+      "move_down": "skins/milk_tea/move_down.png",
+      "move_up": "skins/milk_tea/move_up.png",
+      "idle": "skins/milk_tea/idle.png",
+      "wake": "skins/milk_tea/wake.png",
+      "sleep": "skins/milk_tea/sleep.png"
+    },
+    "mint": {
+      "move": "skins/mint/move.png",
+      "move_down": "skins/mint/move_down.png",
+      "move_up": "skins/mint/move_up.png",
+      "idle": "skins/mint/idle.png",
+      "wake": "skins/mint/wake.png",
+      "sleep": "skins/mint/sleep.png"
+    },
+    "rose": {
+      "move": "skins/rose/move.png",
+      "move_down": "skins/rose/move_down.png",
+      "move_up": "skins/rose/move_up.png",
+      "idle": "skins/rose/idle.png",
+      "wake": "skins/rose/wake.png",
+      "sleep": "skins/rose/sleep.png"
+    }
+  }
+}

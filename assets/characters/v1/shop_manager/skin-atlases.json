@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "skins": {
+    "original": {
+      "idle": "idle.png",
+      "move_left": "move_left.png",
+      "move_right": "move_right.png",
+      "move_up": "move_up.png",
+      "move_down": "move_down.png",
+      "attack": "attack.png",
+      "retreat": "retreat.png"
+    }
+  }
+}

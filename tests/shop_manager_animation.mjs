@@ -8,7 +8,7 @@ import {
 } from "../client/src/characters/animation.js";
 
 // Exercise the actual loader with local files, without a running game server.
-const root = new URL("../client/public/assets/characters/v1/", import.meta.url);
+const root = new URL("../assets/characters/v1/", import.meta.url);
 const originalFetch = globalThis.fetch;
 const originalLocation = globalThis.location;
 globalThis.location = { href: root.href };

@@ -602,7 +602,31 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
     return cfg;
 }
 
-std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path& directory) {
+std::filesystem::path ConfigLoader::sourceDirectory(const std::filesystem::path& path) {
+    const auto base = std::filesystem::canonical(path);
+    const auto pointer = base / "active.json";
+    if (!std::filesystem::exists(pointer)) {
+        return base;
+    }
+    if (std::filesystem::file_size(pointer) > 1024) {
+        fail("active.json", "invalid release pointer");
+    }
+    std::ifstream file(pointer);
+    Json::Value active;
+    file >> active;
+    const auto id = active["release"].asString();
+    if (id.empty() || id.size() > 80 || id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") != std::string::npos) {
+        fail("active.json", "invalid release id");
+    }
+    const auto releases = std::filesystem::canonical(base / ".releases");
+    const auto selected = std::filesystem::canonical(releases / id);
+    if (releases.parent_path() != base || selected.parent_path() != releases) {
+        fail("active.json", "release outside configuration directory");
+    }
+    return selected;
+}
+std::shared_ptr<const GameConfig> ConfigLoader::load(const std::filesystem::path& base) {
+    const auto directory = sourceDirectory(base);
     if (!std::filesystem::is_directory(directory)) {
         fail(directory.string(), "expected configuration directory");
     }

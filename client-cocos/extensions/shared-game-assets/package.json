@@ -1,0 +1,16 @@
+{
+  "name": "shared-game-assets",
+  "version": "1.0.0",
+  "package_version": 2,
+  "description": "Mount the repository's shared game art without copying source files.",
+  "author": "Cat Shop Takeover",
+  "editor": ">=3.8.0",
+  "contributions": {
+    "asset-db": {
+      "mount": {
+        "path": "../../../assets",
+        "readonly": false
+      }
+    }
+  }
+}

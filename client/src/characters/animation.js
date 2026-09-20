@@ -3,11 +3,16 @@ export async function loadCharacterAnimations(manifestUrl) {
   const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error('无法读取角色动作配置');
   const manifest = await response.json();
+  if (typeof manifest.skinAtlases !== 'string' || !manifest.skinAtlases) {
+    throw new Error('缺少预生成角色图集配置，请先同步资源');
+  }
   const [width, height] = manifest.frameSize;
   if (![width, height, manifest.referenceHeight].every((value) => Number.isFinite(value) && value > 0)) {
     throw new Error('Invalid character frame dimensions');
   }
   const config = {
+    manifestUrl: url.href,
+    skinAtlasesUrl: new URL(manifest.skinAtlases, url).href,
     profile: manifest.profile ?? 'cat',
     portraitRect: manifest.portraitRect,
     strideWorldUnits: manifest.strideWorldUnits,

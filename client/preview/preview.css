@@ -10,6 +10,8 @@
 body {
   margin: 0;
 }
+.embedded main { max-width: 100%; padding: 18px; }
+.embedded header, .embedded footer { display: none; }
 [hidden] {
   display: none !important;
 }

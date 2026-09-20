@@ -26,6 +26,8 @@ export interface Palettes {
   source: Record<string, number[]>;
 }
 export interface AnimationConfig {
+  manifestUrl: string;
+  skinAtlasesUrl: string;
   profile?: 'cat' | 'shop_manager';
   portraitRect?: [number, number, number, number];
   strideWorldUnits: number;
@@ -53,6 +55,10 @@ export interface AnimationConfig {
       mirrorForRight: boolean;
     }
   >;
+}
+export interface SkinAtlases {
+  version: 1;
+  skins: Record<string, Record<string, string>>;
 }
 export function characterKey(selection: CharacterSelection): string {
   return `${selection.character}:${selection.skin}`;

@@ -4,15 +4,22 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "assets:build": "node tools/build-assets.mjs",
+    "assets:check": "node tools/build-assets.mjs --check",
+    "test:assets": "node ../tests/asset_build.mjs",
+    "predev": "npm run assets:build",
     "dev": "vite --host 127.0.0.1",
+    "prebuild": "npm run assets:build",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
     "format:check": "prettier --check src index.html vite.config.ts"
   },
   "devDependencies": {
+    "pngjs": "7.0.0",
     "prettier": "^3.9.7",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
+    "vite-plugin-static-copy": "4.1.1",
     "ws": "^8.21.3"
   }
 }

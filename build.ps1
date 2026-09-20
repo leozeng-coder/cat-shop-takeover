@@ -18,6 +18,13 @@ try {
         npm.cmd run build
         if ($LASTEXITCODE -ne 0) { throw 'Client build failed.' }
     } finally { Pop-Location }
+    Push-Location -LiteralPath (Join-Path $projectRoot 'client-admin')
+    try {
+        npm.cmd ci --no-audit --no-fund
+        if ($LASTEXITCODE -ne 0) { throw 'Admin dependencies failed.' }
+        npm.cmd run build
+        if ($LASTEXITCODE -ne 0) { throw 'Admin client build failed.' }
+    } finally { Pop-Location }
     cmake -S . -B build/server -G 'Visual Studio 18 2026' -A x64 "-DCMAKE_TOOLCHAIN_FILE=$vcpkgRoot/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static "-DVCPKG_INSTALLED_DIR=$projectRoot/vcpkg_installed"
     if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed.' }
     cmake --build build/server --config Release --parallel

@@ -1,5 +1,19 @@
 import { defineConfig } from 'vite';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+
 export default defineConfig({
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        {
+          src: '../assets/**/*.{png,jpg,jpeg,webp,json,mp3,ogg,wav,ttf,woff2}',
+          dest: 'assets',
+          rename: { stripBase: 1 },
+        },
+      ],
+      watch: { reloadPageOnChange: true },
+    }),
+  ],
   server: {
     host: '127.0.0.1',
     port: 5178,
