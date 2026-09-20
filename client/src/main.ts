@@ -491,7 +491,7 @@ app.addEventListener('click', async (event) => {
     const selection = { character: button.dataset.character!, skin: button.dataset.skin! };
     if (op === 'menu-character') {
       rememberCharacter(selection);
-      audio.play('character.meow', selection.character);
+      audio.play('character.meow');
       render();
     } else if (!state || characterKey(state.players[state.you].character) !== characterKey(selection))
       send({ type: 'select_character', character: selection });

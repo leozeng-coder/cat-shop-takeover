@@ -4,10 +4,16 @@ export interface AudioClip {
   id: string;
   name: string;
   category: AudioCategory;
+  /** Library organization, independent of playback event categories. */
+  group?: string;
   file: string;
   duration: number;
   bytes: number;
   enabled: boolean;
+}
+export interface AudioGroup {
+  id: string;
+  name: string;
 }
 export interface AudioBinding {
   event: string;
@@ -17,6 +23,8 @@ export interface AudioBinding {
   volume: number;
   /** Older catalogs without this field play at the original speed. */
   playbackRate?: number;
+  /** Delay after an event in milliseconds; older catalogs default to zero. */
+  delayMs?: number;
   cooldownMs: number;
   maxVoices: number;
   range: number;
@@ -28,6 +36,8 @@ export interface AudioSettings {
   musicVolume: number;
 }
 export interface AudioTables {
+  /** Older catalogs contain only ungrouped clips. */
+  groups?: AudioGroup[];
   clips: AudioClip[];
   bindings: AudioBinding[];
   settings: AudioSettings;

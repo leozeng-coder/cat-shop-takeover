@@ -7,10 +7,13 @@ export class AudioSystem {
   private buffers = new Map<string, AudioBuffer>();
   private loading = new Map<string, Promise<AudioBuffer>>();
   private voices = new Map<string, Set<AudioBufferSourceNode>>();
+  private scheduled = new Map<AudioBufferSourceNode, number>();
   private cooldowns = new Map<string, number>();
   private music = new Audio();
   private musicGain: GainNode | null = null;
   private musicKey = '';
+  private musicRequest = '';
+  private musicTimer: number | null = null;
   private scene = 'music.home';
   private map = '*';
   private cursor: number | null = null;
@@ -33,7 +36,7 @@ export class AudioSystem {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         this.stopEffects();
-        this.music.pause();
+        this.stopMusic();
       } else {
         void this.refresh();
         this.updateMusic();
@@ -86,6 +89,7 @@ export class AudioSystem {
       if (!Array.isArray(next.clips) || !Array.isArray(next.bindings) || !next.settings) return;
       this.catalog = next;
       ++this.generation;
+      this.cancelScheduledEffects();
       const files = new Set(next.clips.map((c) => c.file));
       for (const file of this.buffers.keys()) if (!files.has(file)) this.buffers.delete(file);
       this.cooldowns.clear();
@@ -97,11 +101,9 @@ export class AudioSystem {
       this.refreshing = false;
     }
   }
-  private resolve(event: string, target: string): { binding: AudioBinding; clip: AudioClip } | null {
+  private resolve(event: string, target = '*'): { binding: AudioBinding; clip: AudioClip } | null {
     if (!this.catalog) return null;
-    const binding =
-      this.catalog.bindings.find((b) => b.event === event && b.target === target) ??
-      this.catalog.bindings.find((b) => b.event === event && b.target === '*');
+    const binding = this.catalog.bindings.find((b) => b.event === event && b.target === target);
     if (!binding?.enabled || !binding.clip) return null;
     const clip = this.catalog.clips.find((c) => c.id === binding.clip && c.enabled);
     return clip ? { binding, clip } : null;
@@ -138,20 +140,21 @@ export class AudioSystem {
       this.loading.delete(clip.file);
     }
   }
-  play(event: string, target = '*', attenuation = 1) {
+  play(event: string, attenuation = 1) {
     if (!this.available() || !this.context || attenuation <= 0) return;
-    const resolved = this.resolve(event, target);
+    const resolved = this.resolve(event);
     if (!resolved) return;
     const { binding, clip } = resolved;
-    const key = event + '/' + binding.target,
+    const key = event,
       now = performance.now();
+    const playAt = now + (binding.delayMs ?? 0);
     if (now - (this.cooldowns.get(key) ?? -Infinity) < binding.cooldownMs) return;
     if ((this.voices.get(key)?.size ?? 0) >= binding.maxVoices) return;
     this.cooldowns.set(key, now);
     const generation = this.generation;
     void this.buffer(clip)
       .then((buffer) => {
-        if (!this.available() || generation !== this.generation || performance.now() - now > 800) return;
+        if (!this.available() || generation !== this.generation || performance.now() - playAt > 800) return;
         const voices = this.voices.get(key) ?? new Set<AudioBufferSourceNode>();
         if (
           voices.size >= binding.maxVoices ||
@@ -171,11 +174,14 @@ export class AudioSystem {
         voices.add(source);
         this.voices.set(key, voices);
         source.onended = () => {
+          this.scheduled.delete(source);
           voices.delete(source);
           source.disconnect();
           gain.disconnect();
         };
-        source.start();
+        const startsAt = this.context!.currentTime + Math.max(0, playAt - performance.now()) / 1000;
+        this.scheduled.set(source, startsAt);
+        source.start(startsAt);
       })
       .catch(() => {});
   }
@@ -183,10 +189,25 @@ export class AudioSystem {
     ++this.generation;
     for (const voices of this.voices.values()) for (const source of voices) source.stop();
     this.voices.clear();
+    this.scheduled.clear();
+  }
+  private cancelScheduledEffects() {
+    for (const [source, startsAt] of this.scheduled) {
+      if (startsAt <= (this.context?.currentTime ?? 0)) continue;
+      source.stop();
+      for (const voices of this.voices.values()) voices.delete(source);
+      this.scheduled.delete(source);
+    }
+  }
+  private stopMusic() {
+    if (this.musicTimer !== null) window.clearTimeout(this.musicTimer);
+    this.musicTimer = null;
+    this.musicRequest = '';
+    this.music.pause();
   }
   private updateMusic() {
     if (!this.available()) {
-      this.music.pause();
+      this.stopMusic();
       return;
     }
     const rule =
@@ -195,13 +216,18 @@ export class AudioSystem {
     const silent = rule && (!rule.enabled || (rule.target !== '*' && !rule.clip));
     const selected = silent
       ? null
-      : (this.resolve(this.scene, this.map) ?? this.resolve('music.background', '*'));
+      : (this.resolve(this.scene, rule?.target ?? '*') ?? this.resolve('music.background'));
     if (!selected) {
-      this.music.pause();
+      this.stopMusic();
       this.musicKey = '';
       return;
     }
     const { clip, binding } = selected;
+    const request = this.scene + '/' + this.map + '/' + clip.file + '/' + (binding.delayMs ?? 0);
+    if (this.musicRequest !== request) {
+      this.stopMusic();
+      this.musicRequest = request;
+    }
     if (this.musicKey !== clip.file) {
       this.musicKey = clip.file;
       this.music.src = '/assets/audio/files/' + clip.file;
@@ -210,7 +236,18 @@ export class AudioSystem {
     this.musicGain!.gain.value =
       binding.volume * this.catalog!.settings.masterVolume * this.catalog!.settings.musicVolume;
     this.music.playbackRate = binding.playbackRate ?? 1;
-    if (this.music.paused) void this.music.play().catch(() => {});
+    if (this.music.paused && this.musicTimer === null) {
+      const play = () => {
+        this.musicTimer = null;
+        if (!this.available() || this.musicRequest !== request) return;
+        void this.music.play().catch(() => {
+          if (this.musicRequest === request) this.musicRequest = '';
+        });
+      };
+      const delay = binding.delayMs ?? 0;
+      if (delay > 0) this.musicTimer = window.setTimeout(play, delay);
+      else play();
+    }
   }
   resetEvents() {
     this.cursor = null;
@@ -226,6 +263,7 @@ export class AudioSystem {
           : 'music.background';
     const map = state?.map.id ?? '*';
     if (scene !== this.scene || map !== this.map) {
+      this.stopEffects();
       this.scene = scene;
       this.map = map;
       this.updateMusic();
@@ -237,6 +275,7 @@ export class AudioSystem {
     }
     const game = state.code + '/' + state.map.seed;
     if (this.cursor === null || this.game !== game) {
+      this.stopEffects();
       this.cursor = state.eventSequence ?? 0;
       this.game = game;
       return;
@@ -246,11 +285,11 @@ export class AudioSystem {
       if (event.id <= this.cursor) continue;
       this.cursor = event.id;
       if (state.elapsed - event.time > 1) continue;
-      const resolved = this.resolve(event.type, event.target);
+      const resolved = this.resolve(event.type);
       const range = resolved?.binding.range ?? 0;
       const distance = Math.hypot(event.x - listener.x, event.y - listener.y) / state.map.tileSize;
       const attenuation = range > 0 && event.player !== state.you ? Math.max(0, 1 - distance / range) : 1;
-      this.play(event.type, event.target, attenuation);
+      this.play(event.type, attenuation);
     }
     this.cursor = Math.max(this.cursor, state.eventSequence ?? 0);
   }

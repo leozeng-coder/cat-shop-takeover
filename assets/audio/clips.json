@@ -52,5 +52,41 @@
     "file" : "8407D5899E8A2934B9C69E9DBAA82CD8A1E1B417A56D31BE88F298B0D6DAA5AE.wav",
     "id" : "audio_1174b8a9-0526-427d-9d3f-4f284807b3a6",
     "name" : "毛线弹射器"
+  },
+  {
+    "bytes" : 5558,
+    "category" : "ui",
+    "duration" : 0.062517006802721084,
+    "enabled" : true,
+    "file" : "588CB9AD216D9A647D77ABB650A82229D50418DCEAEE06390FCC066DC4C5891E.wav",
+    "id" : "audio_139ff9ca-e452-4829-ad86-47f75f757737",
+    "name" : "拟音·按钮轻扣"
+  },
+  {
+    "bytes" : 20772,
+    "category" : "item",
+    "duration" : 0.23501133786848072,
+    "enabled" : true,
+    "file" : "3DE5D07AA79CBBC7AF9108A7D91A30E62849ABDF9B772B5393ECC5D7FA3A38F0.wav",
+    "id" : "audio_69156bb2-dfec-4d20-9ed8-b6bf41f3950f",
+    "name" : "拟音·升级扣合"
+  },
+  {
+    "bytes" : 8376,
+    "category" : "door",
+    "duration" : 0.094467120181405892,
+    "enabled" : true,
+    "file" : "ECFC87F8BEF46230D01D0DFDC3847797B9D1332C5B12E1DA9FD0A8B3A931ACC3.wav",
+    "id" : "audio_8faa7a06-b2f8-44bb-9601-a9fef668bca7",
+    "name" : "拟音·敲门单击"
+  },
+  {
+    "bytes" : 15038,
+    "category" : "door",
+    "duration" : 0.17000000000000001,
+    "enabled" : true,
+    "file" : "AC374ED390668E039DE2099DD6E43A4C076AA7C566467718126E95C30371724C.wav",
+    "id" : "audio_82e738c6-ea7d-4fbd-8812-ac74bf25fd89",
+    "name" : "拟音·破门断裂"
   }
 ]

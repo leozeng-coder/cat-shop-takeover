@@ -232,6 +232,9 @@ Json::Value AudioRepository::upload(const std::string& bytes, const std::string&
         entry["id"] = "audio_" + drogon::utils::getUuid();
         entry["name"] = request["name"];
         entry["category"] = request["category"];
+        if (request.isMember("group")) {
+            entry["group"] = request["group"];
+        }
         entry["enabled"] = true;
         clips.append(entry);
         clip = &clips[clips.size() - 1];
@@ -268,8 +271,11 @@ void AudioRepository::activate(const Json::Value& tables) {
     for (const auto* name : {"clips", "bindings", "settings"}) {
         writeAdminJson(m_root / (std::string(name) + ".json"), tables[name]);
     }
+    if (tables.isMember("groups")) {
+        writeAdminJson(m_root / "groups.json", tables["groups"]);
+    }
     Json::Value manifest;
-    manifest["schema"] = 1;
+    manifest["schema"] = tables.isMember("groups") ? 2 : 1;
     manifest["revision"] = version;
     writeAdminJson(m_root / "manifest.json", manifest);
     // Production assets contain the latest set only. Drafts/history live in client-admin.

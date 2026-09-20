@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
                         }
                     } else if (action == "audio-upload") {
                         Json::Value metadata;
-                        for (const auto* key : {"revision", "id", "name", "category"}) {
+                        for (const auto* key : {"revision", "id", "name", "category", "group"}) {
                             metadata[key] = request->getParameter(key);
                         }
                         value =

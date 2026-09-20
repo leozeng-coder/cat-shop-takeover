@@ -1,14 +1,14 @@
 [
   {
-    "clip" : "audio_b60cb194-db61-4c2e-a95f-97b48235a4bf",
+    "clip" : "audio_139ff9ca-e452-4829-ad86-47f75f757737",
     "cooldownMs" : 60,
     "enabled" : true,
     "event" : "ui.click",
     "maxVoices" : 3,
-    "playbackRate" : 1.45,
+    "playbackRate" : 1,
     "range" : 0,
     "target" : "*",
-    "volume" : 1
+    "volume" : 4
   },
   {
     "clip" : "",
@@ -80,7 +80,7 @@
     "maxVoices" : 3,
     "range" : 12,
     "target" : "*",
-    "volume" : 1
+    "volume" : 4
   },
   {
     "clip" : "",

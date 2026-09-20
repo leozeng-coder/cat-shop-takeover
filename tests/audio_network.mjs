@@ -139,6 +139,13 @@ try {
   let w = await request("audio");
   assert.equal(w.events.length, 21);
   assert.equal(w.current.clips.length, 0);
+  assert.deepEqual(w.current.groups, []);
+  // A legacy draft/publication without the new classification table still works.
+  delete w.draft.tables.groups;
+  w = await request("audio-save", {
+    revision: w.draft.revision,
+    tables: w.draft.tables,
+  });
   await upload(
     w,
     Buffer.from("This is not a valid WAV audio file at all."),
@@ -167,6 +174,27 @@ try {
   assert.deepEqual(Buffer.from(await preview.arrayBuffer()), original);
   const stale = w.draft.revision;
   w.draft.tables.bindings.find((b) => b.event === "ui.click").clip = id;
+  for (const delayMs of [-1, 10001, 0.5, "200", null]) {
+    const invalid = structuredClone(w.draft.tables);
+    invalid.bindings[0].delayMs = delayMs;
+    const rejected = await request(
+      "audio-save",
+      { revision: w.draft.revision, tables: invalid },
+      422,
+    );
+    assert.match(rejected.error, /延迟播放/);
+  }
+  const targeted = structuredClone(w.draft.tables);
+  targeted.bindings.push({
+    ...targeted.bindings.find((b) => b.event === "item.fire"),
+    target: "yarn",
+  });
+  const targetError = await request(
+    "audio-save",
+    { revision: w.draft.revision, tables: targeted },
+    422,
+  );
+  assert.match(targetError.error, /音效按事件统一绑定/);
   for (const invalidRate of [0, -1, 0.49, 2.01, "1.25", null]) {
     const invalid = structuredClone(w.draft.tables);
     invalid.bindings[0].playbackRate = invalidRate;
@@ -195,6 +223,7 @@ try {
   );
   // Pre-existing drafts without playbackRate remain editable.
   delete w.draft.tables.bindings[0].playbackRate;
+  delete w.draft.tables.bindings[0].delayMs;
   w = await request("audio-save", {
     revision: w.draft.revision,
     tables: w.draft.tables,
@@ -203,6 +232,7 @@ try {
   w.draft.tables.bindings.find((b) => b.event === "ui.click").playbackRate =
     1.25;
   w.draft.tables.bindings.find((b) => b.event === "ui.click").volume = 4;
+  w.draft.tables.bindings.find((b) => b.event === "ui.click").delayMs = 750;
   w = await request("audio-save", {
     revision: w.draft.revision,
     tables: w.draft.tables,
@@ -212,6 +242,10 @@ try {
   const catalogResponse = await fetch(game + "/api/audio");
   const etag = catalogResponse.headers.get("etag");
   const publishedCatalog = await catalogResponse.json();
+  assert.equal(
+    publishedCatalog.bindings.find((b) => b.event === "ui.click").delayMs,
+    750,
+  );
   assert.equal(
     publishedCatalog.bindings.find((b) => b.event === "ui.click").clip,
     id,
@@ -238,7 +272,68 @@ try {
     ),
     original,
   );
+  assert.equal(publishedCatalog.groups, undefined);
+  const groups = [
+    { id: "group_battle", name: "战斗音效" },
+    { id: "group_empty", name: "空分类" },
+  ];
+  w.draft.tables.groups = groups;
+  w.draft.tables.clips[0].group = "group_battle";
+  for (const invalidGroups of [
+    [],
+    [groups[0], groups[0]],
+    [{ ...groups[0], name: "未分类" }],
+  ]) {
+    const invalid = structuredClone(w.draft.tables);
+    invalid.groups = invalidGroups;
+    await request(
+      "audio-save",
+      { revision: w.draft.revision, tables: invalid },
+      422,
+    );
+  }
+  const bindingsBeforeGrouping = structuredClone(w.draft.tables.bindings);
+  w = await request("audio-save", {
+    revision: w.draft.revision,
+    tables: w.draft.tables,
+  });
+  w = await request("audio");
+  assert.deepEqual(
+    w.draft.tables.groups,
+    groups,
+    "empty and populated groups persist across reloads",
+  );
+  assert.equal(w.draft.tables.clips[0].group, "group_battle");
+  w.draft.tables.groups[0].name = "战斗与门";
+  w = await request("audio-save", {
+    revision: w.draft.revision,
+    tables: w.draft.tables,
+  });
+  w = await request("audio-publish", { revision: w.draft.revision });
+  const groupedCatalog = await fetch(game + "/api/audio").then((r) => r.json());
+  assert.equal(groupedCatalog.groups[0].name, "战斗与门");
+  assert.equal(
+    groupedCatalog.clips[0].group,
+    "group_battle",
+    "renaming keeps clip membership",
+  );
+  assert.deepEqual(
+    groupedCatalog.bindings,
+    bindingsBeforeGrouping,
+    "organizing never changes event bindings",
+  );
+  assert.deepEqual(
+    JSON.parse(
+      await fs.readFile(path.join(assets, "audio/groups.json"), "utf8"),
+    ),
+    groupedCatalog.groups,
+  );
   w = await upload(w, replacement, id);
+  assert.equal(
+    w.draft.tables.clips[0].group,
+    "group_battle",
+    "file replacement preserves classification",
+  );
   const newFile = w.draft.tables.clips[0].file;
   assert.notEqual(oldFile, newFile);
   assert.equal(
@@ -273,6 +368,18 @@ try {
     original,
     "history stays in admin storage",
   );
+  w.draft.tables.groups = [];
+  w.draft.tables.clips[0].group = "";
+  w = await request("audio-save", {
+    revision: w.draft.revision,
+    tables: w.draft.tables,
+  });
+  assert.equal(
+    w.draft.tables.clips[0].id,
+    id,
+    "removing a group keeps the audio",
+  );
+  assert.deepEqual(w.draft.tables.bindings, bindingsBeforeGrouping);
   const bad = structuredClone(w.draft.tables);
   bad.clips = [];
   await request("audio-save", { revision: w.draft.revision, tables: bad }, 422);
@@ -339,7 +446,7 @@ try {
   assert.equal(w.conflict, false);
   assert.equal(w.draft.baseRevision, w.current.revision);
   console.log(
-    "PASS audio upload, validation, preview, conflicts, publication, replacement, deletion, cache and recovery",
+    "PASS audio groups, legacy migration, upload, validation, preview, conflicts, publication, replacement, deletion, cache and recovery",
   );
 } finally {
   for (const child of children)

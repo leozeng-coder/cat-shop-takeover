@@ -68,7 +68,6 @@ const audioAdmin = new AudioAdmin({
   run,
   dialog,
   tables: () => workspace.draft.tables,
-  assets: () => assets,
 });
 function remember(token: string) {
   setAccess(token);
@@ -226,6 +225,7 @@ function render() {
     content.innerHTML = historyView(workspace, releases);
   else if (page === "clients") content.innerHTML = clientsView(assets, clients);
   content.insertAdjacentHTML("afterbegin", pageNavigation(page));
+  if (page === "audio") audioAdmin.afterRender();
   if (changedPage) window.scrollTo(0, 0);
   status();
   if (workspace.conflict)
@@ -249,6 +249,11 @@ async function connect(token: string) {
   render();
 }
 app.addEventListener("submit", (event) => {
+  if ((event.target as HTMLElement).id === "audio-group-form") {
+    event.preventDefault();
+    if (!busy) audioAdmin.saveGroup();
+    return;
+  }
   if ((event.target as HTMLElement).id !== "login-form") return;
   event.preventDefault();
   const token = new FormData(event.target as HTMLFormElement).get(
@@ -310,6 +315,31 @@ app.addEventListener("change", (event) => {
       notice(String(error), true);
     }
   }
+});
+for (const type of [
+  "pointerdown",
+  "pointermove",
+  "pointerup",
+  "pointercancel",
+  "lostpointercapture",
+] as const) {
+  app.addEventListener(type, (event) => {
+    if (!busy) audioAdmin.drag(event);
+  });
+}
+app.addEventListener("dblclick", (event) => {
+  if (busy) return;
+  const card = (event.target as HTMLElement).closest<HTMLElement>(
+    "[data-audio-card]",
+  );
+  if (card) void audioAdmin.click(card);
+});
+app.addEventListener("keydown", (event) => {
+  if (busy || (event.key !== "Enter" && event.key !== " ")) return;
+  const card = event.target as HTMLElement;
+  if (!card.matches("[data-audio-card]")) return;
+  event.preventDefault();
+  void audioAdmin.click(card);
 });
 app.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLElement>(

@@ -18,6 +18,21 @@ const refreshers = [],
   visibility = [];
 let downloads = 0,
   revision = 1;
+let clockMs = 0,
+  timerSequence = 0;
+const timers = new Map();
+globalThis.performance = { now: () => clockMs };
+function advance(ms) {
+  const until = clockMs + ms;
+  for (;;) {
+    const next = [...timers.entries()].sort((a, b) => a[1].time - b[1].time)[0];
+    if (!next || next[1].time > until) break;
+    clockMs = next[1].time;
+    timers.delete(next[0]);
+    next[1].fn();
+  }
+  clockMs = until;
+}
 const clip = (id) => ({
   id,
   name: id,
@@ -63,6 +78,12 @@ let catalog = {
   ],
 };
 globalThis.window = {
+  setTimeout: (fn, ms) => {
+    const id = ++timerSequence;
+    timers.set(id, { fn, time: clockMs + ms });
+    return id;
+  },
+  clearTimeout: (id) => timers.delete(id),
   setInterval: (fn) => {
     refreshers.push(fn);
     return 1;
@@ -89,6 +110,9 @@ globalThis.Audio = class {
   }
 };
 globalThis.AudioContext = class {
+  get currentTime() {
+    return clockMs / 1000;
+  }
   state = "running";
   destination = {};
   resume() {
@@ -117,10 +141,12 @@ globalThis.AudioContext = class {
         return gain;
       },
       disconnect() {},
-      start() {
+      start(when = 0) {
+        this.when = when;
         started.push(this);
       },
       stop() {
+        this.stopped = true;
         this.onended?.();
       },
     };
@@ -284,6 +310,73 @@ visibility[0]();
 await flush();
 audio.setState(null);
 assert.equal(media[0].src, "/assets/audio/files/home.wav");
+
+// Delays are scheduled on the audio clock, independent of the stale-event guard.
+catalog.revision = String(++revision);
+catalog.bindings.find((b) => b.event === "door.hit").delayMs = 1500;
+refreshers[0]();
+await flush();
+audio.play("door.hit");
+await flush();
+const delayed = started.at(-1);
+assert.equal(delayed.when, clockMs / 1000 + 1.5);
+assert.equal(delayed.stopped, undefined);
+advance(900);
+assert.equal(
+  delayed.stopped,
+  undefined,
+  "intentional delay survives the stale-event threshold",
+);
+audio.toggleMute();
+assert.equal(delayed.stopped, true, "mute cancels scheduled effects");
+audio.toggleMute();
+audio.play("door.hit");
+await flush();
+const outdated = started.at(-1);
+catalog.revision = String(++revision);
+refreshers[0]();
+await flush();
+assert.equal(
+  outdated.stopped,
+  true,
+  "publication cancels effects queued with old settings",
+);
+audio.play("door.hit");
+await flush();
+const disconnected = started.at(-1);
+audio.resetEvents();
+assert.equal(disconnected.stopped, true, "disconnect clears scheduled effects");
+
+catalog.revision = String(++revision);
+catalog.bindings.find((b) => b.event === "music.home").delayMs = 1000;
+refreshers[0]();
+await flush();
+assert.equal(media[0].paused, true);
+advance(700);
+audio.unlock();
+advance(300);
+assert.equal(
+  media[0].paused,
+  false,
+  "repeated gestures do not restart the delay",
+);
+audio.toggleMute();
+audio.toggleMute();
+assert.equal(media[0].paused, true);
+audio.setState({ ...state, phase: "preparing" });
+assert.equal(media[0].src, "/assets/audio/files/night.wav");
+advance(1500);
+assert.equal(
+  media[0].src,
+  "/assets/audio/files/night.wav",
+  "old scene delay cannot resume old music",
+);
+audio.setState(null);
+assert.equal(media[0].paused, true);
+document.hidden = true;
+visibility[0]();
+advance(1000);
+assert.equal(media[0].paused, true, "hidden page cancels pending music");
 console.log(
-  "PASS audio unlock, caching, map music, event deduplication, reconnect, distance, mute, event speed and hot replacement",
+  "PASS audio unlock, caching, map music, event deduplication, reconnect, distance, gain, speed, delayed playback and cancellation",
 );

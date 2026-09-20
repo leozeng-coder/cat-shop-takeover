@@ -86,6 +86,7 @@ Json::Value AudioLibrary::events() {
 }
 Json::Value AudioLibrary::defaults() {
     Json::Value tables;
+    tables["groups"] = Json::Value(Json::arrayValue);
     tables["clips"] = Json::Value(Json::arrayValue);
     tables["bindings"] = Json::Value(Json::arrayValue);
     for (const auto& event : events()) {
@@ -96,6 +97,7 @@ Json::Value AudioLibrary::defaults() {
         binding["enabled"] = true;
         binding["volume"] = 1.0;
         binding["playbackRate"] = 1.0;
+        binding["delayMs"] = 0;
         binding["cooldownMs"] = event["id"] == "ui.click" ? 60 : 120;
         binding["maxVoices"] = 3;
         binding["range"] =
@@ -113,10 +115,24 @@ bool AudioLibrary::validFile(const std::string& name) {
     return std::regex_match(name, pattern);
 }
 void AudioLibrary::validate(const Json::Value& tables) {
-    require(tables.isObject() && tables.size() == 3 && tables["clips"].isArray() && tables["bindings"].isArray() &&
+    const bool hasGroups = tables.isObject() && tables.isMember("groups");
+    require(tables.isObject() && tables.size() == (hasGroups ? 4u : 3u) && tables["clips"].isArray() && tables["bindings"].isArray() &&
                 tables["settings"].isObject(),
             "音效配置结构无效");
     require(tables["clips"].size() <= 500 && tables["bindings"].size() <= 2000, "音效配置数量超出限制");
+    std::set<std::string> groupIds, groupNames;
+    if (hasGroups) {
+        require(tables["groups"].isArray() && tables["groups"].size() <= 64, "音频分类最多 64 个");
+        static const std::regex groupId("^group_[a-zA-Z0-9_-]{1,72}$");
+        for (const auto& group : tables["groups"]) {
+            require(group.isObject() && group["id"].isString() && group["name"].isString(), "音频分类信息不完整");
+            const auto id = group["id"].asString(), name = group["name"].asString();
+            require(std::regex_match(id, groupId) && groupIds.insert(id).second, "音频分类 ID 重复或无效");
+            require(!name.empty() && name.size() <= 96 && name.find_first_not_of(" \t\r\n") != std::string::npos &&
+                        name != "全部" && name != "未分类" && groupNames.insert(name).second,
+                    "音频分类名称重复或无效");
+        }
+    }
     std::set<std::string> clips, bindings, eventIds;
     std::map<std::string, std::string> eventNames;
     for (const auto& event : events()) {
@@ -132,6 +148,11 @@ void AudioLibrary::validate(const Json::Value& tables) {
         require(!clip["name"].asString().empty() && clip["name"].asString().size() <= 180, "请填写有效的音效名称");
         require(categories.contains(clip["category"].asString()) && validFile(clip["file"].asString()),
                 "音效分类或文件无效");
+        if (clip.isMember("group")) {
+            require(clip["group"].isString() &&
+                        (clip["group"].asString().empty() || groupIds.contains(clip["group"].asString())),
+                    "音频所属分类不存在，请先移回未分类");
+        }
         const auto label = "音频「" + clip["name"].asString() + "」的";
         number(clip["duration"], .001, 600, label + "时长", " 秒");
         number(clip["bytes"], 1, 20 * 1024 * 1024, label + "文件大小", " 字节");
@@ -145,11 +166,17 @@ void AudioLibrary::validate(const Json::Value& tables) {
         require(eventIds.contains(event) && !target.empty() && target.size() <= 100 &&
                     bindings.insert(event + "/" + target).second,
                 "事件绑定重复或无效");
+        require(target == "*" || event == "music.night" || event == "music.day",
+                "音效按事件统一绑定，仅地图昼夜音乐支持选择地图");
         require(clip.empty() || clips.contains(clip), "事件引用的音效不存在，请先解除或修改绑定");
         const auto label = "事件「" + eventNames.at(event) + "」" + (target == "*" ? "" : "（" + target + "）") + "的";
         number(binding["volume"], 0, 4, label + "音量", " 倍");
         if (binding.isMember("playbackRate")) {
             number(binding["playbackRate"], .5, 2, label + "播放速度", " 倍");
+        }
+        if (binding.isMember("delayMs")) {
+            number(binding["delayMs"], 0, 10000, label + "延迟播放", " 毫秒");
+            require(binding["delayMs"].isInt(), "延迟播放必须是整数毫秒");
         }
         number(binding["cooldownMs"], 0, 60000, label + "最短播放间隔", " 毫秒");
         require(binding["maxVoices"].isInt(), "同时播放数量必须是整数");
@@ -172,6 +199,11 @@ Json::Value AudioLibrary::current() {
         Json::Value tables;
         for (const auto* table : {"clips", "bindings", "settings"}) {
             tables[table] = read(m_root / (std::string(table) + ".json"));
+        }
+        const auto schema = manifest.get("schema", 1).asInt();
+        require(schema == 1 || schema == 2, "音效配置版本无效");
+        if (schema == 2) {
+            tables["groups"] = read(m_root / "groups.json");
         }
         require(hash(tables) == manifest["revision"].asString(), "音效正在发布，请重试");
         validate(tables);
