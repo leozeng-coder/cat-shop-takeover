@@ -47,17 +47,11 @@ SOURCES = {
         "file": "door-knocking-altfuture.mp3",
         "sha256": "d3a598b65287f01bb44824e83d6ad25f6b51a1f3a29e09864546da30ffa53e21",
     },
-    "bag_rustle": {
-        "page": "https://freesound.org/people/memuse/sounds/264430/",
-        "url": "https://cdn.freesound.org/previews/264/264430_1028547-hq.mp3",
-        "file": "plastic-bag-memuse.mp3",
-        "sha256": "ae9e216b78ada2a9bb4ae0c2d8cbc1a26d38cb0b39e94cba14b7a98ae124eaa5",
-    },
-    "tin_cans": {
-        "page": "https://freesound.org/people/redcheek/sounds/235425/",
-        "url": "https://cdn.freesound.org/previews/235/235425_3943504-hq.mp3",
-        "file": "tin-cans-redcheek.mp3",
-        "sha256": "a66fc590b9f8283f564bda3cae69d066b11ec453d3d478a6828f81b01d8a7e2b",
+    "paper_rustle": {
+        "page": "https://freesound.org/people/HarpyHarpHarp/sounds/449127/",
+        "url": "https://cdn.freesound.org/previews/449/449127_8895476-hq.mp3",
+        "file": "paper-harpy.mp3",
+        "sha256": "415a6c5c0115373b0bc93b06ba01baf525e79324aad9f50ded2c0e678557edf3",
     },
 }
 
@@ -230,41 +224,26 @@ def knock_variant_recipes(cache: Path) -> list[tuple]:
 
 
 def trash_variant_recipes(cache: Path) -> list[tuple]:
-    bag = decode(source_archive("bag_rustle", cache).read_bytes())
-    cans = decode(source_archive("tin_cans", cache).read_bytes())
-    with zipfile.ZipFile(source_archive("impact", cache)) as archive:
-        wood = decode(archive.read("Audio/impactWood_light_001.ogg"))
-        soft = decode(archive.read("Audio/impactSoft_medium_000.ogg"))
-
-    # Two distinct rummaging gestures, matching the two 600 ms shake cycles.
-    # Finish before the current 1200 ms reveal; no reveal chime or final accent.
-    paper = np.zeros(round(1.150 * SAMPLE_RATE))
-    add_at(paper, fragment(bag, 14.05, 14.56, speed=1.08, low=380, high=4800, attack=0.035, release=0.095), 0.020, 0.85)
-    add_at(paper, fragment(bag, 14.85, 15.37, speed=1.08, low=380, high=4500, attack=0.040, release=0.105), 0.620, 0.95)
-
-    # Actual cans shifting inside a bag. Remove sharp high-frequency clatter
-    # while preserving a few small irregular contacts within each gesture.
-    tins = np.zeros_like(paper)
-    add_at(tins, fragment(cans, 6.96, 7.48, speed=1.08, low=240, high=3700, attack=0.025, release=0.095), 0.020, 0.82)
-    add_at(tins, fragment(cans, 10.46, 10.98, speed=1.08, low=240, high=3700, attack=0.025, release=0.105), 0.620, 0.90)
-
-    # A warmer toy-bin character: softened rummaging plus restrained hollow
-    # contacts during each shake, with no contact after the second gesture.
-    cartoon = np.zeros_like(paper)
-    add_at(cartoon, fragment(cans, 0.88, 1.32, speed=0.95, low=160, high=2100, attack=0.045, release=0.110), 0.035, 0.75)
-    add_at(cartoon, fragment(cans, 14.23, 14.70, speed=1.0, low=160, high=2300, attack=0.045, release=0.110), 0.625, 0.83)
-    for when, gain in [(0.100, 0.20), (0.280, 0.13), (0.700, 0.22), (0.900, 0.12)]:
-        add_at(cartoon, fragment(wood, 0, 0.060, speed=0.80, low=160, high=1800, attack=0.002, release=0.025), when, gain)
-    for when in [0.110, 0.710]:
-        add_at(cartoon, fragment(soft, 0, 0.090, speed=1.65, low=110, high=900, attack=0.003, release=0.020), when, 0.17)
-    cartoon = np.tanh(cartoon * 1.2)
-
-    # These belong to installation of magic_trash_bin, never item.reveal.
-    return [
-        ("trash_paper", "垃圾桶A·纸袋翻找", "item", "item.install", paper, -10),
-        ("trash_tins", "垃圾桶B·罐头轻碰", "item", "item.install", tins, -10),
-        ("trash_cartoon", "垃圾桶C·卡通摇桶", "item", "item.install", cartoon, -10),
-    ]
+    paper = decode(source_archive("paper_rustle", cache).read_bytes())
+    result = []
+    for key, name, low, high, speed in [
+        ("trash_soft_rustle", "垃圾桶·轻柔沙沙", 600, 5200, 0.96),
+        ("trash_fine_rustle", "垃圾桶·细碎沙沙", 1200, 7300, 1.04),
+    ]:
+        mix = np.zeros(round(1.020 * SAMPLE_RATE))
+        # Close paper friction only: no bin knocks, cans, musical layers or
+        # reveal cue. These windows avoid the recording's isolated hard snaps.
+        for start, end, when, gain in [(0.32, 0.74, 0.025, 0.88), (4.84, 5.26, 0.500, 0.94)]:
+            voice = fragment(paper, start, end, speed=speed, low=low, high=high, attack=0.025, release=0.075)
+            # Round the remaining narrow peaks to expose the quiet shuffling
+            # texture without making the effect depend on sharp impacts.
+            texture_level = max(float(np.quantile(np.abs(voice), 0.94)), 1e-6)
+            voice = np.tanh(voice / (texture_level * 1.6))
+            voice = sosfilt(butter(2, high, btype="lowpass", fs=SAMPLE_RATE, output="sos"), voice)
+            voice = taper(voice, 0.015, 0.040)
+            add_at(mix, voice, when, gain)
+        result.append((key, name, "item", "item.install", mix, -14))
+    return result
 
 
 def main() -> None:
