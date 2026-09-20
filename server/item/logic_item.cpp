@@ -2,6 +2,7 @@
 #include "battle/logic_progression.h"
 #include "common/game_math.h"
 #include "game/logic_economy.h"
+#include "logic_item_effect.h"
 #include <algorithm>
 #include <cmath>
 namespace snackshop {
@@ -13,15 +14,15 @@ int periods(double& elapsed, double dt, int intervalMs) {
     elapsed = std::max(0.0, elapsed - count * interval);
     return count;
 }
-void produce(Game& game, Dorm& room, const ItemConfig& item, const LevelConfig& level, int count) {
-    LogicEconomy::credit(game.players[room.owner], game.config(), item.currency, level.amount * count);
+void produce(Game& game, Dorm& room, const ItemConfig& item, const ItemLevelConfig& level, int count) {
+    LogicItemEffect::apply(game, game.players[room.owner], item, level, count);
 }
-void repair(Game& game, Dorm& room, const ItemConfig&, const LevelConfig& level, int count) {
+void repair(Game& game, Dorm& room, const ItemConfig&, const ItemLevelConfig& level, int count) {
     if (room.hp > 0) {
         room.hp = std::min(static_cast<double>(game.config().door(room.level).health), room.hp + level.amount * count);
     }
 }
-using PassiveHandler = void (*)(Game&, Dorm&, const ItemConfig&, const LevelConfig&, int);
+using PassiveHandler = void (*)(Game&, Dorm&, const ItemConfig&, const ItemLevelConfig&, int);
 PassiveHandler passiveHandler(ItemBehavior behavior) {
     switch (behavior) {
     case ItemBehavior::CurrencyProducer:

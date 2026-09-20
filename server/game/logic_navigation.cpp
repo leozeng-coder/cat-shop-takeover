@@ -1,7 +1,6 @@
 #include "ai/logic_cat_ai.h"
 #include "common/game_math.h"
 #include "game.h"
-#include "logic_economy.h"
 #include <algorithm>
 namespace snackshop {
 const Prop* Game::propAt(int cell) const {
@@ -65,21 +64,8 @@ bool Game::moveAlong(Point& position, std::deque<Point>& path, double distance, 
     return path.empty();
 }
 void Game::arrive(Player& p) {
-    const int cell = map.cellAt(p.position), roomId = map.roomAt(cell);
-    if (roomId >= 0) {
-        auto& props = dorms[roomId].props;
-        const auto crate = std::find_if(props.begin(), props.end(), [&](const Prop& prop) {
-            return prop.cell == cell && config().item(prop.kind).behavior == ItemBehavior::Pickup;
-        });
-        if (crate != props.end()) {
-            const auto& item = config().item(crate->kind);
-            const auto amount = item.levels[crate->level - 1].amount;
-            LogicEconomy::credit(p, config(), item.currency, amount);
-            props.erase(crate);
-            notify(p.name + " 找到" + item.name + " +" + std::to_string(amount) + " " +
-                   config().currency(item.currency).name);
-        }
-    }
+    tryPickup(p);
+    const int cell = map.cellAt(p.position);
     if (isEscaping(p)) {
         p.sleeping = false;
         p.nestIntent = -1;

@@ -58,6 +58,7 @@ private:
     bool validPlayer(int id) const;
     void resetBoard();
     void arrive(Player& player);
+    void tryPickup(Player& player);
 };
 } // namespace snackshop
 #endif

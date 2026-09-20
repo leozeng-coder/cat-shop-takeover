@@ -976,6 +976,22 @@ void pickupItemLevels() {
           "pickup credits its own tier amount and consumes the item");
     game.step(.05);
     check(player.wallet.at("cans") == before + 270, "the same crate cannot be collected twice");
+    Game contested("PICKUP-RACE", 1, 19, cfg, profile["id"].asString());
+    contested.addHuman("Collector");
+    contested.start(0);
+    for (auto& cat : contested.players) {
+        cat.decisionAt = 10000;
+    }
+    const int contestedCell = contested.dorms[0].props[0].cell;
+    const int humanBefore = contested.players[0].wallet.at("cans");
+    const int aiBefore = contested.players[1].wallet.at("cans");
+    contested.players[0].position = contested.players[1].position = contested.map.center(contestedCell);
+    contested.step(.05);
+    const int humanGain = contested.players[0].wallet.at("cans") - humanBefore;
+    const int aiGain = contested.players[1].wallet.at("cans") - aiBefore;
+    check(((humanGain == 270 && aiGain == 0) || (humanGain == 0 && aiGain == 270)) &&
+              contested.propAt(contestedCell) == nullptr,
+          "two cats reaching one pickup in the same tick collect it exactly once");
     player.room = 0;
     game.dorms[0].owner = 0;
     check(!game.command(0, GameAction::Build, -1, prop.cell, "crate").empty() && game.propAt(prop.cell) == nullptr,
