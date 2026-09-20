@@ -53,9 +53,18 @@ struct ItemConfig {
     bool buildable = false, unique = false;
     std::vector<ItemLevelConfig> levels;
 };
+struct RandomLevelReward {
+    int level = 1, weight = 0;
+};
+struct RandomItemReward {
+    std::string item;
+    // Relative integer weights; item and level draws normalize independently.
+    int weight = 0;
+    std::vector<RandomLevelReward> levels;
+};
 struct RandomItemConfig {
     std::vector<Cost> purchaseCosts;
-    double levelWeightDecay = 0;
+    std::vector<RandomItemReward> rewards;
     double revealDuration = 0;
 };
 struct EnemyLevelStats {

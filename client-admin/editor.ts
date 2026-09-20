@@ -171,7 +171,7 @@ export function form(value: Json, path: FieldPath, tables: Tables): string {
                   row.id ||
                   (row.level ? `${row.level} 级` : `第 ${index + 1} 项`)
                 : `第 ${index + 1} 项`;
-              return `<details class="entry" ${value.length <= 3 || index === 0 ? "open" : ""}><summary><span>${escape(heading)}</span><button type="button" class="text-btn danger" data-remove="${encoded([...path, index])}">移除</button></summary><div class="entry-body">${form(entry, [...path, index], tables)}</div></details>`;
+              return `<details class="entry"><summary><span>${escape(heading)}</span><button type="button" class="text-btn danger" data-remove="${encoded([...path, index])}">移除</button></summary><div class="entry-body">${form(entry, [...path, index], tables)}</div></details>`;
             })
             .join("");
     return `<section class="collection"><div class="section-title"><h3>${escape(label(key))}<small>${value.length} 项</small></h3><button type="button" class="text-btn" data-add="${encoded(path)}">＋ 添加一项</button></div>${content || '<p class="muted">暂无条目</p>'}</section>`;

@@ -1,0 +1,63 @@
+.item-editor-header {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.item-editor-header > h2 {
+  margin: 0;
+}
+.item-editor-header > .heading-actions {
+  margin-left: auto;
+}
+.item-editor-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: #f3f5ef;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.item-editor-tabs > button {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.item-editor-tabs > button:hover {
+  color: var(--green);
+}
+.item-editor-tabs > button[aria-selected="true"] {
+  color: var(--green);
+  background: #fff;
+  box-shadow: 0 1px 4px #283b2510;
+  font-weight: 600;
+}
+.item-editor-content {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.item-editor-content .reward-pool {
+  margin: 0;
+}
+.item-effect-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8faf4;
+}
+.item-effect-empty > span {
+  color: var(--muted);
+}
+.item-effect-empty > strong {
+  color: var(--green);
+}
+.item-editor-group + .item-editor-group {
+  border-top: 1px solid var(--line);
+  margin-top: 28px;
+  padding-top: 24px;
+}

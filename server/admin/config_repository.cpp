@@ -210,7 +210,7 @@ Json::Value ConfigRepository::save(const Json::Value& request) {
     std::lock_guard lock(m_mutex);
     auto value = draft();
     checkRevision(request, value);
-    checkTables(request["tables"]);
+    validateTables(request["tables"]);
     value["tables"] = request["tables"];
     value["revision"] = drogon::utils::getUuid();
     value["updatedAt"] = now();

@@ -1,25 +1,46 @@
 #include "logic_random_item.h"
 #include "game/logic_economy.h"
 #include <algorithm>
+#include <stdexcept>
 namespace snackshop {
+namespace {
+std::size_t draw(const std::vector<int>& weights, std::mt19937& random) {
+    std::int64_t total = 0;
+    for (const auto weight : weights) {
+        total += weight;
+    }
+    if (total <= 0) {
+        throw std::logic_error("empty random reward distribution");
+    }
+    auto ticket = std::uniform_int_distribution<std::int64_t>(1, total)(random);
+    for (std::size_t i = 0; i < weights.size(); ++i) {
+        ticket -= weights[i];
+        if (ticket <= 0) {
+            return i;
+        }
+    }
+    throw std::logic_error("empty random reward distribution");
+}
+} // namespace
 int LogicRandomItem::purchased(const Player& player, const std::string& item) {
     const auto found = player.itemPurchases.find(item);
     return found == player.itemPurchases.end() ? 0 : found->second;
 }
-std::vector<const ItemConfig*> LogicRandomItem::pool(const Game& game, int player) {
-    std::vector<const ItemConfig*> result;
-    for (const auto& [id, item] : game.config().items) {
-        if (!item.buildable || item.behavior == ItemBehavior::RandomItem) {
+std::vector<const RandomItemReward*> LogicRandomItem::pool(const Game& game, int player, const std::string& source) {
+    std::vector<const RandomItemReward*> result;
+    for (const auto& reward : game.config().randomItems.at(source).rewards) {
+        if (reward.weight == 0) {
             continue;
         }
+        const auto& item = game.config().item(reward.item);
         const bool owned =
             item.unique && std::any_of(game.dorms.begin(), game.dorms.end(), [&](const auto& room) {
                 return room.owner == player && std::any_of(room.props.begin(), room.props.end(), [&](const auto& prop) {
-                           return prop.kind == id || prop.rewardKind == id;
+                           return prop.kind == item.id || prop.rewardKind == item.id;
                        });
             });
         if (!owned) {
-            result.push_back(&item);
+            result.push_back(&reward);
         }
     }
     return result;
@@ -34,7 +55,7 @@ std::string LogicRandomItem::purchaseError(const Game& game, int player, const I
     if (!error.empty()) {
         return error;
     }
-    return pool(game, player).empty() ? "暂时没有可获得的道具" : std::string{};
+    return pool(game, player, item.id).empty() ? "暂时没有可获得的道具" : std::string{};
 }
 std::string LogicRandomItem::purchase(Game& game, int player, int cell, const ItemConfig& item, std::mt19937& random) {
     const auto error = purchaseError(game, player, item);
@@ -43,20 +64,22 @@ std::string LogicRandomItem::purchase(Game& game, int player, int cell, const It
     }
     auto& cat = game.players[player];
     const auto& rule = game.config().randomItems.at(item.id);
-    const auto candidates = pool(game, player);
+    const auto candidates = pool(game, player, item.id);
     // Pick the item first: items with more levels must not get more tickets.
-    const auto& reward = *candidates[std::uniform_int_distribution<std::size_t>(0, candidates.size() - 1)(random)];
-    std::vector<double> weights;
-    double weight = 1;
-    for (std::size_t i = 0; i < reward.levels.size(); ++i) {
-        weights.push_back(weight);
-        weight *= rule.levelWeightDecay;
+    std::vector<int> weights;
+    for (const auto* candidate : candidates) {
+        weights.push_back(candidate->weight);
     }
-    const int level = 1 + std::discrete_distribution<int>(weights.begin(), weights.end())(random);
+    const auto& reward = *candidates[draw(weights, random)];
+    weights.clear();
+    for (const auto& level : reward.levels) {
+        weights.push_back(level.weight);
+    }
+    const int level = reward.levels[draw(weights, random)].level;
     const int count = purchased(cat, item.id);
     LogicEconomy::pay(cat, rule.purchaseCosts[count]);
     Prop prop{cell, item.id};
-    prop.rewardKind = reward.id;
+    prop.rewardKind = reward.item;
     prop.rewardLevel = level;
     prop.revealStartedAt = game.elapsed;
     prop.revealAt = game.elapsed + rule.revealDuration;

@@ -2,6 +2,7 @@ import { characterName, characterRole, type CharacterRole } from "./characters";
 import { icon, locationFor, modules } from "./navigation";
 import { characterPreview, themePreview } from "./catalog_views";
 import { escape as e, differences, form, tableNames } from "./editor";
+import { itemSettings, itemTabs, randomItemsTableView } from "./item_editor";
 import type {
   Assets,
   ClientTarget,
@@ -103,7 +104,7 @@ export function itemsView(w: Workspace, selected: number, query: string) {
   const item = items[selected];
   const category = { attack: "攻击", currency: "经济", utility: "功能" };
   return `<div class="editor-layout"><aside class="record-list"><input id="item-search" type="search" placeholder="搜索道具" value="${e(query)}" aria-label="搜索道具"><div id="item-records">${items.map((r, i) => `<button data-item="${i}" data-search="${e(String(r.name) + String(r.id))}" class="record ${i === selected ? "selected" : ""}" ${!(String(r.name) + String(r.id)).toLowerCase().includes(query.toLowerCase()) ? "hidden" : ""}><span class="record-icon" aria-hidden="true">${r.category === "attack" ? "✦" : r.category === "currency" ? "◉" : "◇"}</span><span><strong>${e(r.name)}</strong><small>${e(r.id)}</small></span></button>`).join("")}</div></aside>
-    <section class="panel editor-panel"><div class="panel-heading"><h2>${e(item?.name ?? "暂无道具")}</h2><div class="heading-actions"><span class="pill">${e(category[String(item?.category) as keyof typeof category] ?? item?.category)}</span><button class="button" data-action="clone-item" ${item ? "" : "disabled"}>复制道具</button></div></div>${item ? form(item, ["items", selected], w.draft.tables) : ""}</section></div>`;
+    <section class="panel editor-panel"><div class="panel-heading item-editor-header"><h2>${e(item?.name ?? "暂无道具")}</h2>${item ? itemTabs(item) : ""}<div class="heading-actions"><span class="pill">${e(category[String(item?.category) as keyof typeof category] ?? item?.category)}</span><button class="button" data-action="clone-item" ${item ? "" : "disabled"}>复制道具</button></div></div>${item ? itemSettings(w.draft.tables, selected) : ""}</section></div>`;
 }
 export function managerView(w: Workspace) {
   return `<section class="panel">${form(w.draft.tables.manager, ["manager"], w.draft.tables)}</section>`;
@@ -123,7 +124,7 @@ export function tablesView(
               `<option value="${id}" ${selected === id ? "selected" : ""}>${name} · ${id}.json</option>`,
           )
           .join("")}</select></label>`
-  }<button class="button" data-action="toggle-raw">${raw ? "表单" : "JSON"}</button><button class="text-btn" data-action="reset">重置草稿</button></div>${raw ? `<textarea id="raw-json" class="json-editor" spellcheck="false" aria-label="配表 JSON">${e(JSON.stringify(w.draft.tables[selected], null, 2))}</textarea><button class="button primary" data-action="apply-json">应用</button>` : form(w.draft.tables[selected], [selected], w.draft.tables)}</section>`;
+  }<button class="button" data-action="toggle-raw">${raw ? "表单" : "JSON"}</button><button class="text-btn" data-action="reset">重置草稿</button></div>${raw ? `<textarea id="raw-json" class="json-editor" spellcheck="false" aria-label="配表 JSON">${e(JSON.stringify(w.draft.tables[selected], null, 2))}</textarea><button class="button primary" data-action="apply-json">应用</button>` : selected === "random_items" ? randomItemsTableView(w.draft.tables) : form(w.draft.tables[selected], [selected], w.draft.tables)}</section>`;
 }
 const motionNames: Record<string, string> = {
   idle: "待机",

@@ -1,6 +1,16 @@
 import "./style.css";
 import "./workspace.css";
 import "./audio.css";
+import "./random_rewards.css";
+import "./item_editor.css";
+import { switchItemTab, itemTabKeydown, revealItemField } from "./item_editor";
+import {
+  editRandomReward,
+  randomRewardAction,
+  refreshRewardTotals,
+  rememberRewardDisclosure,
+  validateRandomRewards,
+} from "./random_rewards";
 import { AudioAdmin } from "./audio";
 import type { AudioWorkspace } from "../shared/audio";
 import { api, ApiError, setAccess } from "./api";
@@ -164,10 +174,19 @@ async function save() {
   applyRaw();
   const invalid = app.querySelector<HTMLInputElement>("input:invalid");
   if (invalid) {
+    revealItemField(invalid, app);
+    for (
+      let parent = invalid.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+    }
     invalid.reportValidity();
     throw new Error("请先填写有效的数值");
   }
   if (!dirty) return;
+  validateRandomRewards(workspace.draft.tables);
   accept(
     await api<Workspace>("draft", {
       revision: workspace.draft.revision,
@@ -196,6 +215,7 @@ async function dialog(
   );
 }
 function render() {
+  rememberRewardDisclosure(app);
   const active = locationFor(page);
   const changedPage = renderedPage !== page;
   renderedPage = page;
@@ -226,6 +246,7 @@ function render() {
   else if (page === "clients") content.innerHTML = clientsView(assets, clients);
   content.insertAdjacentHTML("afterbegin", pageNavigation(page));
   if (page === "audio") audioAdmin.afterRender();
+  refreshRewardTotals(content, workspace.draft.tables);
   if (changedPage) window.scrollTo(0, 0);
   status();
   if (workspace.conflict)
@@ -264,6 +285,14 @@ app.addEventListener("submit", (event) => {
 app.addEventListener("input", (event) => {
   const target = event.target as HTMLInputElement | HTMLTextAreaElement;
   if (audioAdmin.input(target)) return;
+  if (target instanceof HTMLInputElement && target.dataset.rewardField) {
+    editRandomReward(target, workspace.draft.tables);
+    dirty = true;
+    checked = "";
+    refreshRewardTotals(app, workspace.draft.tables);
+    status();
+    return;
+  }
   if (target.id === "item-search") {
     query = target.value;
     app
@@ -301,6 +330,15 @@ app.addEventListener("input", (event) => {
 });
 app.addEventListener("change", (event) => {
   const target = event.target as HTMLSelectElement;
+  if (
+    target instanceof HTMLSelectElement &&
+    editRandomReward(target, workspace.draft.tables)
+  ) {
+    dirty = true;
+    checked = "";
+    render();
+    return;
+  }
   if (target.id === "audio-upload") {
     void audioAdmin.upload(event.target as HTMLInputElement);
     return;
@@ -335,6 +373,7 @@ app.addEventListener("dblclick", (event) => {
   if (card) void audioAdmin.click(card);
 });
 app.addEventListener("keydown", (event) => {
+  if (!busy && itemTabKeydown(event, app)) return;
   if (busy || (event.key !== "Enter" && event.key !== " ")) return;
   const card = event.target as HTMLElement;
   if (!card.matches("[data-audio-card]")) return;
@@ -346,6 +385,16 @@ app.addEventListener("click", (event) => {
     "button,a[data-action],a[data-nav]",
   );
   if (!button || busy) return;
+  if (switchItemTab(button, app)) return;
+  if (
+    button.dataset.rewardAction &&
+    randomRewardAction(button, workspace.draft.tables)
+  ) {
+    dirty = true;
+    checked = "";
+    render();
+    return;
+  }
   if (button.dataset.audio) {
     void audioAdmin.click(button);
     return;

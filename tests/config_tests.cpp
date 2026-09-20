@@ -570,7 +570,7 @@ void randomItemPurchases() {
     for (const auto& [id, entry] : game.config().items) {
         check(!entry.description.empty(), "every item has a description");
     }
-    check(LogicRandomItem::pool(game, 0).size() == 5,
+    check(LogicRandomItem::pool(game, 0, item.id).size() == 5,
           "pool has all five installable items, without terrain or consumables");
     const int tile = room.floor.front() == room.nest ? room.floor.back() : room.floor.front();
     cat.wallet["cans"] = 0;
@@ -601,10 +601,10 @@ void randomItemPurchases() {
         check(!game.command(0, GameAction::Build, -1, cell, item.id).empty() && cat.wallet == paid &&
                   LogicRandomItem::purchased(cat, item.id) == i + 1,
               "repeated clicks on a shaking bin neither reroll nor charge");
-        const auto pool = LogicRandomItem::pool(game, 0);
+        const auto pool = LogicRandomItem::pool(game, 0, item.id);
         if (game.config().item(pending.rewardKind).unique) {
             check(std::none_of(pool.begin(), pool.end(),
-                               [&](const auto* reward) { return reward->id == pending.rewardKind; }),
+                               [&](const auto* reward) { return reward->item == pending.rewardKind; }),
                   "pending unique reward is reserved against other rolls");
             check(!game.itemPurchaseError(0, game.config().item(pending.rewardKind), 1).empty(),
                   "pending unique reward blocks direct duplicate purchase");
@@ -643,6 +643,106 @@ void randomItemPurchases() {
     for (const auto& r : game.dorms) {
         check(std::none_of(r.props.begin(), r.props.end(), [](const auto& p) { return !p.rewardKind.empty(); }),
               "new match clears all pending rewards");
+    }
+}
+void configuredRandomRewards() {
+    auto data = document();
+    auto& rule = data["random_items"][0];
+    rule.removeMember("level_weight_decay");
+    Json::Value reward;
+    reward["item"] = "launcher";
+    reward["weight"] = 7;
+    reward["min_level"] = 2;
+    reward["max_level"] = 4;
+    for (int i = 2; i <= 4; ++i) {
+        Json::Value level;
+        level["level"] = i;
+        level["weight"] = i == 3 ? 23 : 0;
+        reward["level_weights"].append(level);
+    }
+    rule["rewards"] = Json::Value(Json::arrayValue);
+    rule["rewards"].append(reward);
+    auto rejectsPool = [&](const std::function<void(Json::Value&)>& change, const char* message) {
+        auto invalid = data;
+        change(invalid["random_items"][0]["rewards"]);
+        bool rejected = false;
+        try {
+            parse(invalid);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected, message);
+    };
+    rejectsPool([](auto& r) { r[0]["item"] = "missing"; }, "unknown reward rejected");
+    rejectsPool([](auto& r) { r[0]["item"] = "shelf"; }, "unbuildable reward rejected");
+    rejectsPool([](auto& r) { r[0]["item"] = "magic_trash_bin"; }, "recursive random reward rejected");
+    rejectsPool([](auto& r) { r.append(r[0]); }, "duplicate reward rejected");
+    rejectsPool([](auto& r) { r.clear(); }, "empty configured pool rejected");
+    rejectsPool([](auto& r) { r[0]["weight"] = 0; }, "all-zero item weights rejected");
+    rejectsPool([](auto& r) { r[0]["weight"] = -1; }, "negative weight rejected");
+    rejectsPool([](auto& r) { r[0]["weight"] = "100"; }, "string weight rejected");
+    rejectsPool([](auto& r) { r[0]["weight"] = 1000000001; }, "out of range weight rejected");
+    rejectsPool([](auto& r) { r[0]["weight"] = 1.5; }, "fractional item weight rejected");
+    rejectsPool([](auto& r) { r[0]["min_level"] = 5; }, "reversed range rejected");
+    rejectsPool([](auto& r) { r[0]["max_level"] = 64; }, "unknown level rejected");
+    rejectsPool([](auto& r) { r[0]["level_weights"][0]["weight"] = 0.001; }, "fractional level weight rejected");
+    rejectsPool([](auto& r) { r[0]["level_weights"][1]["weight"] = 0; }, "all-zero level weights rejected");
+    rejectsPool([](auto& r) { r[0]["level_weights"][1]["level"] = 2; }, "duplicate level rejected");
+    rejectsPool([](auto& r) { r[0]["level_weights"].resize(2); }, "missing level rejected");
+    auto game = claimed(parse(data));
+    game.players[0].wallet = {{"cans", 10000}, {"dried_fish", 10000}};
+    const int cell = build(game, "magic_trash_bin");
+    check(game.propAt(cell)->rewardKind == "launcher" && game.propAt(cell)->rewardLevel == 3,
+          "two-stage draw uses the configured item and level, skipping zero chances");
+    game.elapsed = game.propAt(cell)->revealAt;
+    LogicRandomItem::update(game);
+    check(game.propAt(cell)->kind == "launcher" && game.propAt(cell)->level == 3,
+          "configured level replaces the bin when revealed");
+
+    auto& entry = rule["rewards"][0];
+    entry["item"] = "mini_fridge";
+    auto uniqueGame = claimed(parse(data));
+    auto& cat = uniqueGame.players[0];
+    cat.wallet = {{"cans", 10000}, {"dried_fish", 10000}};
+    build(uniqueGame, "magic_trash_bin");
+    const auto before = cat.wallet;
+    std::mt19937 random(12);
+    check(!LogicRandomItem::purchase(uniqueGame, 0, uniqueGame.dorms[0].floor.back(),
+                                     uniqueGame.config().item("magic_trash_bin"), random)
+                  .empty() &&
+              cat.wallet == before && LogicRandomItem::purchased(cat, "magic_trash_bin") == 1,
+          "pool exhausted by a pending unique reward neither charges nor consumes allowance");
+
+    entry["weight"] = 3;
+    reward["weight"] = 7;
+    rule["rewards"].append(reward);
+    auto fallback = claimed(parse(data));
+    fallback.players[0].wallet = {{"cans", 10000}, {"dried_fish", 10000}};
+    build(fallback, "mini_fridge");
+    const int drawn = build(fallback, "magic_trash_bin");
+    check(fallback.propAt(drawn)->rewardKind == "launcher",
+          "remaining eligible probabilities are renormalized after unique exclusion");
+    check(fallback.config().randomItems.at("magic_trash_bin").rewards[0].weight == 3 &&
+              fallback.config().randomItems.at("magic_trash_bin").rewards[1].weight == 7,
+          "relative item weights are independent of level count and need not total 100");
+    reward["item"] = "fish_rack";
+    reward["max_level"] = 3;
+    reward["level_weights"].resize(2);
+    rule["rewards"].append(reward);
+    for (auto& r : rule["rewards"]) {
+        r["weight"] = 1000000000;
+        for (auto& l : r["level_weights"]) {
+            l["weight"] = 1000000000;
+        }
+    }
+    auto large = claimed(parse(data));
+    large.players[0].wallet = {{"cans", 10000}, {"dried_fish", 10000}};
+    for (int i = 0; i < 20; ++i) {
+        large.players[0].itemPurchases.clear();
+        large.dorms[0].props.clear();
+        const int placed = build(large, "magic_trash_bin");
+        check(large.propAt(placed)->rewardLevel >= 2 && large.propAt(placed)->rewardLevel <= 4,
+              "item and level weight sums exceeding 32 bits draw valid rewards");
     }
 }
 void fishRackProduction() {
@@ -815,6 +915,7 @@ int main() {
         fishRackProduction();
         uniqueFridgePurchases();
         randomItemPurchases();
+        configuredRandomRewards();
         customMapProfiles();
         snapshots();
         std::cout << "PASS " << checks << " configuration/economy checks\n";

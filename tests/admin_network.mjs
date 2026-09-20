@@ -169,12 +169,90 @@ try {
     409,
   );
   await request("validate", { revision: w.draft.revision });
-  const valid = structuredClone(w.draft.tables);
-  w.draft.tables.items[0].levels[0].cost[0].currency = "missing_currency";
+  const pool = w.draft.tables.random_items[0];
+  delete pool.level_weight_decay;
+  pool.rewards = [
+    {
+      item: "launcher",
+      weight: 3,
+      min_level: 2,
+      max_level: 3,
+      level_weights: [
+        { level: 2, weight: 7 },
+        { level: 3, weight: 2 },
+      ],
+    },
+    {
+      item: "mini_fridge",
+      weight: 9,
+      min_level: 1,
+      max_level: 1,
+      level_weights: [{ level: 1, weight: 1 }],
+    },
+  ];
+  for (const invalidate of [
+    (r) => {
+      r[0].item = "missing_item";
+    },
+    (r) => {
+      r[0].weight = 59.99;
+    },
+    (r) => {
+      r[0].weight = -1;
+    },
+    (r) => {
+      r[0].level_weights[0].weight = 75.249;
+    },
+    (r) => {
+      r[0].max_level = 99;
+    },
+    (r) => {
+      r[0].level_weights.forEach((l) => (l.weight = 0));
+    },
+    (r) => {
+      r.forEach((item) => (item.weight = 0));
+    },
+    (r) => {
+      r[1].item = "launcher";
+    },
+  ]) {
+    const invalid = structuredClone(w.draft.tables);
+    invalidate(invalid.random_items[0].rewards);
+    await request(
+      "draft",
+      { revision: w.draft.revision, tables: invalid },
+      422,
+    );
+    assert.equal(
+      (await request("workspace")).draft.revision,
+      w.draft.revision,
+      "invalid reward configuration must not replace the saved draft",
+    );
+  }
   w = await request("draft", {
     revision: w.draft.revision,
     tables: w.draft.tables,
   });
+  assert.deepEqual(w.draft.tables.random_items[0].rewards, pool.rewards);
+  const valid = structuredClone(w.draft.tables);
+  w.draft.tables.items[0].levels[0].cost[0].currency = "missing_currency";
+  await request(
+    "draft",
+    {
+      revision: w.draft.revision,
+      tables: w.draft.tables,
+    },
+    422,
+  );
+  // An older or externally edited draft must still be rejected at publication.
+  const corruptDraft = JSON.parse(
+    await fs.readFile(path.join(storage, "draft.json"), "utf8"),
+  );
+  corruptDraft.tables.random_items[0].rewards[0].weight = -1;
+  await fs.writeFile(
+    path.join(storage, "draft.json"),
+    JSON.stringify(corruptDraft),
+  );
   await request("validate", { revision: w.draft.revision }, 422);
   await request("publish", { revision: w.draft.revision }, 422);
   await assert.rejects(fs.access(path.join(config, "active.json")));
@@ -188,6 +266,11 @@ try {
     original.manager.levels[0].max_hp + 15,
   );
   assert.equal(w.conflict, false);
+  assert.deepEqual(
+    w.current.tables.random_items[0].rewards,
+    pool.rewards,
+    "published relative weights are preserved without requiring a total of 100",
+  );
   assert.notEqual(w.current.release, "source");
   assert.deepEqual(
     JSON.parse(await fs.readFile(path.join(config, "manager.json"), "utf8")),

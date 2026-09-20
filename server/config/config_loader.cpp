@@ -42,6 +42,35 @@ double number(const JsonValue& v, const std::string& at, double min = 0, double 
     }
     return v.asDouble();
 }
+int rewardWeight(const JsonValue& v, const std::string& at) {
+    if (!v.isNumeric() || !std::isfinite(v.asDouble()) || v.asDouble() < 0 || v.asDouble() > 1000000000 ||
+        std::floor(v.asDouble()) != v.asDouble()) {
+        fail(at, "权重须为 0～1000000000 的整数");
+    }
+    return static_cast<int>(v.asDouble());
+}
+// Compatibility for existing drafts/releases. New edits use integer weights.
+std::vector<int> legacyProbabilities(const std::vector<double>& weights) {
+    double total = 0;
+    for (const auto weight : weights) {
+        total += weight;
+    }
+    std::vector<int> result(weights.size());
+    int remaining = 10000;
+    std::vector<double> fractions(weights.size());
+    for (std::size_t i = 0; i < weights.size(); ++i) {
+        const double exact = weights[i] / total * 10000;
+        result[i] = static_cast<int>(std::floor(exact));
+        fractions[i] = exact - result[i];
+        remaining -= result[i];
+    }
+    while (remaining-- > 0) {
+        const auto best = std::max_element(fractions.begin(), fractions.end());
+        ++result[static_cast<std::size_t>(best - fractions.begin())];
+        *best = -1;
+    }
+    return result;
+}
 std::string string(const JsonValue& v, const std::string& at, bool empty = false, std::size_t maxLength = 128) {
     if (!v.isString() || (!empty && v.asString().empty()) || v.asString().size() > maxLength) {
         fail(at, "invalid string");
@@ -408,13 +437,84 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
         }
     }
     for (const auto& row : array(root["random_items"], "random_items", 0, 128)) {
-        object(row, "random_items", {"item", "purchase_costs", "level_weight_decay", "reveal_duration_ms"});
+        object(row, "random_items", {"item", "purchase_costs", "level_weight_decay", "reveal_duration_ms", "rewards"});
         const auto key = id(row["item"], "random_items.item");
         if (!cfg->items.contains(key) || cfg->item(key).behavior != ItemBehavior::RandomItem) {
             fail(key, "random item rule must reference a random_item consumable");
         }
         RandomItemConfig rules;
-        rules.levelWeightDecay = number(row["level_weight_decay"], key + ".level_weight_decay", 0.01, 0.99);
+        if (row.isMember("rewards")) {
+            if (row.isMember("level_weight_decay")) {
+                fail(key, "配置奖池后请移除旧的 level_weight_decay 字段");
+            }
+            std::set<std::string> seenItems;
+            std::int64_t total = 0;
+            for (const auto& entry : array(row["rewards"], key + ".rewards", 1, 128)) {
+                const auto at = key + ".rewards[" + std::to_string(rules.rewards.size()) + "]";
+                object(entry, at, {"item", "weight", "min_level", "max_level", "level_weights"});
+                RandomItemReward reward;
+                reward.item = id(entry["item"], at + ".item");
+                const auto found = cfg->items.find(reward.item);
+                if (found == cfg->items.end() || !found->second.buildable ||
+                    found->second.behavior == ItemBehavior::RandomItem || found->second.levels.empty()) {
+                    fail(at, "奖池道具不存在或不可抽取：" + reward.item);
+                }
+                if (!seenItems.insert(reward.item).second) {
+                    fail(at, "奖池中有重复道具：" + reward.item);
+                }
+                reward.weight = rewardWeight(entry["weight"], at + ".weight");
+                total += reward.weight;
+                const auto count = static_cast<int>(found->second.levels.size());
+                const int min = integer(entry["min_level"], at + ".min_level", 1, count);
+                const int max = integer(entry["max_level"], at + ".max_level", min, count);
+                std::set<int> seenLevels;
+                std::int64_t levelTotal = 0;
+                for (const auto& value :
+                     array(entry["level_weights"], at + ".level_weights", max - min + 1, max - min + 1)) {
+                    object(value, at + ".level_weights", {"level", "weight"});
+                    const int level = integer(value["level"], at + ".level", min, max);
+                    if (!seenLevels.insert(level).second) {
+                        fail(at, "等级权重中有重复等级");
+                    }
+                    const int weight = rewardWeight(value["weight"], at + ".level[" + std::to_string(level) + "]");
+                    levelTotal += weight;
+                    reward.levels.push_back({level, weight});
+                }
+                if (levelTotal == 0) {
+                    fail(at, "至少一个等级的权重须大于 0");
+                }
+                rules.rewards.push_back(std::move(reward));
+            }
+            if (total == 0) {
+                fail(key, "奖池中至少一个道具的权重须大于 0");
+            }
+        } else {
+            const double decay = number(row["level_weight_decay"], key + ".level_weight_decay", 0.01, 0.99);
+            for (const auto& [id, item] : cfg->items) {
+                if (!item.buildable || item.behavior == ItemBehavior::RandomItem || item.levels.empty()) {
+                    continue;
+                }
+                RandomItemReward reward;
+                reward.item = id;
+                std::vector<double> weights;
+                double weight = 1;
+                for (std::size_t i = 0; i < item.levels.size(); ++i) {
+                    weights.push_back(weight);
+                    weight *= decay;
+                }
+                const auto chances = legacyProbabilities(weights);
+                for (std::size_t i = 0; i < item.levels.size(); ++i) {
+                    reward.levels.push_back({item.levels[i].level, chances[i]});
+                }
+                rules.rewards.push_back(std::move(reward));
+            }
+            if (rules.rewards.empty()) {
+                fail(key, "奖池没有可抽取的道具");
+            }
+            for (auto& reward : rules.rewards) {
+                reward.weight = 1;
+            }
+        }
         rules.revealDuration = integer(row["reveal_duration_ms"], key + ".reveal_duration_ms", 200, 10000) / 1000.0;
         for (const auto& entry : array(row["purchase_costs"], key + ".purchase_costs", 1, 32)) {
             auto price = cost(entry, *cfg, key + ".purchase_costs");
