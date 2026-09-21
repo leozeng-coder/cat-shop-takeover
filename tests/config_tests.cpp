@@ -107,6 +107,12 @@ void validation() {
     check(launcher.levels[2].name == "双发毛线机" && launcher.levels[2].appearance == "launcher_dual" &&
               launcher.levels[4].name == "喵喵毛线炮" && launcher.levels[4].appearance == "launcher_cannon",
           "configured evolution changes item presentation without changing its behavior");
+    const auto& pantry = cfg->item("pantry");
+    const auto& fish = cfg->item("fish_rack");
+    check(pantry.levels.size() == 6 && fish.levels.size() == 6 &&
+              pantry.levels.back().name == "罐头皇家宝库" && pantry.levels.back().appearance == "pantry_royal_vault" &&
+              fish.levels.back().name == "鱼干自动工厂" && fish.levels.back().appearance == "fish_factory",
+          "both economy items reach their sixth configured presentation");
     rejects([](auto& d) { d["items"][0]["levels"][2]["appearance"] = "missing_skin"; },
             "unknown level appearance rejected");
     rejects([](auto& d) { d["items"][0]["levels"][2]["name"] = ""; }, "empty level name rejected");
@@ -747,15 +753,19 @@ void configuredRandomRewards() {
 }
 void fishRackProduction() {
     auto game = claimed();
+    game.monster.state = "resting";
+    game.monster.restUntil = 10000;
     auto& p = game.players[0];
     const auto& rack = game.config().item("fish_rack");
     const auto& first = rack.levels.front();
-    p.wallet["cans"] = 2000;
+    p.wallet["cans"] = 10000;
     const int cell = build(game, rack.id);
-    check(p.wallet["cans"] == 2000 - first.cost.front().amount && p.wallet["dried_fish"] == 0,
+    check(p.wallet["cans"] == 10000 - first.cost.front().amount && p.wallet["dried_fish"] == 0,
           "rack construction charges cans without granting fish early");
     auto tick = [&](int count) {
         for (int i = 0; i < count; ++i) {
+            game.monster.state = "resting";
+            game.monster.restUntil = 10000;
             game.step(.05);
         }
     };
@@ -774,8 +784,12 @@ void fishRackProduction() {
                 earned += previous.amount;
             }
             const auto wallet = p.wallet;
-            check(game.command(0, GameAction::Build, -1, cell, rack.id).empty(),
-                  "rack can fund its own upgrades through production");
+            const auto upgradeError = game.command(0, GameAction::Build, -1, cell, rack.id);
+            const auto message = "rack can fund its own level " + std::to_string(level.level) +
+                                 " upgrade through production: " + upgradeError + " phase=" + game.phase +
+                                 " elapsed=" + std::to_string(game.elapsed) + " alive=" +
+                                 std::to_string(p.alive);
+            check(upgradeError.empty(), message.c_str());
             for (const auto& price : level.cost) {
                 check(p.wallet[price.currency] == wallet.at(price.currency) - price.amount,
                       "rack upgrade pays each configured currency");

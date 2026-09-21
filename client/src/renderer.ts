@@ -3,6 +3,9 @@ import { GameArt } from './render/game_art';
 import { MotionTrack } from './render/motion_track';
 import { GameCamera } from './render/game_camera';
 import { MapTheme, type TileSurface } from './render/map_theme';
+import { visualAssets } from './render/visual_assets';
+import { presentationStore } from './render/presentation_store';
+import { DEFAULT_VISUAL } from '../../shared/presentation';
 import { characterLibrary } from './characters/character_library';
 import { CharacterMotion } from './characters/character_motion';
 import { MANAGER_CHARACTER, ManagerMotion } from './characters/manager_motion';
@@ -215,6 +218,24 @@ export class Renderer {
     const a = this.art,
       c = this.ctx,
       p = this.point(prop.cell);
+    const textured = visualAssets.item(
+      c,
+      prop.appearance,
+      p.x,
+      p.y,
+      this.state!.map.tileSize,
+      this.lastFrame,
+    );
+    if (textured) {
+      if (prop.appearance.startsWith('launcher') && this.state!.elapsed - prop.lastShot < 0.18) {
+        const target = this.state!.monster;
+        c.save();
+        c.setLineDash([5, 4]);
+        a.line(p.x, p.y, target.x, target.y, '#e6ac75bb', 2);
+        c.restore();
+      }
+      return;
+    }
     if (prop.appearance === 'magic_trash_bin') {
       const elapsed =
         this.state!.elapsed + Math.min(0.15, Math.max(0, (this.lastFrame - this.receivedAt) / 1000));
@@ -275,17 +296,40 @@ export class Renderer {
     const { image, tilesPerImage } = surface;
     const sw = image.width / tilesPerImage,
       sh = image.height / tilesPerImage;
+    const style = presentationStore.get(surface.visualId);
+    if (style === DEFAULT_VISUAL) {
+      this.ctx.drawImage(
+        image,
+        (x % tilesPerImage) * sw,
+        (y % tilesPerImage) * sh,
+        sw,
+        sh,
+        x * tileSize,
+        y * tileSize,
+        tileSize,
+        tileSize,
+      );
+      return;
+    }
+    this.ctx.save();
+    this.ctx.globalAlpha *= style.opacity;
+    this.ctx.translate(
+      x * tileSize + tileSize / 2 + style.offsetX,
+      y * tileSize + tileSize / 2 + style.offsetY,
+    );
+    this.ctx.scale(style.scale, style.scale);
     this.ctx.drawImage(
       image,
       (x % tilesPerImage) * sw,
       (y % tilesPerImage) * sh,
       sw,
       sh,
-      x * tileSize,
-      y * tileSize,
+      -tileSize / 2,
+      -tileSize / 2,
       tileSize,
       tileSize,
     );
+    this.ctx.restore();
   }
   private drawMap() {
     const g = this.state!,
@@ -359,11 +403,9 @@ export class Renderer {
       c.save();
       c.translate(door.x, door.y);
       if (!horizontal) c.rotate(Math.PI / 2);
-      // Door frames remain distinct from masonry in all three door states.
-      for (const side of [-1, 1])
-        a.rect(side * 14 - 2, -10, 4, 20, steel ? '#718aa2' : '#8b704f', 1, doorEdge);
-      if (room.closed) {
-        const guestExiting = g.players.some((cat) => {
+      const guestExiting =
+        room.closed &&
+        g.players.some((cat) => {
           const cell = Math.floor(cat.y / m.tileSize) * m.width + Math.floor(cat.x / m.tileSize);
           return (
             cat.alive &&
@@ -373,53 +415,72 @@ export class Renderer {
             Math.hypot(cat.x - door.x, cat.y - door.y) < 24
           );
         });
-        c.save();
-        if (guestExiting) {
-          c.translate(-12, 0);
-          c.rotate(-0.9);
-          c.translate(12, 0);
+      const doorState =
+        room.hp <= 0
+          ? 'broken'
+          : !room.closed || guestExiting
+            ? 'open'
+            : room.hp < room.maxHp / 3
+              ? 'damaged_2'
+              : room.hp < (room.maxHp * 2) / 3
+                ? 'damaged_1'
+                : 'closed';
+      const texturedDoor = visualAssets.door(c, room.doorAppearance, doorState, 0, 0, m.tileSize);
+      if (!texturedDoor) {
+        // Door frames remain distinct from masonry in all three door states.
+        for (const side of [-1, 1])
+          a.rect(side * 14 - 2, -10, 4, 20, steel ? '#718aa2' : '#8b704f', 1, doorEdge);
+        if (room.closed) {
+          c.save();
+          if (guestExiting) {
+            c.translate(-12, 0);
+            c.rotate(-0.9);
+            c.translate(12, 0);
+          }
+          a.rect(
+            -12,
+            -9,
+            24,
+            18,
+            steel ? '#c3d6e5' : room.doorAppearance === 'iron' ? '#97aeb3' : mine ? '#c89e60' : '#bc925b',
+            2,
+            doorEdge,
+          );
+          a.rect(-9, -6, 8, 12, doorPanel, 1, steel ? doorEdge : '#af864f');
+          a.rect(2, -6, 7, 12, doorPanel, 1, steel ? doorEdge : '#af864f');
+          if (steel) {
+            a.rect(-10, -2, 20, 4, '#e6f0f7', 1, doorEdge);
+            for (const x of [-9, 9]) for (const y of [-6, 6]) a.ellipse(x, y, 1, 1, '#526b83');
+          }
+          a.ellipse(8, 0, 1.6, 1.6, steel ? '#425b72' : '#6c583c');
+          if (room.hp < room.maxHp * 0.5) {
+            a.line(-5, -8, -1, -2, '#795d3e', 1.5);
+            a.line(-1, -2, -4, 4, '#795d3e', 1.5);
+          }
+          c.restore();
+        } else if (room.hp > 0) {
+          // The open leaf rests beside the frame, leaving the passage clear.
+          a.rect(-12, -8, 5, 23, steel ? '#c3d6e5' : '#cba36c', 1, doorEdge);
+          a.ellipse(-9.5, 10, 1, 1, '#6c583c');
+        } else {
+          a.line(-9, 5, 7, -4, '#b59b72', 3);
+          a.line(-6, -7, 5, 8, '#b59b72', 3);
         }
-        a.rect(
-          -12,
-          -9,
-          24,
-          18,
-          steel ? '#c3d6e5' : room.doorAppearance === 'iron' ? '#97aeb3' : mine ? '#c89e60' : '#bc925b',
-          2,
-          doorEdge,
-        );
-        a.rect(-9, -6, 8, 12, doorPanel, 1, steel ? doorEdge : '#af864f');
-        a.rect(2, -6, 7, 12, doorPanel, 1, steel ? doorEdge : '#af864f');
-        if (steel) {
-          a.rect(-10, -2, 20, 4, '#e6f0f7', 1, doorEdge);
-          for (const x of [-9, 9]) for (const y of [-6, 6]) a.ellipse(x, y, 1, 1, '#526b83');
-        }
-        a.ellipse(8, 0, 1.6, 1.6, steel ? '#425b72' : '#6c583c');
-        if (room.hp < room.maxHp * 0.5) {
-          a.line(-5, -8, -1, -2, '#795d3e', 1.5);
-          a.line(-1, -2, -4, 4, '#795d3e', 1.5);
-        }
-        c.restore();
-      } else if (room.hp > 0) {
-        // The open leaf rests beside the frame, leaving the passage clear.
-        a.rect(-12, -8, 5, 23, steel ? '#c3d6e5' : '#cba36c', 1, doorEdge);
-        a.ellipse(-9.5, 10, 1, 1, '#6c583c');
-      } else {
-        a.line(-9, 5, 7, -4, '#b59b72', 3);
-        a.line(-6, -7, 5, 8, '#b59b72', 3);
       }
       c.restore();
       if (room.closed) {
         a.rect(door.x - 17, door.y - 23, 34, 4, '#899176', 2);
         a.rect(door.x - 17, door.y - 23, 34 * Math.max(0, room.hp / room.maxHp), 4, '#bad080', 2);
       }
-      c.save();
-      c.shadowColor = '#f5d97d';
-      c.shadowBlur = night ? 14 : 0;
-      a.rect(nest.x - 14, nest.y - 13, 28, 27, mine ? '#e9bd71' : '#e2c493', 7, '#b49b6c');
-      c.restore();
-      a.ellipse(nest.x, nest.y, 10, 8, '#f6e3af');
-      a.can(nest.x, nest.y - 2, mine ? '#d9944f' : '#c7a773', 0.65);
+      if (!visualAssets.item(c, 'nest', nest.x, nest.y, g.map.tileSize, this.lastFrame)) {
+        c.save();
+        c.shadowColor = '#f5d97d';
+        c.shadowBlur = night ? 14 : 0;
+        a.rect(nest.x - 14, nest.y - 13, 28, 27, mine ? '#e9bd71' : '#e2c493', 7, '#b49b6c');
+        c.restore();
+        a.ellipse(nest.x, nest.y, 10, 8, '#f6e3af');
+        a.can(nest.x, nest.y - 2, mine ? '#d9944f' : '#c7a773', 0.65);
+      }
       a.text('窝', nest.x, nest.y + 24, 10, '#9c8355', 'center');
       for (const prop of room.props) this.drawProp(prop);
     }
@@ -488,8 +549,14 @@ export class Renderer {
     const background = this.theme.background;
     if (background) {
       const margin = this.theme.rendering.background.outsideTiles * m.tileSize;
+      const style = presentationStore.get(`scenes/${this.theme.id}/background`);
       // Anchor artwork to the world, including the four-cell decorative perimeter.
-      this.ctx.drawImage(background, -margin, -margin, w + margin * 2, h + margin * 2);
+      this.ctx.save();
+      this.ctx.globalAlpha *= style.opacity;
+      this.ctx.translate(w / 2 + style.offsetX, h / 2 + style.offsetY);
+      this.ctx.scale(style.scale, style.scale);
+      this.ctx.drawImage(background, -w / 2 - margin, -h / 2 - margin, w + margin * 2, h + margin * 2);
+      this.ctx.restore();
       if (night) {
         this.ctx.fillStyle = this.theme.rendering.nightTint;
         this.ctx.fillRect(-margin, -margin, w + margin * 2, h + margin * 2);

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>猫猫夺店计划 · 道具预览</title>
+    <style>
+      :root { font-family: system-ui, sans-serif; color: #405144; background: #e6ecdf; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { max-width: 1180px; margin: auto; padding: 28px 20px 60px; }
+      header { display: flex; justify-content: space-between; gap: 20px; align-items: end; flex-wrap: wrap; }
+      h1 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 38px); }
+      p { margin: 0; color: #70806d; }
+      a { color: #53705a; }
+      nav { display: flex; gap: 18px; }
+      .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 22px 0; }
+      button, select { font: inherit; color: inherit; border: 1px solid #bacab6; background: #fffef6; border-radius: 9px; padding: 8px 12px; cursor: pointer; }
+      button[aria-pressed="true"] { background: #59745c; color: white; }
+      input[type="range"] { vertical-align: middle; width: 120px; }
+      #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+      article { background: #fffef8; border: 1px solid #d1ddc9; border-radius: 18px; padding: 14px; }
+      h2 { margin: 0 0 10px; font-size: 16px; }
+      #doors-heading { margin-top: 36px; }
+      #doors { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 14px; }
+      small { color: #8a9985; }
+      .visual { display: flex; align-items: end; justify-content: center; gap: 6px; min-height: 104px; }
+      canvas { image-rendering: auto; background: #d1ddc9; border-radius: 9px; }
+      canvas.small { border-radius: 4px; }
+      .door-states { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+      .door-state { text-align: center; font-size: 11px; color: #788976; }
+      .door-state canvas { width: 100%; max-width: 112px; }
+      #status { padding: 20px 0; }
+      @media (max-width: 500px) {
+        #doors { grid-template-columns: 1fr; }
+        .door-states { grid-template-columns: repeat(2, 1fr); }
+        .visual canvas:not(.small) { width: 72px; height: 72px; }
+        .visual canvas.small { width: 32px; height: 32px; }
+      }
+    </style>
+    <script type="module" src="./items.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><h1>道具预览</h1><p>逐帧查看道具动画与门在砖口中的效果。小图按游戏中的一格大小展示。</p></div>
+        <nav><a href="/">返回游戏</a><a href="./index.html">角色动作</a></nav>
+      </header>
+      <div class="controls">
+        <button id="play" aria-pressed="false">暂停</button>
+        <button id="previous">上一帧</button>
+        <button id="next">下一帧</button>
+        <label>帧 <input id="frame" type="range" min="1" max="6" value="1" /> <span id="frame-label">1 / 6</span></label>
+        <label>速度 <select id="speed"><option value="1">正常</option><option value="0.5">半速</option><option value="0.25">四分之一速</option></select></label>
+      </div>
+      <p id="status">正在加载道具…</p>
+      <section id="gallery" aria-label="道具贴图"></section>
+      <h2 id="doors-heading">门与砖口对照</h2>
+      <section id="doors" aria-label="门贴图"></section>
+    </main>
+  </body>
+</html>

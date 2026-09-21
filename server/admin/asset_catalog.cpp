@@ -1,10 +1,68 @@
 #include "asset_catalog.h"
 #include "config_repository.h"
+#include <cmath>
+#include <drogon/utils/Utilities.h>
+#include <regex>
+#include <set>
 
 namespace snackshop {
 namespace {
 const std::filesystem::path webConfig = "client/tools/asset-build.json";
 const std::filesystem::path cocosConfig = "client-cocos/extensions/shared-game-assets/package.json";
+const std::filesystem::path presentationPath = "visuals/v1/index.json";
+
+Json::Value presentation(const std::filesystem::path& root) {
+    const auto path = root / presentationPath;
+    if (!std::filesystem::exists(path)) {
+        Json::Value empty;
+        empty["version"] = 1;
+        empty["entries"] = Json::Value(Json::objectValue);
+        return empty;
+    }
+    return readAdminJson(path);
+}
+
+std::string revision(const Json::Value& value) {
+    Json::StreamWriterBuilder writer;
+    writer["indentation"] = "";
+    return drogon::utils::getSha256(Json::writeString(writer, value));
+}
+
+void validatePresentation(const Json::Value& value) {
+    if (!value.isObject() || value.get("version", 0).asInt() != 1 || !value["entries"].isObject() ||
+        value["entries"].size() > 1024) {
+        throw AdminError(400, "资源展示配置格式无效");
+    }
+    const std::regex key("^(characters|scenes|items)/[a-z0-9_/-]{1,120}$");
+    for (const auto& id : value["entries"].getMemberNames()) {
+        const auto& row = value["entries"][id];
+        if (!std::regex_match(id, key) || !row.isObject() || row.size() != 6) {
+            throw AdminError(400, "资源展示项无效：" + id);
+        }
+        const auto number = [&](const char* name, double low, double high) {
+            const auto& field = row[name];
+            if (!field.isNumeric() || !std::isfinite(field.asDouble()) || field.asDouble() < low ||
+                field.asDouble() > high) {
+                throw AdminError(400, "资源参数超出范围：" + id + "." + name);
+            }
+        };
+        number("scale", 0.1, 4);
+        number("offsetX", -128, 128);
+        number("offsetY", -128, 128);
+        number("opacity", 0, 1);
+        number("speed", 0.1, 4);
+        const auto& curve = row["curve"];
+        if (!curve.isArray() || curve.size() != 4) {
+            throw AdminError(400, "动画曲线必须有四个控制值");
+        }
+        for (const auto& point : curve) {
+            if (!point.isNumeric() || !std::isfinite(point.asDouble()) || point.asDouble() < 0 ||
+                point.asDouble() > 1) {
+                throw AdminError(400, "动画曲线超出范围");
+            }
+        }
+    }
+}
 
 std::filesystem::path contained(const std::filesystem::path& root, const std::string& relative) {
     if (relative.empty() || std::filesystem::path(relative).is_absolute()) {
@@ -44,6 +102,12 @@ Json::Value AssetCatalog::catalog() const {
     result["urlPrefix"] = "/assets/";
     result["characters"] = Json::Value(Json::arrayValue);
     result["themes"] = Json::Value(Json::arrayValue);
+    result["doors"] = Json::Value(Json::arrayValue);
+    result["items"] = Json::Value(Json::arrayValue);
+    const auto display = presentation(m_source);
+    validatePresentation(display);
+    result["presentation"] = display;
+    result["presentationRevision"] = revision(display);
     const auto characters = file("characters/v1");
     const auto characterIndex = readAdminJson(contained(characters, "index.json"));
     for (const auto& entry : characterIndex["characters"]) {
@@ -77,6 +141,53 @@ Json::Value AssetCatalog::catalog() const {
         }
         result["themes"].append(theme);
     }
+    const auto doorIndex = m_source / "item/v2/door/index.json";
+    if (std::filesystem::exists(doorIndex)) {
+        const auto index = readAdminJson(doorIndex);
+        for (const auto& door : index["doors"]) {
+            for (const auto& state : index["states"]) {
+                const auto relative = "item/v2/door/" + door["id"].asString() + "/" + state.asString() + ".png";
+                Json::Value image;
+                image["id"] = door["id"].asString() + "/" + state.asString();
+                image["name"] = door["name"].asString() + " · " + state.asString();
+                image["src"] = std::filesystem::exists(m_source / relative) ? "/assets/" + relative : "";
+                result["doors"].append(image);
+            }
+        }
+    }
+    const auto itemIndex = m_source / "item/v2/index.json";
+    if (std::filesystem::exists(itemIndex)) {
+        const auto index = readAdminJson(itemIndex);
+        for (const auto& row : index["items"]) {
+            Json::Value image;
+            image["id"] = row["id"];
+            image["name"] = row["name"];
+            const auto relative = "item/v2/" + row["src"].asString();
+            image["src"] = std::filesystem::exists(m_source / relative) ? "/assets/" + relative : "";
+            for (const auto* name : {"columns", "frameCount", "frameWidth", "frameHeight", "frameDurationMs"}) {
+                image[name] = row[name];
+            }
+            result["items"].append(image);
+        }
+    }
+    return result;
+}
+
+Json::Value AssetCatalog::savePresentation(const Json::Value& request) const {
+    const auto current = presentation(m_source);
+    if (!request["revision"].isString() || request["revision"].asString() != revision(current)) {
+        throw AdminError(409, "资源展示配置已变化，请刷新后重试");
+    }
+    Json::Value next;
+    next["version"] = 1;
+    next["entries"] = request["entries"];
+    validatePresentation(next);
+    const auto path = m_source / presentationPath;
+    std::filesystem::create_directories(path.parent_path());
+    writeAdminJson(path, next);
+    Json::Value result;
+    result["presentation"] = next;
+    result["presentationRevision"] = revision(next);
     return result;
 }
 

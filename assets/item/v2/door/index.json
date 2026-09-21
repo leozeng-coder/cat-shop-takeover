@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "frameSize": [
+    256,
+    256
+  ],
+  "worldTileSize": 32,
+  "states": [
+    "closed",
+    "open",
+    "damaged_1",
+    "damaged_2"
+  ],
+  "doors": [
+    {
+      "id": "wood",
+      "name": "木门"
+    },
+    {
+      "id": "iron",
+      "name": "铁门"
+    },
+    {
+      "id": "steel",
+      "name": "钢门"
+    },
+    {
+      "id": "alloy",
+      "name": "合金门"
+    },
+    {
+      "id": "titanium_alloy",
+      "name": "钛合金门"
+    },
+    {
+      "id": "super_alloy",
+      "name": "超合金门"
+    }
+  ]
+}

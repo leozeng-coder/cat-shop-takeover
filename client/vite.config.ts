@@ -24,5 +24,8 @@ export default defineConfig({
       '/assets/audio': 'http://127.0.0.1:8787',
     },
   },
-  build: { target: 'es2022', rollupOptions: { input: ['index.html', 'preview/index.html'] } },
+  build: {
+    target: 'es2022',
+    rollupOptions: { input: ['index.html', 'preview/index.html', 'preview/items.html'] },
+  },
 });

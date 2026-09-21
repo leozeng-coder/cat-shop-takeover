@@ -1,4 +1,5 @@
 import { loadCharacterAnimations } from './animation.js';
+import { presentationStore } from '../render/presentation_store';
 import { loadPalettes, loadSkinAtlases, skinAtlasUrl } from './baked-atlases.js';
 import {
   characterKey,
@@ -54,9 +55,11 @@ export class CharacterLibrary {
     const frame = atlas.frames[index];
     const ratio = image.width / atlas.width;
     const scale = height / atlas.sourceBodyHeight;
+    const style = presentationStore.get(`characters/${selection.character}/${action}`);
     context.save();
-    context.translate(x, y);
-    context.scale(mirror ? -1 : 1, 1);
+    context.globalAlpha *= style.opacity;
+    context.translate(x + style.offsetX, y + style.offsetY);
+    context.scale((mirror ? -1 : 1) * style.scale, style.scale);
     context.drawImage(
       image,
       frame.rect[0] * ratio,

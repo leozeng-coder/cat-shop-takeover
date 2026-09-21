@@ -30,6 +30,8 @@ export interface CharacterAsset {
   name?: string;
   profile?: string;
   frameSize: number[];
+  anchor: number[];
+  referenceHeight: number;
   animations: Record<
     string,
     {
@@ -61,6 +63,19 @@ export interface Assets {
   urlPrefix: string;
   characters: CharacterAsset[];
   themes: ThemeAsset[];
+  doors: { id: string; name: string; src: string }[];
+  items: {
+    id: string;
+    name: string;
+    src: string;
+    columns: number;
+    frameCount: number;
+    frameWidth: number;
+    frameHeight: number;
+    frameDurationMs: number;
+  }[];
+  presentation: import("../shared/presentation").PresentationData;
+  presentationRevision: string;
 }
 export interface ClientTarget {
   id: string;

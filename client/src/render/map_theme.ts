@@ -27,6 +27,7 @@ interface ThemeRendering {
 export interface TileSurface {
   image: ImageBitmap;
   tilesPerImage: number;
+  visualId: string;
 }
 
 const FALLBACK_RENDERING: ThemeRendering = {
@@ -52,6 +53,10 @@ export class MapTheme {
   private selectedTheme = '';
   private loadedTheme = '';
   private generation = 0;
+
+  get id(): string {
+    return this.loadedTheme;
+  }
 
   constructor() {
     this.index = this.loadIndex().catch((error: unknown) => {
@@ -109,7 +114,9 @@ export class MapTheme {
     this.rendering = rendering;
     const surface = (config: SurfaceConfig): TileSurface | undefined => {
       const image = textures.get(config.asset);
-      return image ? { image, tilesPerImage: config.tilesPerImage } : undefined;
+      return image
+        ? { image, tilesPerImage: config.tilesPerImage, visualId: `scenes/${id}/${config.asset}` }
+        : undefined;
     };
     this.floors = rendering.floors.map(surface);
     this.surfaces = { road: surface(rendering.road), wall: surface(rendering.wall) };

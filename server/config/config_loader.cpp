@@ -424,9 +424,11 @@ std::shared_ptr<const GameConfig> ConfigLoader::parse(const std::string& text) {
             fail(item.id, "category disagrees with behavior");
         }
         item.appearance = string(row["appearance"], item.id + ".appearance");
-        const std::set<std::string> appearances{"shelf",           "crate",          "launcher",    "pantry",
-                                                "repair",          "fish_rack",      "mini_fridge", "launcher_dual",
-                                                "launcher_cannon", "magic_trash_bin"};
+        const std::set<std::string> appearances{
+            "shelf", "crate", "launcher", "launcher_dual", "launcher_cannon", "pantry", "pantry_safe",
+            "pantry_small_vault", "pantry_large_vault", "pantry_treasure_vault", "pantry_royal_vault",
+            "fish_rack", "fish_air_shed", "fish_dryer", "fish_cooking_box", "fish_workshop", "fish_factory",
+            "repair", "mini_fridge", "magic_trash_bin"};
         if (!appearances.contains(item.appearance)) {
             fail(item.id, "unknown appearance");
         }

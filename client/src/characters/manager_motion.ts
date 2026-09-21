@@ -1,5 +1,6 @@
 import { clipDuration, sampleClip, walkTime } from './animation.js';
 import { MovementMotion } from './movement_motion.ts';
+import { presentationStore } from '../render/presentation_store';
 import type { AnimationConfig, CharacterSelection } from './types';
 
 export const MANAGER_CHARACTER: CharacterSelection = { character: 'shop_manager', skin: 'original' };
@@ -33,7 +34,9 @@ export class ManagerMotion {
     if (!active || returning || resting) {
       this.attackAt = -Infinity;
     }
-    const attacking = now - this.attackAt < clipDuration(config.clips.attack);
+    const attacking =
+      now - this.attackAt <
+      clipDuration(config.clips.attack) / presentationStore.get(`characters/${config.id}/attack`).speed;
     const action =
       !active || resting
         ? 'idle'

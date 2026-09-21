@@ -160,12 +160,13 @@
     "currency" : "cans",
     "description" : "藏好一柜子夜宵，源源不断补充罐头，让猫店越守越富。",
     "id" : "pantry",
-    "levels" : 
+    "levels" :
     [
       {
         "amount" : 2,
+        "appearance" : "pantry",
         "conditions" : [],
-        "cost" : 
+        "cost" :
         [
           {
             "amount" : 100,
@@ -174,13 +175,15 @@
         ],
         "interval_ms" : 1000,
         "level" : 1,
+        "name" : "罐头储藏柜",
         "next_level" : 2,
         "range" : 0
       },
       {
         "amount" : 4,
+        "appearance" : "pantry_safe",
         "conditions" : [],
-        "cost" : 
+        "cost" :
         [
           {
             "amount" : 200,
@@ -193,13 +196,15 @@
         ],
         "interval_ms" : 1000,
         "level" : 2,
+        "name" : "罐头保险箱",
         "next_level" : 3,
         "range" : 0
       },
       {
         "amount" : 7,
+        "appearance" : "pantry_small_vault",
         "conditions" : [],
-        "cost" : 
+        "cost" :
         [
           {
             "amount" : 400,
@@ -212,6 +217,70 @@
         ],
         "interval_ms" : 1000,
         "level" : 3,
+        "name" : "罐头小金库",
+        "next_level" : 4,
+        "range" : 0
+      },
+      {
+        "amount" : 11,
+        "appearance" : "pantry_large_vault",
+        "conditions" : [],
+        "cost" :
+        [
+          {
+            "amount" : 750,
+            "currency" : "cans"
+          },
+          {
+            "amount" : 24,
+            "currency" : "dried_fish"
+          }
+        ],
+        "interval_ms" : 1000,
+        "level" : 4,
+        "name" : "罐头大金库",
+        "next_level" : 5,
+        "range" : 0
+      },
+      {
+        "amount" : 16,
+        "appearance" : "pantry_treasure_vault",
+        "conditions" : [],
+        "cost" :
+        [
+          {
+            "amount" : 1300,
+            "currency" : "cans"
+          },
+          {
+            "amount" : 48,
+            "currency" : "dried_fish"
+          }
+        ],
+        "interval_ms" : 1000,
+        "level" : 5,
+        "name" : "罐头宝藏库",
+        "next_level" : 6,
+        "range" : 0
+      },
+      {
+        "amount" : 24,
+        "appearance" : "pantry_royal_vault",
+        "conditions" : [],
+        "cost" :
+        [
+          {
+            "amount" : 2400,
+            "currency" : "cans"
+          },
+          {
+            "amount" : 96,
+            "currency" : "dried_fish"
+          }
+        ],
+        "interval_ms" : 1000,
+        "level" : 6,
+        "name" : "罐头皇家宝库",
         "next_level" : 0,
         "range" : 0
       }
@@ -304,12 +373,13 @@
     "currency" : "dried_fish",
     "description" : "把小鱼挂起来，等风送来鱼干香。攒下的小鱼干能升级更厉害的道具。",
     "id" : "fish_rack",
-    "levels" : 
+    "levels" :
     [
       {
         "amount" : 1,
+        "appearance" : "fish_rack",
         "conditions" : [],
-        "cost" : 
+        "cost" :
         [
           {
             "amount" : 100,
@@ -318,13 +388,15 @@
         ],
         "interval_ms" : 2000,
         "level" : 1,
+        "name" : "鱼干晾晒架",
         "next_level" : 2,
         "range" : 0
       },
       {
         "amount" : 2,
+        "appearance" : "fish_air_shed",
         "conditions" : [],
-        "cost" : 
+        "cost" :
         [
           {
             "amount" : 160,
@@ -337,13 +409,15 @@
         ],
         "interval_ms" : 2000,
         "level" : 2,
+        "name" : "鱼干风干棚",
         "next_level" : 3,
         "range" : 0
       },
       {
         "amount" : 4,
+        "appearance" : "fish_dryer",
         "conditions" : [],
-        "cost" : 
+        "cost" :
         [
           {
             "amount" : 260,
@@ -356,6 +430,70 @@
         ],
         "interval_ms" : 2000,
         "level" : 3,
+        "name" : "鱼干烘干机",
+        "next_level" : 4,
+        "range" : 0
+      },
+      {
+        "amount" : 6,
+        "appearance" : "fish_cooking_box",
+        "conditions" : [],
+        "cost" :
+        [
+          {
+            "amount" : 480,
+            "currency" : "cans"
+          },
+          {
+            "amount" : 24,
+            "currency" : "dried_fish"
+          }
+        ],
+        "interval_ms" : 2000,
+        "level" : 4,
+        "name" : "鱼干烹饪箱",
+        "next_level" : 5,
+        "range" : 0
+      },
+      {
+        "amount" : 9,
+        "appearance" : "fish_workshop",
+        "conditions" : [],
+        "cost" :
+        [
+          {
+            "amount" : 800,
+            "currency" : "cans"
+          },
+          {
+            "amount" : 48,
+            "currency" : "dried_fish"
+          }
+        ],
+        "interval_ms" : 2000,
+        "level" : 5,
+        "name" : "鱼干加工坊",
+        "next_level" : 6,
+        "range" : 0
+      },
+      {
+        "amount" : 13,
+        "appearance" : "fish_factory",
+        "conditions" : [],
+        "cost" :
+        [
+          {
+            "amount" : 1400,
+            "currency" : "cans"
+          },
+          {
+            "amount" : 96,
+            "currency" : "dried_fish"
+          }
+        ],
+        "interval_ms" : 2000,
+        "level" : 6,
+        "name" : "鱼干自动工厂",
         "next_level" : 0,
         "range" : 0
       }

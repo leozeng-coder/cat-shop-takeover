@@ -7,8 +7,18 @@ export type Appearance =
   | 'launcher_dual'
   | 'launcher_cannon'
   | 'pantry'
+  | 'pantry_safe'
+  | 'pantry_small_vault'
+  | 'pantry_large_vault'
+  | 'pantry_treasure_vault'
+  | 'pantry_royal_vault'
   | 'repair'
   | 'fish_rack'
+  | 'fish_air_shed'
+  | 'fish_dryer'
+  | 'fish_cooking_box'
+  | 'fish_workshop'
+  | 'fish_factory'
   | 'mini_fridge'
   | 'magic_trash_bin';
 export interface Price {

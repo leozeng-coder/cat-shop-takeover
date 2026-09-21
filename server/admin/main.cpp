@@ -164,6 +164,8 @@ int main(int argc, char** argv) {
                             value = audio->validate(*body);
                         } else if (action == "audio-publish") {
                             value = audio->publish(*body);
+                        } else if (action == "presentation-save") {
+                            value = art->savePresentation(*body);
                         } else if (action == "draft") {
                             value = repository->save(*body);
                         } else if (action == "validate") {

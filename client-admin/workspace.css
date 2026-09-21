@@ -568,17 +568,6 @@ h1 {
   text-align: left;
   font-size: 10px;
 }
-.resource-grid .atlas-image {
-  background: repeating-conic-gradient(#f4f1e8 0% 25%, #e9e9e0 0% 50%) 0 0 /
-    20px 20px;
-}
-.resource-grid .atlas-image img {
-  object-fit: contain;
-}
-.resource-grid .asset-card strong {
-  font-size: 11px;
-  font-weight: 550;
-}
 @media (min-width: 1600px) {
   .portrait-stage {
     height: 180px;

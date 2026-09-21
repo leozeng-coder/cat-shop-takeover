@@ -14,6 +14,7 @@ import "./workspace.css";
 import "./audio.css";
 import "./random_rewards.css";
 import "./item_editor.css";
+import "./resource_editor.css";
 import { switchItemTab, itemTabKeydown, revealItemField } from "./item_editor";
 import {
   editRandomReward,
@@ -28,7 +29,15 @@ import type { AudioWorkspace } from "../shared/audio";
 import { api, ApiError, setAccess } from "./api";
 import { addEntry, differences, escape, readPath, setPath } from "./editor";
 import { locationFor } from "./navigation";
-import { mapsView, resourcesView } from "./catalog_views";
+import { mapsView } from "./catalog_views";
+import {
+  resources,
+  resourcesView,
+  visibleResources,
+  ResourcePreview,
+  drawCurve,
+} from "./resource_editor";
+import { DEFAULT_VISUAL, visual } from "../shared/presentation";
 import type { CharacterRole } from "./characters";
 import {
   charactersView,
@@ -61,6 +70,10 @@ let assets: Assets = {
   urlPrefix: "/assets/",
   characters: [],
   themes: [],
+  doors: [],
+  items: [],
+  presentation: { version: 1, entries: {} },
+  presentationRevision: "",
 };
 let clients: ClientTarget[] = [];
 let releases: Release[] = [];
@@ -72,7 +85,12 @@ const selectedCharacters: Record<CharacterRole, string> = {
   managers: "shop_manager",
 };
 let mapIndex = 0,
-  assetKind = "all";
+  assetKind = "all",
+  resourceScene = "snack_street";
+let selectedResource = "",
+  resourceQuery = "",
+  visualDirty = false;
+const resourcePreview = new ResourcePreview();
 let item = 0,
   query = "",
   raw = false,
@@ -103,6 +121,10 @@ function remember(token: string) {
 }
 function status() {
   const label = document.getElementById("save-status");
+  if (label && page === "resources") {
+    label.textContent = visualDirty ? "● 展示参数未保存" : "✓ 展示参数已保存";
+    return;
+  }
   if (label && page === "audio") {
     label.textContent = audioAdmin.dirty
       ? "● 音效有未保存修改"
@@ -232,6 +254,7 @@ async function dialog(
 }
 function render() {
   rememberRewardDisclosure(app);
+  resourcePreview.stop();
   const active = locationFor(page);
   const changedPage = renderedPage !== page;
   renderedPage = page;
@@ -254,7 +277,15 @@ function render() {
     content.innerHTML = mapsView(workspace, assets, mapIndex);
   else if (page === "resources")
     content.innerHTML =
-      sharedArtBanner(assets) + resourcesView(assets, assetKind);
+      sharedArtBanner(assets, true) +
+      resourcesView(
+        assets,
+        workspace,
+        assetKind,
+        resourceScene,
+        selectedResource,
+        resourceQuery,
+      );
   else if (page === "themes")
     content.innerHTML = sharedArtBanner(assets) + themesView(assets, theme);
   else if (page === "history")
@@ -262,6 +293,27 @@ function render() {
   else if (page === "clients") content.innerHTML = clientsView(assets, clients);
   content.insertAdjacentHTML("afterbegin", pageNavigation(page));
   if (page === "audio") audioAdmin.afterRender();
+  if (page === "resources") {
+    if (!assets.themes.some((theme) => theme.id === resourceScene))
+      resourceScene = assets.themes[0]?.id ?? "";
+    const all = visibleResources(
+      resources(assets, workspace),
+      assetKind,
+      resourceScene,
+      resourceQuery,
+    );
+    const chosen = all.find((asset) => asset.id === selectedResource) ?? all[0];
+    if (chosen) {
+      selectedResource = chosen.id;
+      resourcePreview.start(
+        chosen,
+        () => visual(assets.presentation, chosen.id),
+        assets,
+        resourceScene,
+      );
+      drawCurve(visual(assets.presentation, chosen.id));
+    }
+  }
   refreshRewardTotals(content, workspace.draft.tables);
   if (changedPage) window.scrollTo(0, 0);
   status();
@@ -301,6 +353,45 @@ app.addEventListener("submit", (event) => {
 app.addEventListener("input", (event) => {
   const target = event.target as HTMLInputElement | HTMLTextAreaElement;
   if (audioAdmin.input(target)) return;
+  if (page === "resources" && target instanceof HTMLInputElement) {
+    if (target.id === "resource-search") {
+      resourceQuery = target.value;
+      app
+        .querySelectorAll<HTMLElement>("[data-resource-id]")
+        .forEach((card) => {
+          card.hidden =
+            !card.textContent
+              ?.toLowerCase()
+              .includes(resourceQuery.toLowerCase()) &&
+            !card.dataset.resourceId
+              ?.toLowerCase()
+              .includes(resourceQuery.toLowerCase());
+        });
+      return;
+    }
+    if (
+      target.dataset.visualField ||
+      target.dataset.visualCurve !== undefined
+    ) {
+      const value = Number(target.value);
+      if (!target.validity.valid || !Number.isFinite(value)) return;
+      const settings =
+        assets.presentation.entries[selectedResource] ??
+        (assets.presentation.entries[selectedResource] =
+          structuredClone(DEFAULT_VISUAL));
+      if (target.dataset.visualCurve !== undefined)
+        settings.curve[Number(target.dataset.visualCurve)] = value;
+      else
+        (settings as unknown as Record<string, number>)[
+          target.dataset.visualField!
+        ] = value;
+      visualDirty = true;
+      drawCurve(settings);
+      resourcePreview.invalidate();
+      status();
+      return;
+    }
+  }
   if (
     target instanceof HTMLInputElement &&
     target.dataset.mapField &&
@@ -504,6 +595,16 @@ app.addEventListener("click", (event) => {
     render();
     return;
   }
+  if (button.dataset.resourceScene) {
+    resourceScene = button.dataset.resourceScene;
+    render();
+    return;
+  }
+  if (button.dataset.resourceId) {
+    selectedResource = button.dataset.resourceId;
+    render();
+    return;
+  }
   if (button.dataset.add || button.dataset.remove) {
     event.preventDefault();
     if (button.dataset.add)
@@ -521,6 +622,33 @@ app.addEventListener("click", (event) => {
     return;
   }
   const action = button.dataset.action;
+  if (
+    page === "resources" &&
+    (action === "save-presentation" || action === "save")
+  ) {
+    void run(async () => {
+      const invalid = app.querySelector<HTMLInputElement>(
+        ".resource-inspector input:invalid",
+      );
+      if (invalid) {
+        invalid.reportValidity();
+        throw new Error("请填写有效的展示参数");
+      }
+      if (!visualDirty) return;
+      const saved = await api<
+        Pick<Assets, "presentation" | "presentationRevision">
+      >("presentation-save", {
+        revision: assets.presentationRevision,
+        entries: assets.presentation.entries,
+      });
+      assets.presentation = saved.presentation;
+      assets.presentationRevision = saved.presentationRevision;
+      visualDirty = false;
+      render();
+      notice("展示参数已保存，刷新游戏页面后生效");
+    });
+    return;
+  }
   if (
     page === "audio" &&
     ["save", "validate", "publish"].includes(action ?? "")
@@ -603,6 +731,10 @@ app.addEventListener("click", (event) => {
     render();
   } else if (action === "refresh-assets")
     void run(async () => {
+      if (visualDirty) {
+        notice("先保存展示参数，再刷新资源", true);
+        return;
+      }
       const [info, targets] = await Promise.all([
         api<Assets>("assets"),
         api<ClientTarget[]>("clients"),

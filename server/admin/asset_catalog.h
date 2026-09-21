@@ -9,6 +9,7 @@ class AssetCatalog {
 public:
     explicit AssetCatalog(std::filesystem::path source = {});
     Json::Value catalog() const;
+    Json::Value savePresentation(const Json::Value& request) const;
     Json::Value clients() const;
     std::filesystem::path file(const std::string& relative) const;
     const std::filesystem::path& root() const { return m_source; }

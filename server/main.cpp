@@ -57,6 +57,29 @@ int main(int argc, char** argv) {
     auto gameServer = std::make_shared<snackshop::GameServer>(configs);
     drogon::app().registerController(std::make_shared<snackshop::NetHandlerGame>(gameServer));
     snackshop::registerAudioRoutes(assets);
+    const auto visualRoot = std::filesystem::canonical(assets);
+    drogon::app().registerHandlerViaRegex(
+        "/assets/(doors|items|visuals)/v1/.*",
+        [visualRoot](const drogon::HttpRequestPtr& request,
+                     std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            try {
+                const auto relative = request->path().substr(std::string("/assets/").size());
+                const auto path = std::filesystem::canonical(visualRoot / relative);
+                const auto local = path.lexically_relative(visualRoot);
+                const auto ext = path.extension().string();
+                if (local.empty() || *local.begin() == ".." || !std::filesystem::is_regular_file(path) ||
+                    (ext != ".png" && ext != ".json" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp")) {
+                    throw std::runtime_error("Invalid visual asset");
+                }
+                auto response = drogon::HttpResponse::newFileResponse(path.string());
+                response->addHeader("Cache-Control", "no-store");
+                response->addHeader("X-Content-Type-Options", "nosniff");
+                callback(response);
+            } catch (...) {
+                callback(drogon::HttpResponse::newNotFoundResponse());
+            }
+        },
+        {drogon::Get});
     drogon::app().registerHandler(
         "/api/health",
         [gameServer, configs](const drogon::HttpRequestPtr&,

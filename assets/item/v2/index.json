@@ -1,0 +1,215 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": "launcher",
+      "name": "毛线弹射器",
+      "src": "launcher.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "launcher_dual",
+      "name": "双发毛线机",
+      "src": "launcher_dual.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "launcher_cannon",
+      "name": "喵喵毛线炮",
+      "src": "launcher_cannon.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "pantry",
+      "name": "罐头储藏柜",
+      "src": "pantry.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "pantry_safe",
+      "name": "罐头保险箱",
+      "src": "pantry_safe.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "pantry_small_vault",
+      "name": "罐头小金库",
+      "src": "pantry_small_vault.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "pantry_large_vault",
+      "name": "罐头大金库",
+      "src": "pantry_large_vault.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "pantry_treasure_vault",
+      "name": "罐头宝藏库",
+      "src": "pantry_treasure_vault.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "pantry_royal_vault",
+      "name": "罐头皇家宝库",
+      "src": "pantry_royal_vault.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "fish_rack",
+      "name": "鱼干晾晒架",
+      "src": "fish_rack.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "fish_air_shed",
+      "name": "鱼干风干棚",
+      "src": "fish_air_shed.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "fish_dryer",
+      "name": "鱼干烘干机",
+      "src": "fish_dryer.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "fish_cooking_box",
+      "name": "鱼干烹饪箱",
+      "src": "fish_cooking_box.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "fish_workshop",
+      "name": "鱼干加工坊",
+      "src": "fish_workshop.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "fish_factory",
+      "name": "鱼干自动工厂",
+      "src": "fish_factory.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "repair",
+      "name": "自动修补台",
+      "src": "repair.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "mini_fridge",
+      "name": "喵喵小冰箱",
+      "src": "mini_fridge.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "magic_trash_bin",
+      "name": "神奇垃圾桶",
+      "src": "magic_trash_bin.png",
+      "columns": 3,
+      "frameCount": 6,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 180
+    },
+    {
+      "id": "shelf",
+      "name": "旧货架",
+      "src": "shelf.png",
+      "columns": 1,
+      "frameCount": 1,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 0
+    },
+    {
+      "id": "crate",
+      "name": "遗落的罐头箱",
+      "src": "crate.png",
+      "columns": 1,
+      "frameCount": 1,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 0
+    },
+    {
+      "id": "nest",
+      "name": "罐头窝",
+      "src": "nest.png",
+      "columns": 1,
+      "frameCount": 1,
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameDurationMs": 0
+    }
+  ]
+}

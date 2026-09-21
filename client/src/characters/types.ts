@@ -26,6 +26,7 @@ export interface Palettes {
   source: Record<string, number[]>;
 }
 export interface AnimationConfig {
+  id: string;
   manifestUrl: string;
   skinAtlasesUrl: string;
   profile?: 'cat' | 'shop_manager';

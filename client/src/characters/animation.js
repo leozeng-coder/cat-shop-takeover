@@ -1,3 +1,5 @@
+import { visualTime } from '../../../shared/presentation.ts';
+import { presentationStore } from '../render/presentation_store.ts';
 export async function loadCharacterAnimations(manifestUrl) {
   const url = new URL(manifestUrl, location.href);
   const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
@@ -11,6 +13,7 @@ export async function loadCharacterAnimations(manifestUrl) {
     throw new Error('Invalid character frame dimensions');
   }
   const config = {
+    id: manifest.id,
     manifestUrl: url.href,
     skinAtlasesUrl: new URL(manifest.skinAtlases, url).href,
     profile: manifest.profile ?? 'cat',
@@ -57,7 +60,8 @@ export function clipDuration(clip) {
 export function sampleClip(config, name, time) {
   const clip = config.clips[name];
   const total = clipDuration(clip);
-  let offset = clip.loop ? Math.max(0, time) % total : Math.min(Math.max(0, time), total - 0.001);
+  const settings = presentationStore.get(`characters/${config.id}/${name}`);
+  let offset = Math.min(visualTime(time, total, settings, clip.loop), total - 0.001);
   let index = 0;
   while (index < clip.frames.length - 1 && offset >= clip.durationsMs[index]) {
     offset -= clip.durationsMs[index++];

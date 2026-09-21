@@ -1,5 +1,6 @@
 import { sampleClip, walkTime } from './animation.js';
 import { MovementMotion } from './movement_motion.ts';
+import { presentationStore } from '../render/presentation_store';
 import type { AnimationConfig } from './types';
 
 // One controller per actor, independent of packets, destinations and gameplay rules.
@@ -28,7 +29,9 @@ export class CharacterMotion {
       // Movement always wins, including escape. Never replay wake after stopping.
       this.wakeAt = -Infinity;
     }
-    const wakeDuration = config.clips.wake.durationsMs.reduce((a, b) => a + b, 0);
+    const wakeDuration =
+      config.clips.wake.durationsMs.reduce((a, b) => a + b, 0) /
+      presentationStore.get(`characters/${config.id}/wake`).speed;
     const action = pose.sleeping
       ? 'sleep'
       : moving
