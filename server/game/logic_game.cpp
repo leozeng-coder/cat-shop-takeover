@@ -62,6 +62,8 @@ void Game::removeHuman(int id) {
     }
     auto& p = players[id];
     p.connected = false;
+    p.steer = {};
+    p.steerUntil = 0;
     p.human = false;
     p.ready = true;
     p.disconnectedFor = balance.reconnectGrace;
@@ -86,6 +88,8 @@ void Game::setConnected(int id, bool connected) {
         LogicCatAi::stop(*this, players[id]);
     }
     players[id].connected = connected;
+    players[id].steer = {};
+    players[id].steerUntil = 0;
     players[id].disconnectedFor = 0;
     notify(players[id].name + (connected ? " 已重新连接" : " 暂时离线"));
 }
@@ -213,7 +217,8 @@ double Game::income(const Player& player, const std::string& currency) const {
     }
     return total;
 }
-std::string Game::command(int id, GameAction action, int targetRoom, int cell, const std::string& kind) {
+std::string Game::command(int id, GameAction action, int targetRoom, int cell, const std::string& kind,
+                          Point direction) {
     if (id < 0 || id >= Seats) {
         return "无效玩家";
     }
@@ -224,10 +229,32 @@ std::string Game::command(int id, GameAction action, int targetRoom, int cell, c
     if (!p.alive) {
         return "你被店长抱走了，可以继续观战";
     }
-    if (isEscaping(p) && action != GameAction::Move) {
+    if (isEscaping(p) && action != GameAction::Move && action != GameAction::Steer) {
         return "店门已被打破，现在只能移动逃跑";
     }
+    if (action == GameAction::Steer) {
+        const double length = std::hypot(direction.x, direction.y);
+        if (!std::isfinite(length) || length > 1.5) {
+            return "摇杆方向无效";
+        }
+        if (length < 0.15) {
+            p.steer = {};
+            p.steerUntil = 0;
+            return {};
+        }
+        p.steer = {direction.x / length, direction.y / length};
+        p.steerUntil = elapsed + 0.65;
+        p.path.clear();
+        p.nestIntent = -1;
+        if (p.sleeping) {
+            emitEvent("character.wake", p.character.character, p.position, id);
+        }
+        p.sleeping = false;
+        return {};
+    }
     if (action == GameAction::Move || action == GameAction::EnterNest) {
+        p.steer = {};
+        p.steerUntil = 0;
         int intent = -1;
         if (action == GameAction::EnterNest) {
             if (!validRoom(targetRoom)) {
@@ -414,7 +441,9 @@ void Game::step(double dt) {
             }
             arrival.first = distance;
         }
-        if (!p.path.empty()) {
+        if (p.human && p.connected && p.steerUntil > elapsed) {
+            moveSteered(p, budget);
+        } else if (!p.path.empty()) {
             moveAlong(p.position, p.path, budget, p.id);
         }
     }

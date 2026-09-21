@@ -4,6 +4,7 @@
 #include "game/game.h"
 #include "item/logic_item.h"
 #include "test_config.h"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -280,6 +281,50 @@ void movementAndOwnership() {
     check(g.income(p) == rate, "breach does not revoke occupied nest income");
     p.alive = false;
     check(g.income(p) == 0, "captured cats stop producing");
+}
+void joystickSteering() {
+    auto g = solo();
+    g.balance.preparation = 120;
+    for (auto& cat : g.players) {
+        cat.decisionAt = 1000;
+    }
+    auto& p = g.players[0];
+    const int start = g.map.cellAt(p.position);
+    const auto neighbors = g.map.neighbors(start);
+    const auto next = std::find_if(neighbors.begin(), neighbors.end(),
+                                   [&](int cell) { return g.map.tile(cell) == '.'; });
+    check(next != neighbors.end(), "spawn has an open steering direction");
+    const Point direction{double(*next % g.map.width - start % g.map.width),
+                          double(*next / g.map.width - start / g.map.width)};
+    check(g.command(0, GameAction::Steer, -1, -1, "", direction).empty(), "joystick direction accepted");
+    advance(g, .2);
+    check(GameMath::distance(p.position, g.map.center(start)) > 10 && p.path.empty(),
+          "steering moves without grid pathfinding");
+    check(g.command(0, GameAction::Steer, -1, -1, "", {}).empty(), "neutral joystick stops");
+    const auto stopped = p.position;
+    advance(g, .3);
+    check(GameMath::distance(p.position, stopped) < .01, "release stops at the current position");
+
+    int wallSide = -1;
+    int roadSide = -1;
+    for (int cell = 0; cell < g.map.cellCount() && roadSide < 0; ++cell) {
+        if (g.map.tile(cell) != '.') continue;
+        for (int neighbor : g.map.neighbors(cell)) {
+            if (g.map.wall(neighbor)) {
+                roadSide = cell;
+                wallSide = neighbor;
+                break;
+            }
+        }
+    }
+    check(roadSide >= 0, "map has a wall beside a street");
+    p.position = g.map.center(roadSide);
+    const Point intoWall{double(wallSide % g.map.width - roadSide % g.map.width),
+                         double(wallSide / g.map.width - roadSide / g.map.width)};
+    check(g.command(0, GameAction::Steer, -1, -1, "", intoWall).empty(), "wallward input accepted");
+    advance(g, .4);
+    check(g.map.cellAt(p.position) == roadSide, "joystick cannot cross a wall");
+    check(g.command(0, GameAction::Steer, -1, -1, "", {}).empty(), "wallward input released");
 }
 void competingNestClaims() {
     // Click order, seat order and AI status do not reserve a nest.
@@ -894,6 +939,7 @@ int main() {
         characterSelection();
         extraRoomInteractions();
         movementAndOwnership();
+        joystickSteering();
         competingNestClaims();
         gridBuilding();
         itemTraversal();

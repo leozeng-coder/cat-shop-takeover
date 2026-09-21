@@ -1,0 +1,12 @@
+{
+  "platform": "bytedance-mini-game",
+  "buildPath": "project://build",
+  "outputName": "bytedance-mini-game",
+  "startScene": "ba753ffb-2e90-4795-a3f2-e5a9efc8b0fd",
+  "debug": true,
+  "packages": {
+    "bytedance-mini-game": {
+      "orientation": "portrait"
+    }
+  }
+}

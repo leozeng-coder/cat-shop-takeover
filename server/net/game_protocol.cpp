@@ -95,6 +95,9 @@ std::optional<GameAction> parseAction(const Json::Value& value) {
     if (action == "move") {
         return GameAction::Move;
     }
+    if (action == "steer") {
+        return GameAction::Steer;
+    }
     if (action == "nest") {
         return GameAction::EnterNest;
     }

@@ -31,7 +31,8 @@ public:
     std::string selectMap(int id, const std::string& mapId);
     std::string start(int id);
     std::string rematch(int id, std::shared_ptr<const GameConfig> nextConfig = {});
-    std::string command(int id, GameAction action, int room = -1, int cell = -1, const std::string& kind = "launcher");
+    std::string command(int id, GameAction action, int room = -1, int cell = -1,
+                        const std::string& kind = "launcher", Point direction = {});
     void step(double dt);
     void notify(const std::string& message);
     void emitEvent(const std::string& type, const std::string& target = "*", Point position = {}, int player = -1);
@@ -48,6 +49,7 @@ public:
     const Prop* propAt(int cell) const;
     std::deque<Point> pathTo(Point from, int cell, int player = -1) const;
     bool moveAlong(Point& position, std::deque<Point>& path, double distance, int player = -1) const;
+    void moveSteered(Player& player, double distance) const;
 
 private:
     friend class LogicCatAi;

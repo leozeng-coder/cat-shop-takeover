@@ -3,6 +3,7 @@
 #include "net/game_snapshot.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <drogon/utils/Utilities.h>
 #include <iostream>
 namespace snackshop {
@@ -279,6 +280,14 @@ std::string GameServer::dispatch(const drogon::WebSocketConnectionPtr& connectio
         const auto action = GameProtocol::parseAction(msg);
         if (!action) {
             failure = "未知操作";
+        } else if (*action == GameAction::Steer) {
+            if (!msg["dx"].isInt() || !msg["dy"].isInt() ||
+                std::abs(msg["dx"].asInt()) > 100 || std::abs(msg["dy"].asInt()) > 100) {
+                failure = "摇杆方向无效";
+            } else {
+                failure = game.command(session->seat, *action, -1, -1, "",
+                                       {msg["dx"].asInt() / 100.0, msg["dy"].asInt() / 100.0});
+            }
         } else {
             failure = game.command(session->seat, *action, GameProtocol::intField(msg, "room"),
                                    GameProtocol::intField(msg, "cell"), GameProtocol::stringField(msg, "kind"));

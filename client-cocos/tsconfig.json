@@ -4,6 +4,8 @@
 
   /* Add your custom configuration here. */
   "compilerOptions": {
-    "strict": false
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["ES2017", "DOM"]
   }
 }

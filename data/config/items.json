@@ -160,13 +160,13 @@
     "currency" : "cans",
     "description" : "藏好一柜子夜宵，源源不断补充罐头，让猫店越守越富。",
     "id" : "pantry",
-    "levels" :
+    "levels" : 
     [
       {
-        "amount" : 2,
+        "amount" : 100,
         "appearance" : "pantry",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 100,
@@ -183,7 +183,7 @@
         "amount" : 4,
         "appearance" : "pantry_safe",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 200,
@@ -204,7 +204,7 @@
         "amount" : 7,
         "appearance" : "pantry_small_vault",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 400,
@@ -225,7 +225,7 @@
         "amount" : 11,
         "appearance" : "pantry_large_vault",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 750,
@@ -246,7 +246,7 @@
         "amount" : 16,
         "appearance" : "pantry_treasure_vault",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 1300,
@@ -267,7 +267,7 @@
         "amount" : 24,
         "appearance" : "pantry_royal_vault",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 2400,
@@ -373,13 +373,13 @@
     "currency" : "dried_fish",
     "description" : "把小鱼挂起来，等风送来鱼干香。攒下的小鱼干能升级更厉害的道具。",
     "id" : "fish_rack",
-    "levels" :
+    "levels" : 
     [
       {
         "amount" : 1,
         "appearance" : "fish_rack",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 100,
@@ -396,7 +396,7 @@
         "amount" : 2,
         "appearance" : "fish_air_shed",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 160,
@@ -417,7 +417,7 @@
         "amount" : 4,
         "appearance" : "fish_dryer",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 260,
@@ -438,7 +438,7 @@
         "amount" : 6,
         "appearance" : "fish_cooking_box",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 480,
@@ -459,7 +459,7 @@
         "amount" : 9,
         "appearance" : "fish_workshop",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 800,
@@ -480,7 +480,7 @@
         "amount" : 13,
         "appearance" : "fish_factory",
         "conditions" : [],
-        "cost" :
+        "cost" : 
         [
           {
             "amount" : 1400,

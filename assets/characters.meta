@@ -5,5 +5,10 @@
   "uuid": "d034e229-8055-41cd-acf8-725e239d9af8",
   "files": [],
   "subMetas": {},
-  "userData": {}
+  "userData": {
+    "isBundle": true,
+    "bundleConfigID": "default",
+    "bundleName": "game-characters",
+    "priority": 4
+  }
 }

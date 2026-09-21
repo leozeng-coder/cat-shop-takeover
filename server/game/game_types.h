@@ -43,6 +43,8 @@ struct Player {
     double productionRemainder = 0;
     Point position{};
     std::deque<Point> path;
+    Point steer{};
+    double steerUntil = 0;
     double decisionAt = 0, repairAt = 0, disconnectedFor = 0;
 };
 struct ManagerLevelUp {
@@ -76,6 +78,6 @@ struct GameEvent {
     Point position;
     int player = -1;
 };
-enum class GameAction { Move, EnterNest, UpgradeNest, UpgradeBarricade, Build, Repair };
+enum class GameAction { Move, Steer, EnterNest, UpgradeNest, UpgradeBarricade, Build, Repair };
 } // namespace snackshop
 #endif

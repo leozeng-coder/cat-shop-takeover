@@ -2,6 +2,7 @@
 #include "common/game_math.h"
 #include "game.h"
 #include <algorithm>
+#include <cmath>
 namespace snackshop {
 const Prop* Game::propAt(int cell) const {
     const int room = map.roomAt(cell);
@@ -62,6 +63,34 @@ bool Game::moveAlong(Point& position, std::deque<Point>& path, double distance, 
         }
     }
     return path.empty();
+}
+void Game::moveSteered(Player& player, double distance) const {
+    const double radius = TileSize * 0.22;
+    const int steps = std::max(1, static_cast<int>(std::ceil(distance / (TileSize * 0.2))));
+    const Point step{player.steer.x * distance / steps, player.steer.y * distance / steps};
+    const auto canOccupy = [&](Point point, int startingRoom) {
+        for (double x : {-radius, radius}) {
+            for (double y : {-radius, radius}) {
+                const int cell = map.cellAt({point.x + x, point.y + y});
+                if (!map.valid(cell) || !walkable(cell, player.id, startingRoom)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    for (int i = 0; i < steps; ++i) {
+        int room = map.roomAt(map.cellAt(player.position));
+        const Point horizontal{player.position.x + step.x, player.position.y};
+        if (canOccupy(horizontal, room)) {
+            player.position.x = horizontal.x;
+        }
+        room = map.roomAt(map.cellAt(player.position));
+        const Point vertical{player.position.x, player.position.y + step.y};
+        if (canOccupy(vertical, room)) {
+            player.position.y = vertical.y;
+        }
+    }
 }
 void Game::arrive(Player& p) {
     tryPickup(p);

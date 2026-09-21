@@ -133,6 +133,10 @@ function status() {
         : "✓ 音效草稿已保存";
     return;
   }
+  if (label && workspace?.conflict) {
+    label.textContent = "⚠ 版本冲突，尚未发布";
+    return;
+  }
   if (label)
     label.textContent =
       dirty || rawDirty
@@ -259,6 +263,15 @@ function render() {
   const changedPage = renderedPage !== page;
   renderedPage = page;
   app.innerHTML = shell(page);
+  if (workspace.conflict && page !== "resources" && page !== "audio") {
+    const publishButton = app.querySelector<HTMLButtonElement>(
+      '[data-action="publish"]',
+    );
+    if (publishButton) {
+      publishButton.disabled = true;
+      publishButton.title = "正式配置已变化，请先从正式版重新载入草稿";
+    }
+  }
   const content = el("content");
   if (page === "home") content.innerHTML = home(workspace, assets);
   else if (page === "audio") content.innerHTML = audioAdmin.render();
