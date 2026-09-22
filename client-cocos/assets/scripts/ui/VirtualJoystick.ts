@@ -1,4 +1,5 @@
-import { Camera, Color, EventTouch, Graphics, Layers, Node, Size, UITransform, Vec3 } from 'cc';
+import { Camera, Color, EventTouch, Graphics, Layers, Node, Size, Sprite, UIOpacity, UITransform, Vec3 } from 'cc';
+import { SharedArt } from '../art/SharedArt';
 
 export class VirtualJoystick {
   readonly node: Node;
@@ -6,7 +7,10 @@ export class VirtualJoystick {
   private readonly base: Graphics;
   private readonly thumb: Node;
   private readonly thumbGraphics: Graphics;
-  private radius = 86;
+  private readonly baseArt: Node;
+  private readonly thumbArt: Node;
+  private readonly baseOpacity: UIOpacity;
+  private radius = 68;
   private touchId: number | null = null;
   private consumedId: number | null = null;
   private consumedUntil = 0;
@@ -14,6 +18,7 @@ export class VirtualJoystick {
   constructor(
     parent: Node,
     private readonly camera: Camera,
+    art: SharedArt,
     private readonly onStart: () => void,
     private readonly onRelease: () => void,
   ) {
@@ -22,10 +27,14 @@ export class VirtualJoystick {
     this.node.setParent(parent);
     this.node.addComponent(UITransform);
     this.base = this.node.addComponent(Graphics);
+    this.baseArt = this.createArtwork(this.node, 'JoystickBaseArt', art, 'joystick-base', this.base);
+    this.baseOpacity = this.baseArt.addComponent(UIOpacity);
+    this.baseOpacity.opacity = 210;
     this.thumb = new Node('JoystickThumb');
     this.thumb.layer = Layers.Enum.UI_2D;
     this.thumb.setParent(this.node);
     this.thumbGraphics = this.thumb.addComponent(Graphics);
+    this.thumbArt = this.createArtwork(this.thumb, 'JoystickPawArt', art, 'joystick-paw', this.thumbGraphics);
     this.node.on(Node.EventType.TOUCH_START, this.handleStart, this);
     this.node.on(Node.EventType.TOUCH_MOVE, this.handleMove, this);
     this.node.on(Node.EventType.TOUCH_END, this.handleEnd, this);
@@ -43,10 +52,30 @@ export class VirtualJoystick {
   }
 
   layout(viewport: Size): void {
-    this.radius = Math.min(viewport.height > viewport.width ? 104 : 86, viewport.width / 4);
+    this.radius = Math.min(viewport.height > viewport.width ? 92 : 68, viewport.width / 4);
     this.node.getComponent(UITransform)!.setContentSize(this.radius * 2 + 16, this.radius * 2 + 16);
     this.node.setPosition(-viewport.width / 2 + this.radius + 24, -viewport.height / 2 + this.radius + 24, 60);
+    this.baseArt.getComponent(UITransform)!.setContentSize(this.radius * 2, this.radius * 2);
+    this.thumbArt.getComponent(UITransform)!.setContentSize(this.radius, this.radius);
     this.draw();
+  }
+
+  private createArtwork(parent: Node, name: string, art: SharedArt, id: string, fallback: Graphics): Node {
+    const node = new Node(name);
+    node.layer = parent.layer;
+    node.setParent(parent);
+    node.addComponent(UITransform);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.trim = false;
+    sprite.enabled = false;
+    void art.ui(id).then((frame) => {
+      if (!node.isValid) return;
+      sprite.spriteFrame = frame;
+      sprite.enabled = true;
+      fallback.enabled = false;
+    }).catch((error: unknown) => console.warn('摇杆美术资源加载失败', error));
+    return node;
   }
 
   consumes(event: EventTouch): boolean {
@@ -85,6 +114,7 @@ export class VirtualJoystick {
     if (this.touchId !== null) return;
     event.propagationStopped = true;
     this.touchId = event.getID() ?? -1;
+    this.baseOpacity.opacity = 245;
     this.consumedId = this.touchId;
     this.consumedUntil = performance.now() + 200;
     this.onStart();
@@ -126,6 +156,7 @@ export class VirtualJoystick {
     this.consumedId = this.touchId;
     this.consumedUntil = performance.now() + 200;
     this.touchId = null;
+    this.baseOpacity.opacity = 210;
     this.direction.x = 0;
     this.direction.y = 0;
     this.thumb.setPosition(0, 0);

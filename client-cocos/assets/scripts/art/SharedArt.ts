@@ -9,6 +9,7 @@ import {
   assetManager,
 } from 'cc';
 import type { CharacterSelection } from '../model/GameTypes';
+import { atlasRect, clipFrameIndex, type PixelBounds } from './SpriteLayout';
 
 interface ThemeAssetEntry {
   id: string;
@@ -49,6 +50,8 @@ interface CharacterManifest {
   frameSize: [number, number];
   anchor: [number, number];
   referenceHeight: number;
+  strideWorldUnits: number;
+  portraitRect?: PixelBounds;
   movementClips: Record<'left' | 'right' | 'up' | 'down', string>;
   retreatClips?: Record<'left' | 'right' | 'up' | 'down', string>;
   animations: Record<string, AnimationEntry>;
@@ -66,10 +69,15 @@ interface ItemEntry {
   frameWidth: number;
   frameHeight: number;
   frameDurationMs: number;
+  rendering?: { bounds: PixelBounds; sizeTiles: number; groundOffsetTiles: number };
 }
 
 interface ItemManifest {
   items: ItemEntry[];
+}
+
+interface UiManifest {
+  assets: Record<string, { src: string; bounds?: PixelBounds; insets?: [number, number, number, number] }>;
 }
 
 export interface AnimationClip {
@@ -77,6 +85,14 @@ export interface AnimationClip {
   durationsMs: number[];
   loop: boolean;
   mirrorForRight: boolean;
+  durationMs: number;
+}
+
+export interface ItemArt extends AnimationClip {
+  displayWidth: number;
+  displayHeight: number;
+  sizeTiles: number;
+  groundOffsetTiles: number;
 }
 
 export interface CharacterArt {
@@ -85,6 +101,7 @@ export interface CharacterArt {
   anchor: Vec2;
   frameSize: Size;
   referenceHeight: number;
+  strideWorldUnits: number;
   movementClips: CharacterManifest['movementClips'];
   retreatClips?: CharacterManifest['retreatClips'];
   clips: Record<string, AnimationClip>;
@@ -132,43 +149,64 @@ function loadSpriteFrame(bundle: AssetManager.Bundle, path: string): Promise<Spr
   return loadAsset(bundle, `${withoutExtension(path)}/spriteFrame`, SpriteFrame);
 }
 
-function sliceAtlas(source: SpriteFrame, columns: number, count: number, width: number, height: number): SpriteFrame[] {
+function sliceAtlas(source: SpriteFrame, columns: number, count: number, width: number, height: number,
+                    bounds: PixelBounds = [0, 0, width, height]): SpriteFrame[] {
   const texture = source.texture;
+  if (columns * width > texture.width || Math.ceil(count / columns) * height > texture.height) {
+    throw new Error(`Animation grid exceeds texture: ${columns} x ${count}, ${width} x ${height}`);
+  }
   return Array.from({ length: count }, (_, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
     const frame = new SpriteFrame();
+    const rect = atlasRect(index, columns, width, height, bounds);
     frame.reset({
       texture,
-      rect: new Rect(column * width, texture.height - (row + 1) * height, width, height),
-      originalSize: new Size(width, height),
+      rect: new Rect(...rect),
+      originalSize: new Size(bounds[2], bounds[3]),
       offset: Vec2.ZERO,
       isRotate: false,
     });
+    // Keep animation frames on their original atlas; avoid copying new frames into the dynamic atlas mid-walk.
+    frame.packable = false;
     return frame;
   });
 }
 
 export function sampleClip(clip: AnimationClip, elapsedMs: number): SpriteFrame {
-  const total = clip.durationsMs.reduce((sum, value) => sum + value, 0);
-  let remaining = clip.loop ? ((elapsedMs % total) + total) % total : Math.min(Math.max(elapsedMs, 0), total - 0.001);
-  let frame = 0;
-  while (frame < clip.frames.length - 1 && remaining >= clip.durationsMs[frame]) {
-    remaining -= clip.durationsMs[frame++];
-  }
-  return clip.frames[frame];
+  return clip.frames[clipFrameIndex(clip.durationsMs, clip.durationMs, clip.loop, elapsedMs)];
 }
 
 export class SharedArt {
   private readonly bundles = new Map<string, Promise<AssetManager.Bundle>>();
   private readonly themes = new Map<string, Promise<ThemeArt>>();
   private readonly themeBackdrops = new Map<string, Promise<SpriteFrame>>();
-  private readonly menuBackdrops = new Map<string, Promise<SpriteFrame>>();
   private readonly characters = new Map<string, Promise<CharacterArt>>();
   private readonly characterPortraits = new Map<string, Promise<SpriteFrame>>();
-  private readonly items = new Map<string, Promise<AnimationClip>>();
+  private readonly items = new Map<string, Promise<ItemArt>>();
   private readonly doors = new Map<string, Promise<SpriteFrame>>();
   private itemManifest: Promise<ItemManifest> | null = null;
+  private uiManifest: Promise<UiManifest> | null = null;
+  private readonly uiFrames = new Map<string, Promise<SpriteFrame>>();
+
+  ui(id: string): Promise<SpriteFrame> {
+    let result = this.uiFrames.get(id);
+    if (!result) {
+      result = this.bundle('game-ui').then(async (bundle) => {
+        this.uiManifest ??= loadJson<UiManifest>(bundle, 'v1/index');
+        const entry = (await this.uiManifest).assets[id];
+        if (!entry) throw new Error(`Unknown UI asset: ${id}`);
+        const source = await loadSpriteFrame(bundle, `v1/${entry.src}`);
+        const frame = entry.bounds
+          ? sliceAtlas(source, 1, 1, source.texture.width, source.texture.height, entry.bounds)[0]
+          : source;
+        if (entry.insets) {
+          [frame.insetLeft, frame.insetRight, frame.insetTop, frame.insetBottom] = entry.insets;
+        }
+        return frame;
+      });
+      this.uiFrames.set(id, result);
+    }
+    return result;
+  }
 
   theme(id: string): Promise<ThemeArt> {
     let result = this.themes.get(id);
@@ -191,14 +229,7 @@ export class SharedArt {
   }
 
   menuBackdrop(orientation: 'landscape' | 'portrait'): Promise<SpriteFrame> {
-    let result = this.menuBackdrops.get(orientation);
-    if (!result) {
-      result = this.bundle('game-ui').then((bundle) =>
-        loadSpriteFrame(bundle, `v1/menu-${orientation}.png`),
-      );
-      this.menuBackdrops.set(orientation, result);
-    }
-    return result;
+    return this.ui(`menu-${orientation}`);
   }
 
   character(selection: CharacterSelection): Promise<CharacterArt> {
@@ -221,7 +252,7 @@ export class SharedArt {
     return result;
   }
 
-  item(appearance: string): Promise<AnimationClip> {
+  item(appearance: string): Promise<ItemArt> {
     let result = this.items.get(appearance);
     if (!result) {
       result = this.loadItem(appearance);
@@ -303,6 +334,7 @@ export class SharedArt {
           durationsMs: animation.durationsMs,
           loop: animation.loop,
           mirrorForRight: animation.mirrorForRight === true,
+          durationMs: animation.durationsMs.reduce((sum, value) => sum + value, 0),
         };
       }),
     );
@@ -312,6 +344,7 @@ export class SharedArt {
       anchor: new Vec2(manifest.anchor[0] / manifest.frameSize[0], 1 - manifest.anchor[1] / manifest.frameSize[1]),
       frameSize: new Size(manifest.frameSize[0], manifest.frameSize[1]),
       referenceHeight: manifest.referenceHeight,
+      strideWorldUnits: manifest.strideWorldUnits,
       movementClips: manifest.movementClips,
       retreatClips: manifest.retreatClips,
       clips,
@@ -327,10 +360,10 @@ export class SharedArt {
     const idle = manifest.animations.idle;
     if (!path || !idle) throw new Error(`Missing cat portrait: ${selection.character}/${selection.skin}`);
     const atlas = await loadSpriteFrame(bundle, `${root}/${path}`);
-    return sliceAtlas(atlas, idle.columns, 1, manifest.frameSize[0], manifest.frameSize[1])[0];
+    return sliceAtlas(atlas, idle.columns, 1, manifest.frameSize[0], manifest.frameSize[1], manifest.portraitRect)[0];
   }
 
-  private async loadItem(appearance: string): Promise<AnimationClip> {
+  private async loadItem(appearance: string): Promise<ItemArt> {
     const bundle = await this.bundle('game-items');
     this.itemManifest ??= loadJson<ItemManifest>(bundle, 'v2/index');
     const manifest = await this.itemManifest;
@@ -338,10 +371,15 @@ export class SharedArt {
     if (!entry) throw new Error(`Unknown item appearance: ${appearance}`);
     const source = await loadSpriteFrame(bundle, `v2/${entry.src}`);
     return {
-      frames: sliceAtlas(source, entry.columns, entry.frameCount, entry.frameWidth, entry.frameHeight),
+      frames: sliceAtlas(source, entry.columns, entry.frameCount, entry.frameWidth, entry.frameHeight, entry.rendering?.bounds),
       durationsMs: Array.from({ length: entry.frameCount }, () => Math.max(1, entry.frameDurationMs)),
       loop: entry.frameCount > 1,
       mirrorForRight: false,
+      durationMs: entry.frameCount * Math.max(1, entry.frameDurationMs),
+      displayWidth: entry.rendering?.bounds[2] ?? entry.frameWidth,
+      displayHeight: entry.rendering?.bounds[3] ?? entry.frameHeight,
+      sizeTiles: entry.rendering?.sizeTiles ?? 0.84,
+      groundOffsetTiles: entry.rendering?.groundOffsetTiles ?? 0.36,
     };
   }
 }

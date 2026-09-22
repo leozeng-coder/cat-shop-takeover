@@ -1,0 +1,46 @@
+{
+  "assets": {
+    "button": {
+      "src": "button.png",
+      "bounds": [42, 149, 2095, 430],
+      "insets": [
+        140,
+        140,
+        140,
+        140
+      ],
+      "generation": { "tool": "image_gen", "prompt": "Use case: ui-mockup. Asset type: production nine-slice primary button texture for a cozy illustrated cat convenience-store game. Generate ONE isolated blank rounded rectangle button, front-facing orthographic, about 3:1 width to height, filling 94% of canvas width, centered on genuinely transparent background. Premium restrained 2D illustration, matte muted forest sage #527961, soft corners not an extreme capsule, broad flat uniform green center suitable for cream text. A subtle narrow darker green underside gives only a tiny tactile lift. Extremely fine single contour, smooth clean edge, negligible soft shadow. No text, icons, ornaments, inset border, double border, gold, bevel, gloss, glare, shiny plastic, sparkle, scene, checkerboard. No padding inside artwork other than normal blank button face. Same warm cozy palette as creamy paper UI and orange cartoon cats." }
+    },
+    "panel": {
+      "src": "panel.png",
+      "bounds": [42, 42, 1170, 1170],
+      "insets": [
+        140,
+        140,
+        140,
+        140
+      ],
+      "generation": { "tool": "image_gen", "prompt": "Use case: ui-mockup. Asset type: production nine-slice panel texture for a cozy illustrated cat convenience-store game. Generate ONE isolated blank square rounded panel, front-facing perfectly orthographic, centered and occupying 94% of a square canvas, genuinely transparent background outside. Premium restrained 2D illustrated stationery aesthetic, smooth matte warm ivory #FFF9ED, barely perceptible fine paper finish. ONE extremely fine muted sage outline, gently rounded corners radius about 9% of square width, delicate almost invisible contact shadow below only. Large entirely empty flat uniform center for UI text, uniform straight edges for nine-slice stretching. No text, icons, ornament, inset border, double border, gold, bevel, gloss, glare, shiny plastic, buttons, objects, mockup scene, checkerboard or background. Keep linework crisp, clean and understated, not gritty or vintage." }
+    },
+    "can": {
+      "src": "can.png"
+    },
+    "fish": {
+      "src": "fish.png"
+    },
+    "joystick-base": {
+      "src": "joystick-base.png"
+    },
+    "joystick-paw": {
+      "src": "joystick-paw.png"
+    },
+    "menu-landscape": {
+      "src": "menu-landscape.png",
+      "generation": {"tool":"image_gen","prompt":"Use case: style-transfer. Edit the supplied menu background into a MUCH SIMPLER production game menu backdrop for a cozy 2D cat convenience-store defense game. This image is the background BEHIND a large central cream-colored menu; visual quiet and low detail are mandatory. Keep a gentle cute illustrated atmosphere but replace the busy sunset seaside shopping scene with a quiet small street AFTER CLOSING, at soft blue-green dusk. Art direction: clean broad flat rounded shapes, muted sage and dusty teal with warm cream and a tiny muted peach accent, soft minimal shading, low contrast, very sparse linework, no fine texture. Limit the whole composition to a cropped simple CLOSED convenience shop facade at one outside edge, a single small warm lamp, one small curled-up orange cat near a lower outside corner, and at most two indistinct distant building silhouettes. The cat is a small peripheral accent, never a large foreground character. MOST of the canvas must be a calm pale sage-blue sky transitioning to a smooth desaturated street, almost empty. Remove ALL dense merchandise, flowers, ivy, foliage masses, product shelves, bicycles, wires, stacked props, rows of windows, distant ocean, boats, scenic hills, dramatic sunsets, detailed paving, decorative picture frames and borders. No text, logos, interface elements, title or buttons. This must look like an intentionally restrained GAME UI BACKGROUND, not a detailed narrative illustration or travel poster. Subtle soft scene depth only; nothing high contrast near the menu. Composition: wide landscape 16:9. Keep the CENTRAL 72% of the width and nearly the entire height completely uncluttered, with no objects or perspective lines there. Decorative shop and the small cat live only in the far LEFT 12% and far RIGHT 12% edge zones; keep them subdued. Soft blank top and middle. Overall sparse, inviting and polished."}
+    },
+    "menu-portrait": {
+      "src": "menu-portrait.png",
+      "generation": {"tool":"image_gen","prompt":"Use case: style-transfer. Edit the supplied menu background into a MUCH SIMPLER production game menu backdrop for a cozy 2D cat convenience-store defense game. This image is the background BEHIND a large central cream-colored menu; visual quiet and low detail are mandatory. Keep a gentle cute illustrated atmosphere but replace the busy sunset seaside shopping scene with a quiet small street AFTER CLOSING, at soft blue-green dusk. Art direction: clean broad flat rounded shapes, muted sage and dusty teal with warm cream and a tiny muted peach accent, soft minimal shading, low contrast, very sparse linework, no fine texture. Limit the whole composition to a cropped simple CLOSED convenience shop facade at one outside edge, a single small warm lamp, one small curled-up orange cat near a lower outside corner, and at most two indistinct distant building silhouettes. The cat is a small peripheral accent, never a large foreground character. MOST of the canvas must be a calm pale sage-blue sky transitioning to a smooth desaturated street, almost empty. Remove ALL dense merchandise, flowers, ivy, foliage masses, product shelves, bicycles, wires, stacked props, rows of windows, distant ocean, boats, scenic hills, dramatic sunsets, detailed paving, decorative picture frames and borders. No text, logos, interface elements, title or buttons. This must look like an intentionally restrained GAME UI BACKGROUND, not a detailed narrative illustration or travel poster. Subtle soft scene depth only; nothing high contrast near the menu. Composition: tall phone portrait 9:16. The CENTER 86% of width between 12% and 88% of image height is reserved for the menu and should be almost a uniform quiet pale sage-blue area. Keep the top 12% simple open dusk sky; place a cropped simple shop fragment near the extreme left bottom edge and ONE small curled-up orange cat close to the lower right bottom corner, below the menu. No objects peeking into the middle, no enclosing busy scene border. Bottom 12% is smooth pavement with only these two small distant accents.","refinement":"Use case: precise-object-edit. Edit ONLY the position of the curled-up orange cat in this exact portrait game menu background. Move the entire cat horizontally LEFT so its center is at 76% of canvas width, keeping its same size, pose, colors, ground height and appearance. It currently sits too close to the right edge and will be cropped on tall phone screens. Leave at least 15% of the full canvas width as empty ground to the right of the cat. Seamlessly fill the cat's old location with the same existing simple pavement. Keep ALL other pixels/composition as faithful as possible: same quiet blue-green dusk sky, moon, minimal clouds, lower-left store, distant silhouettes, lighting, palette and 9:16 portrait aspect ratio. Do not add anything or increase detail. No text or UI."}
+    }
+  }
+}

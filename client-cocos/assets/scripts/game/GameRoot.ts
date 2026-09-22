@@ -20,10 +20,13 @@ import {
   Vec3,
   VerticalTextAlignment,
   input,
+  screen,
   view,
 } from 'cc';
 import { FollowCamera } from './FollowCamera';
 import { MotionTrack } from './MotionTrack';
+import { Locomotion } from './Locomotion';
+import { fitExtent } from '../art/SpriteLayout';
 import {
   cellCenter,
   cellFromWorld,
@@ -46,13 +49,13 @@ import {
 import { GridActionPanel, type GridAction } from '../ui/GridActionPanel';
 import { GameFlowPanel } from '../ui/GameFlowPanel';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
+import { BattleHud } from '../ui/BattleHud';
 
 const { ccclass } = _decorator;
 const WORLD_LAYER = 1 << 19;
 const SERVER_URL = 'ws://127.0.0.1:8787/ws';
 const ROOM_COLORS = ['#f7e6d0', '#dcebd9', '#dfe7f4', '#eee0ef', '#f4e6c9', '#d8ece8'];
 
-type Direction = 'left' | 'right' | 'up' | 'down';
 type DoorVisualState = 'closed' | 'open' | 'damaged_1' | 'damaged_2';
 
 interface ActorView {
@@ -65,11 +68,9 @@ interface ActorView {
   selectionKey: string;
   action: string;
   actionAt: number;
-  lastPose: { x: number; y: number } | null;
+  locomotion: Locomotion;
   lastSleeping: boolean;
   wakeAt: number;
-  lastMotionAt: number;
-  lastDirection: Direction;
 }
 
 interface WorldObjectView {
@@ -94,14 +95,8 @@ export class GameRoot extends Component {
   private objectRoot!: Node;
   private actorRoot!: Node;
   private uiRoot!: Node;
-  private statusLabel!: Label;
-  private walletLabel!: Label;
-  private managerLabel!: Label;
-  private teamLabel!: Label;
-  private noticeLabel!: Label;
-  private announcementLabel!: Label;
+  private hud!: BattleHud;
   private titleLabel!: Label;
-  private exitButton!: Node;
   private flow!: GameFlowPanel;
   private actionPanel!: GridActionPanel;
   private joystick!: VirtualJoystick;
@@ -123,12 +118,12 @@ export class GameRoot extends Component {
   private gridLineWidth = 0.65;
   private designWidth = 0;
   private designHeight = 0;
+  private layoutDirty = true;
   private lastSteerX = 0;
   private lastSteerY = 0;
   private lastSteerAt = 0;
   private lastViewSize = { width: 0, height: 0, safeX: 0, safeY: 0, safeWidth: 0, safeHeight: 0 };
   private lastManagerAttackSequence = -1;
-  private announcementUntil = 0;
   private cameraTouchId: number | null = null;
   private cameraTouchStart = { x: 0, y: 0 };
   private cameraTouchLast = { x: 0, y: 0 };
@@ -137,6 +132,7 @@ export class GameRoot extends Component {
   start(): void {
     this.configureDesignResolution();
     this.buildScene();
+    view.on('canvas-resize', this.invalidateLayout, this);
     this.connection = new GameConnection(SERVER_URL, {
       onReady: () => {
         this.serverReady = true;
@@ -157,6 +153,7 @@ export class GameRoot extends Component {
         this.setStatus('正在加载店铺街区…');
       },
       onStatus: (connected) => {
+        this.hud.setConnected(connected);
         if (!connected) {
           this.serverReady = false;
           this.setStatus('连接中断，正在重连…');
@@ -182,15 +179,15 @@ export class GameRoot extends Component {
   }
 
   update(deltaTime: number): void {
-    this.configureDesignResolution();
+    if (this.layoutDirty) {
+      this.layoutDirty = false;
+      this.configureDesignResolution();
+      this.layoutUi();
+    }
     const now = performance.now();
     this.connection.update(now);
-    this.layoutUi();
     this.updateJoystick(now);
-    if (this.announcementUntil && now >= this.announcementUntil) {
-      this.announcementUntil = 0;
-      this.announcementLabel.node.active = false;
-    }
+    this.hud.tick(now);
     const state = this.state;
     if (!state || state.phase === 'lobby') return;
     this.updateActors(state, now);
@@ -208,6 +205,7 @@ export class GameRoot extends Component {
   }
 
   onDestroy(): void {
+    view.off('canvas-resize', this.invalidateLayout, this);
     input.off(Input.EventType.TOUCH_START, this.handleCameraTouchStart, this);
     input.off(Input.EventType.TOUCH_MOVE, this.handleCameraTouchMove, this);
     input.off(Input.EventType.TOUCH_END, this.handleTouchEnd, this);
@@ -215,11 +213,16 @@ export class GameRoot extends Component {
     this.connection?.dispose();
   }
 
+  private invalidateLayout(): void {
+    this.layoutDirty = true;
+  }
+
   private configureDesignResolution(): void {
-    const frame = view.getFrameSize();
+    const frame = screen.windowSize;
     if (frame.width <= 0 || frame.height <= 0) return;
     const portrait = frame.height > frame.width;
-    const width = sys.isMobile ? (portrait ? 720 : 960) : 1280;
+    const compact = sys.isMobile || frame.width / screen.devicePixelRatio < 768;
+    const width = compact ? (portrait ? 720 : 960) : 1280;
     const height = Math.round(width * frame.height / frame.width);
     if (width === this.designWidth && height === this.designHeight) return;
     this.designWidth = width;
@@ -261,16 +264,7 @@ export class GameRoot extends Component {
     this.uiCamera.clearFlags = Camera.ClearFlag.DEPTH_ONLY;
     this.uiCamera.priority = 10;
 
-    this.statusLabel = this.makeLabel('Status', 22, new Color('#435143'), this.uiRoot);
-    this.statusLabel.horizontalAlign = HorizontalTextAlignment.LEFT;
-    this.walletLabel = this.makeLabel('Wallet', 24, new Color('#795b32'), this.uiRoot);
-    this.walletLabel.horizontalAlign = HorizontalTextAlignment.RIGHT;
-    this.managerLabel = this.makeLabel('ManagerStatus', 18, new Color('#9a5d47'), this.uiRoot);
-    this.managerLabel.horizontalAlign = HorizontalTextAlignment.LEFT;
-    this.teamLabel = this.makeLabel('TeamStatus', 18, new Color('#445c4b'), this.uiRoot);
-    this.noticeLabel = this.makeLabel('Notice', 18, new Color('#465a45'), this.uiRoot);
-    this.announcementLabel = this.makeLabel('ManagerAnnouncement', 25, new Color('#a24e34'), this.uiRoot);
-    this.announcementLabel.node.active = false;
+    this.hud = new BattleHud(this.uiRoot, this.art, () => this.leaveRoom());
     this.titleLabel = this.makeLabel('Title', 44, new Color('#394b3c'), this.uiRoot);
     this.titleLabel.string = '正在布置猫店…';
     this.flow = new GameFlowPanel(this.uiRoot, this.art, {
@@ -284,7 +278,7 @@ export class GameRoot extends Component {
       leave: () => this.leaveRoom(),
     });
 
-    this.actionPanel = new GridActionPanel(this.uiRoot, {
+    this.actionPanel = new GridActionPanel(this.uiRoot, this.art, {
       command: (action, room, cell, kind) => this.sendGridAction(action, room, cell, kind),
       close: () => {
         if (this.state) this.closeActionPanel(this.state.map);
@@ -294,28 +288,13 @@ export class GameRoot extends Component {
     this.joystick = new VirtualJoystick(
       this.uiRoot,
       this.uiCamera,
+      this.art,
       () => {
         if (this.state && this.actionPanel.active) this.closeActionPanel(this.state.map);
       },
       () => this.stopJoystick(),
     );
-    this.exitButton = this.makeNode('ExitGameButton', Layers.Enum.UI_2D, this.uiRoot);
-    this.exitButton.addComponent(UITransform).setContentSize(88, 44);
-    const exitGraphics = this.exitButton.addComponent(Graphics);
-    exitGraphics.fillColor = new Color('#fff8e9ee');
-    exitGraphics.strokeColor = new Color('#ae8b69');
-    exitGraphics.lineWidth = 2;
-    exitGraphics.roundRect(-44, -22, 88, 44, 12);
-    exitGraphics.fill();
-    exitGraphics.stroke();
-    const exitLabel = this.makeLabel('ExitGameLabel', 19, new Color('#735741'), this.exitButton);
-    exitLabel.string = '退出';
-    exitLabel.node.getComponent(UITransform)!.setContentSize(76, 38);
-    this.exitButton.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-      event.propagationStopped = true;
-      this.leaveRoom();
-    });
-    this.exitButton.active = false;
+    this.hud.raiseAlerts();
   }
 
   private makeNode(name: string, layer: number, parent?: Node): Node {
@@ -350,20 +329,9 @@ export class GameRoot extends Component {
       safeX: safe.x, safeY: safe.y, safeWidth: safe.width, safeHeight: safe.height,
     };
     this.uiCamera.orthoHeight = size.height / 2;
+    this.cameraFollow.resize();
     this.uiRoot.setPosition(safe.x + safe.width / 2 - size.width / 2, safe.y + safe.height / 2 - size.height / 2);
-    this.statusLabel.node.setPosition(-safe.width / 2 + 200, safe.height / 2 - 38);
-    this.statusLabel.node.getComponent(UITransform)!.setContentSize(380, 44);
-    this.managerLabel.node.setPosition(-safe.width / 2 + 220, safe.height / 2 - 72);
-    this.managerLabel.node.getComponent(UITransform)!.setContentSize(420, 38);
-    this.teamLabel.node.setPosition(0, safe.height / 2 - 113);
-    this.teamLabel.node.getComponent(UITransform)!.setContentSize(safe.width - 24, 42);
-    this.noticeLabel.node.setPosition(0, -safe.height / 2 + 28);
-    this.noticeLabel.node.getComponent(UITransform)!.setContentSize(Math.min(safe.width - 24, 680), 42);
-    this.announcementLabel.node.setPosition(0, safe.height / 2 - 175);
-    this.announcementLabel.node.getComponent(UITransform)!.setContentSize(Math.min(safe.width - 24, 760), 86);
-    this.walletLabel.node.setPosition(safe.width / 2 - 230, safe.height / 2 - 38);
-    this.walletLabel.node.getComponent(UITransform)!.setContentSize(280, 44);
-    this.exitButton.setPosition(safe.width / 2 - 52, safe.height / 2 - 38);
+    this.hud.layout(new Size(safe.width, safe.height));
     this.titleLabel.node.setPosition(0, 80);
     this.flow.layout(new Size(safe.width, safe.height));
     this.actionPanel.relayout(new Size(safe.width, safe.height));
@@ -388,22 +356,16 @@ export class GameRoot extends Component {
   }
 
   private updateMenu(): void {
-    const menu = !this.state;
     const phase = this.state?.phase;
     const playing = phase === 'preparing' || phase === 'running';
     const loading = playing && !this.worldReady;
     this.titleLabel.node.active = loading;
-    this.walletLabel.node.active = playing && !loading;
-    this.managerLabel.node.active = playing && !loading;
-    this.teamLabel.node.active = playing && !loading;
-    this.noticeLabel.node.active = playing && !loading;
-    this.exitButton.active = playing && !loading;
+    this.hud.setVisible(playing && !loading);
     this.flow.present(this.state, this.connection?.isConnected() ?? false, this.serverReady);
     this.joystick.setVisible(
       !loading && playing && !!this.state &&
       this.state.players[this.state.you].alive,
     );
-    if (menu) this.announcementLabel.node.active = false;
   }
 
   private createRoom(capacity: number, mapId: string, name: string, character: CharacterSelection): void {
@@ -444,6 +406,7 @@ export class GameRoot extends Component {
     this.cameraDragging = false;
     this.cameraFollow.endDrag();
     this.state = null;
+    this.hud.reset();
     this.mapSeed = -1;
     ++this.themeGeneration;
     this.worldReady = false;
@@ -465,14 +428,7 @@ export class GameRoot extends Component {
 
   private acceptState(state: GameState): void {
     const now = performance.now();
-    const previous = this.state;
     this.state = state;
-    if (previous?.code === state.code && state.monster.level > previous.monster.level) {
-      const message = state.monster.levelUps.find((entry) => entry.level === state.monster.level);
-      this.announcementLabel.string = message?.text ?? `店长生气了！升至 ${state.monster.level} 级`;
-      this.announcementLabel.node.active = true;
-      this.announcementUntil = now + 3200;
-    }
     for (const player of state.players) {
       let actor = this.actors.get(player.id);
       if (!actor) actor = this.createActor(player);
@@ -500,6 +456,8 @@ export class GameRoot extends Component {
       this.overlayGraphics.clear();
       this.clearNode(this.backgroundRoot);
       this.clearNode(this.terrainRoot);
+      this.clearNode(this.objectRoot);
+      this.objects.clear();
       this.worldCamera.clearColor = new Color('#c6d4bf');
       const own = state.players[state.you];
       this.cameraFollow.reset(state.map, { x: own.x, y: own.y });
@@ -513,31 +471,8 @@ export class GameRoot extends Component {
       const safe = this.uiRect();
       this.actionPanel.refresh(state, new Size(safe.width, safe.height));
     }
-    this.updateHud(state);
+    this.hud.present(state, now);
     this.updateMenu();
-    this.setStatus(this.statusText(state));
-  }
-
-  private updateHud(state: GameState): void {
-    const me = state.players[state.you];
-    this.walletLabel.string = state.catalog.currencies
-      .map((currency) => `${currency.symbol} ${Math.floor(me.wallet[currency.id] ?? 0)}`)
-      .join('    ');
-    this.managerLabel.string = `店长 Lv.${state.monster.level}  生命 ${Math.ceil(state.monster.hp)} / ${state.monster.maxHp}  怒气 ${Math.floor(state.monster.rage)} / ${state.monster.nextRage}`;
-    this.teamLabel.string = state.players.map((player) =>
-      `${player.alive ? '●' : '×'}${player.id === state.you ? '你' : player.name}${player.bot ? '·AI' : ''}`,
-    ).join('   ');
-    const attack = state.players[state.monster.attackingPlayer];
-    this.noticeLabel.string = attack && state.monster.state === 'attacking'
-      ? `店长正在敲 ${attack.name} 的店门` : state.notices[0]?.text ?? '';
-  }
-
-  private statusText(state: GameState): string {
-    if (!this.worldReady) return '正在加载本局美术资源…';
-    if (state.phase === 'lobby') return `房间 ${state.code} · 等待队友准备`;
-    if (state.phase === 'preparing') return `夜间占店 · 准备时间 ${Math.max(0, Math.ceil(state.preparation - state.elapsed))} 秒`;
-    if (state.phase === 'running') return `白天守店 · ${Math.max(0, Math.ceil(state.preparation + state.duration - state.elapsed))} 秒`;
-    return state.phase === 'won' ? '猫猫守住了店铺！' : '本局结束';
   }
 
   private drawFallbackMap(map: GridMap): void {
@@ -598,7 +533,6 @@ export class GameRoot extends Component {
     this.worldReady = true;
     this.worldRoot.active = true;
     this.updateMenu();
-    if (this.state) this.setStatus(this.statusText(this.state));
     this.startLobbyWhenReady();
   }
 
@@ -705,6 +639,7 @@ export class GameRoot extends Component {
     const visualNode = this.makeNode(`${name}-Art`, WORLD_LAYER, node);
     const sprite = visualNode.addComponent(Sprite);
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.trim = false;
     sprite.enabled = false;
     return {
       node,
@@ -716,11 +651,9 @@ export class GameRoot extends Component {
       selectionKey: '',
       action: '',
       actionAt: 0,
-      lastPose: null,
+      locomotion: new Locomotion(),
       lastSleeping: false,
       wakeAt: -Infinity,
-      lastMotionAt: -Infinity,
-      lastDirection: 'down',
     };
   }
 
@@ -761,7 +694,8 @@ export class GameRoot extends Component {
         actor.art = art;
         actor.graphics.enabled = false;
         actor.sprite.enabled = true;
-        const scale = (art.profile === 'shop_manager' ? 44 : 30) / art.referenceHeight;
+        const tile = this.state?.map.tileSize ?? 32;
+        const scale = tile * (art.profile === 'shop_manager' ? 1.375 : 0.9375) / art.referenceHeight;
         const transform = actor.visualNode.getComponent(UITransform)!;
         transform.setContentSize(art.frameSize.width * scale, art.frameSize.height * scale);
         transform.setAnchorPoint(art.anchor);
@@ -782,6 +716,8 @@ export class GameRoot extends Component {
         ? cellCenter(state.map, room.nest)
         : actor.track.sample(now, state.map);
       if (actor.lastSleeping && !player.sleeping) actor.wakeAt = now;
+      const motion = actor.locomotion.sample(pose, now, state.map.tileSize * 3);
+      if (!player.sleeping && motion.advanced) actor.wakeAt = -Infinity;
       const wakeDuration = this.clipDuration(actor.art?.clips.wake);
       const restBlend = player.sleeping ? 1 : wakeDuration > 0
         ? Math.max(0, 1 - (now - actor.wakeAt) / wakeDuration) : 0;
@@ -791,7 +727,7 @@ export class GameRoot extends Component {
       if (Math.abs(actor.node.position.x - x) > 0.001 || Math.abs(actor.node.position.y - y) > 0.001) {
         actor.node.setPosition(x, y, 10);
       }
-      this.animateCat(actor, player, pose, now, 1 - restBlend * 0.22);
+      this.animateCat(actor, player, motion, now);
     }
     const manager = this.managerActor;
     if (!manager) return;
@@ -810,25 +746,22 @@ export class GameRoot extends Component {
   private animateCat(
     actor: ActorView,
     player: PlayerState,
-    pose: { x: number; y: number },
+    motion: ReturnType<Locomotion['sample']>,
     now: number,
-    scale: number,
   ): void {
     const art = actor.art;
     if (!art) return;
     const wake = art.clips.wake;
     const waking = wake && now - actor.wakeAt < this.clipDuration(wake);
-    const motion = this.stableMotion(actor, pose, now);
     const action = player.sleeping
       ? 'sleep'
-      : waking
-        ? 'wake'
-        : motion.moving
-          ? art.movementClips[motion.direction]
-          : 'idle';
+      : motion.moving
+        ? art.movementClips[motion.direction]
+        : waking ? 'wake' : 'idle';
+    const walking = !player.sleeping && motion.moving;
     this.applyActorFrame(actor, action,
-      motion.direction === 'right' && art.clips[action]?.mirrorForRight === true, now, scale);
-    actor.lastPose = pose;
+      motion.direction === 'right' && art.clips[action]?.mirrorForRight === true, now,
+      walking ? motion.distance / art.strideWorldUnits * art.clips[action].durationMs : undefined);
     actor.lastSleeping = player.sleeping;
   }
 
@@ -840,7 +773,7 @@ export class GameRoot extends Component {
   ): void {
     const art = actor.art;
     if (!art) return;
-    const motion = this.stableMotion(actor, pose, now);
+    const motion = actor.locomotion.sample(pose, now, state.map.tileSize * 3);
     if (state.monster.attackSequence !== this.lastManagerAttackSequence) {
       if (this.lastManagerAttackSequence >= 0) {
         actor.action = 'attack';
@@ -857,22 +790,22 @@ export class GameRoot extends Component {
           ? art.retreatClips?.[motion.direction] ?? art.movementClips[motion.direction]
           : art.movementClips[motion.direction]
         : 'idle';
-    this.applyActorFrame(actor, action, false, now);
-    actor.lastPose = pose;
+    this.applyActorFrame(actor, action, false, now,
+      !attacking && motion.moving ? motion.distance / art.strideWorldUnits * art.clips[action].durationMs : undefined);
   }
 
-  private applyActorFrame(actor: ActorView, action: string, mirror: boolean, now: number, scale = 1): void {
+  private applyActorFrame(actor: ActorView, action: string, mirror: boolean, now: number, movementTime?: number): void {
     const clip = actor.art?.clips[action];
     if (!clip) return;
     if (actor.action !== action) {
       actor.action = action;
       actor.actionAt = now;
     }
-    const frame = sampleClip(clip, now - actor.actionAt);
+    const frame = sampleClip(clip, movementTime ?? now - actor.actionAt);
     if (actor.sprite.spriteFrame !== frame) actor.sprite.spriteFrame = frame;
-    const scaleX = mirror ? -scale : scale;
-    if (actor.visualNode.scale.x !== scaleX || actor.visualNode.scale.y !== scale) {
-      actor.visualNode.setScale(scaleX, scale, 1);
+    const scaleX = mirror ? -1 : 1;
+    if (actor.visualNode.scale.x !== scaleX || actor.visualNode.scale.y !== 1) {
+      actor.visualNode.setScale(scaleX, 1, 1);
     }
   }
 
@@ -881,7 +814,7 @@ export class GameRoot extends Component {
     for (const room of state.dorms) {
       const nestKey = `nest:${room.id}`;
       live.add(nestKey);
-      this.ensureItemObject(nestKey, 'nest', room.nest, state.map, state.map.tileSize);
+      this.ensureItemObject(nestKey, 'nest', room.nest, state.map);
 
       const doorKey = `door:${room.id}`;
       live.add(doorKey);
@@ -891,7 +824,7 @@ export class GameRoot extends Component {
       for (const prop of room.props) {
         const key = `prop:${room.id}:${prop.cell}`;
         live.add(key);
-        this.ensureItemObject(key, prop.appearance, prop.cell, state.map, state.map.tileSize * 0.94);
+        this.ensureItemObject(key, prop.appearance, prop.cell, state.map);
       }
     }
     for (const [key, object] of this.objects) {
@@ -901,8 +834,8 @@ export class GameRoot extends Component {
     }
   }
 
-  private ensureItemObject(key: string, appearance: string, cell: number, map: GridMap, size: number): void {
-    const object = this.ensureObject(key, cell, map, size);
+  private ensureItemObject(key: string, appearance: string, cell: number, map: GridMap): void {
+    const object = this.ensureObject(key, cell, map);
     const assetKey = `item:${appearance}`;
     if (object.assetKey === assetKey) return;
     object.assetKey = assetKey;
@@ -913,6 +846,12 @@ export class GameRoot extends Component {
         if (!object.node.isValid || object.assetKey !== assetKey) return;
         object.clip = clip;
         object.sprite.spriteFrame = clip.frames[0];
+        const size = fitExtent(clip.displayWidth, clip.displayHeight, clip.sizeTiles * map.tileSize);
+        const transform = object.node.getComponent(UITransform)!;
+        transform.setContentSize(size.width, size.height);
+        transform.setAnchorPoint(0.5, 0);
+        const position = this.worldCell(map, cell);
+        object.node.setPosition(position.x, position.y - clip.groundOffsetTiles * map.tileSize, 5);
       })
       .catch((error: unknown) => console.warn(`道具资源加载失败：${appearance}`, error));
   }
@@ -925,7 +864,10 @@ export class GameRoot extends Component {
     entrance: number,
     map: GridMap,
   ): void {
-    const object = this.ensureObject(key, cell, map, map.tileSize * 1.34);
+    const object = this.ensureObject(key, cell, map);
+    // The shared art has a six-pixel transparent margin; its visible frame fits one tile.
+    const size = map.tileSize * 34 / 32;
+    object.node.getComponent(UITransform)!.setContentSize(size, size);
     const horizontal = Math.abs(cell - entrance) === map.width;
     object.node.setRotationFromEuler(0, 0, horizontal ? 0 : 90);
     const assetKey = `door:${appearance}:${state}`;
@@ -948,18 +890,19 @@ export class GameRoot extends Component {
     return room.hp < (room.maxHp * 2) / 3 ? 'damaged_1' : 'closed';
   }
 
-  private ensureObject(key: string, cell: number, map: GridMap, size: number): WorldObjectView {
+  private ensureObject(key: string, cell: number, map: GridMap): WorldObjectView {
     let object = this.objects.get(key);
     if (!object) {
       const node = this.makeNode(key, WORLD_LAYER, this.objectRoot);
       const sprite = node.addComponent(Sprite);
       sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+      sprite.trim = false;
+      const position = this.worldCell(map, cell);
+      node.setPosition(position.x, position.y, 5);
+      node.getComponent(UITransform)!.setContentSize(map.tileSize, map.tileSize);
       object = { node, sprite, clip: null, assetKey: '', actionAt: performance.now() };
       this.objects.set(key, object);
     }
-    const position = this.worldCell(map, cell);
-    object.node.setPosition(position.x, position.y, 5);
-    object.node.getComponent(UITransform)!.setContentSize(size, size);
     return object;
   }
 
@@ -976,10 +919,10 @@ export class GameRoot extends Component {
     const state = this.state;
     if (this.cameraTouchId !== null || !this.worldReady || this.flow.visible || !state ||
         (state.phase !== 'preparing' && state.phase !== 'running') ||
-        this.joystick.contains(event) || this.isExitButtonTouch(event)) return;
+        this.joystick.contains(event)) return;
     const location = event.getLocation();
     const uiPoint = this.uiCamera.screenToWorld(new Vec3(location.x, location.y, 0));
-    if (this.actionPanel.contains(uiPoint)) return;
+    if (this.actionPanel.contains(uiPoint) || this.hud.contains(uiPoint)) return;
     this.cameraTouchId = event.getID() ?? -1;
     this.cameraTouchStart = { x: location.x, y: location.y };
     this.cameraTouchLast = { x: location.x, y: location.y };
@@ -1014,21 +957,13 @@ export class GameRoot extends Component {
     return dragged;
   }
 
-  private isExitButtonTouch(event: EventTouch): boolean {
-    if (!this.exitButton.active) return false;
-    const location = event.getLocation();
-    const point = this.uiCamera.screenToWorld(new Vec3(location.x, location.y, 0));
-    const center = this.exitButton.worldPosition;
-    return Math.abs(point.x - center.x) <= 44 && Math.abs(point.y - center.y) <= 22;
-  }
-
   private handleTouchEnd(event: EventTouch): void {
     if (this.finishCameraTouch(event)) return;
     if (!this.worldReady || this.flow.visible) return;
-    if (this.joystick.consumes(event) || this.isExitButtonTouch(event)) return;
+    if (this.joystick.consumes(event)) return;
     const location = event.getLocation();
     const uiPoint = this.uiCamera.screenToWorld(new Vec3(location.x, location.y, 0));
-    if (this.actionPanel.contains(uiPoint)) return;
+    if (this.actionPanel.contains(uiPoint) || this.hud.contains(uiPoint)) return;
     if (!this.state) return;
     const state = this.state;
     if (state.phase !== 'preparing' && state.phase !== 'running') return;
@@ -1147,32 +1082,11 @@ export class GameRoot extends Component {
     };
   }
 
-  private motion(previous: { x: number; y: number } | null, current: { x: number; y: number }) {
-    if (!previous) return { x: 0, y: 0, moving: false };
-    const x = current.x - previous.x;
-    const y = current.y - previous.y;
-    return { x, y, moving: x * x + y * y > 0.01 };
-  }
-
-  private stableMotion(actor: ActorView, pose: { x: number; y: number }, now: number) {
-    const delta = this.motion(actor.lastPose, pose);
-    if (delta.moving) {
-      actor.lastMotionAt = now;
-      actor.lastDirection = this.direction(delta.x, delta.y);
-    }
-    return { moving: now - actor.lastMotionAt < 160, direction: actor.lastDirection };
-  }
-
-  private direction(dx: number, dy: number): Direction {
-    if (Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
-    return dy >= 0 ? 'down' : 'up';
-  }
-
   private clipDuration(clip?: AnimationClip): number {
-    return clip?.durationsMs.reduce((sum, value) => sum + value, 0) ?? 0;
+    return clip?.durationMs ?? 0;
   }
 
   private setStatus(message: string): void {
-    this.statusLabel.string = message;
+    this.hud.showNotice(message);
   }
 }

@@ -1,18 +1,19 @@
 import {
   Color,
-  EventTouch,
-  Graphics,
   HorizontalTextAlignment,
   Label,
   Layers,
   Node,
   Size,
+  SpriteFrame,
   UITransform,
   Vec3,
   VerticalTextAlignment,
 } from 'cc';
 import type { GameState, ItemConfig, Offer, Price } from '../model/GameTypes';
 import { roomAt } from '../model/GameTypes';
+import { SharedArt } from '../art/SharedArt';
+import { UI_COLORS, UiSkin, type UiSurface } from './UiSkin';
 
 export type GridAction = 'nest' | 'bed' | 'door' | 'build' | 'repair';
 type Category = 'attack' | 'currency' | 'utility';
@@ -31,7 +32,7 @@ interface PanelCallbacks {
 export class GridActionPanel {
   readonly node: Node;
   private readonly transform: UITransform;
-  private readonly background: Graphics;
+  private readonly skin: UiSkin;
   private category: Category = 'attack';
   private page = 0;
   private state: GameState | null = null;
@@ -41,12 +42,12 @@ export class GridActionPanel {
   private blockWorldInputUntil = 0;
   private displayedState = '';
 
-  constructor(parent: Node, private readonly callbacks: PanelCallbacks) {
+  constructor(parent: Node, private readonly art: SharedArt, private readonly callbacks: PanelCallbacks) {
+    this.skin = new UiSkin(art);
     this.node = new Node('GridActionPanel');
     this.node.layer = Layers.Enum.UI_2D;
     this.node.setParent(parent);
     this.transform = this.node.addComponent(UITransform);
-    this.background = this.node.addComponent(Graphics);
     this.node.active = false;
   }
 
@@ -139,14 +140,7 @@ export class GridActionPanel {
     const state = this.state;
     if (!state) return;
     for (const child of [...this.node.children]) child.destroy();
-    const background = this.background;
-    background.clear();
-    background.fillColor = new Color('#fffdf1f5');
-    background.strokeColor = new Color('#aab99a');
-    background.lineWidth = 2;
-    background.roundRect(-this.size.width / 2, -this.size.height / 2, this.size.width, this.size.height, 22);
-    background.fill();
-    background.stroke();
+    this.skin.surface(this.node);
 
     const roomId = roomAt(state.map, this.cell);
     const room = state.dorms[roomId];
@@ -191,6 +185,7 @@ export class GridActionPanel {
           '',
           y,
           () => this.run('nest', roomId, ''),
+          this.art.item('nest').then((clip) => clip.frames[0]),
         );
         y -= actionStep;
       }
@@ -204,6 +199,7 @@ export class GridActionPanel {
           level ? this.price(state, level.cost) : '满级',
           y,
           () => this.run('bed', roomId, ''),
+          this.art.item('nest').then((clip) => clip.frames[0]),
         );
       }
       return;
@@ -220,6 +216,7 @@ export class GridActionPanel {
           door ? this.price(state, door.cost) : '满级',
           y,
           () => this.run('door', roomId, ''),
+          this.art.door(door?.appearance ?? room.doorAppearance, 'closed'),
         );
         y -= actionStep;
       }
@@ -248,6 +245,7 @@ export class GridActionPanel {
           level ? this.price(state, level.cost) : '满级',
           y,
           () => this.run('build', roomId, item.id),
+          this.art.item(level?.appearance ?? item.levels[prop.level - 1].appearance).then((clip) => clip.frames[0]),
         );
       }
       return;
@@ -262,12 +260,13 @@ export class GridActionPanel {
         this.compact ? -14 - index * 52 : y,
         this.compact ? leftWidth : filterWidth - 8,
         44,
-        this.category === category.id,
+        true,
         () => {
           this.category = category.id;
           this.page = 0;
           this.rebuild();
         },
+        this.category === category.id ? 'selected' : 'card',
       );
     });
     if (!this.compact) y -= 62;
@@ -292,6 +291,7 @@ export class GridActionPanel {
         this.price(state, offer.cost ?? level.cost),
         y,
         () => this.run('build', roomId, candidate.id),
+        this.art.item(level.appearance).then((clip) => clip.frames[0]),
       );
       y -= actionStep;
     }
@@ -344,11 +344,19 @@ export class GridActionPanel {
     price: string,
     y: number,
     action: () => void,
+    thumbnail?: Promise<SpriteFrame>,
   ): void {
     const suffix = offer.enabled ? price : offer.reason;
     const width = this.compact ? this.size.width * 0.58 : this.size.width - 54;
     const x = this.compact ? this.size.width / 2 - 24 - width / 2 : 0;
-    this.button(`${title}\n${description}${suffix ? ` · ${suffix}` : ''}`, x, y, width, this.compact ? 64 : 70, offer.enabled, action);
+    const height = this.compact ? 64 : 70;
+    const node = this.button('', x, y, width, height, offer.enabled, action, offer.enabled ? 'card' : 'disabled');
+    if (thumbnail) this.skin.image(node, 'ItemThumbnail', thumbnail, -width / 2 + 31, 0, 46);
+    else this.skin.symbol(node, 'upgrade', -width / 2 + 30, 0, 25);
+    const contentWidth = width - 82;
+    this.label(title, 19, new Color(offer.enabled ? '#405c3e' : '#82887b'), 23, 13, contentWidth, 25, true, node);
+    this.label(`${description}${suffix ? ` · ${suffix}` : ''}`, 15, new Color('#7b826f'),
+      23, -14, contentWidth, 28, true, node);
   }
 
   private button(
@@ -359,28 +367,23 @@ export class GridActionPanel {
     height: number,
     enabled: boolean,
     action: () => void,
+    style: UiSurface = enabled ? 'button' : 'disabled',
   ): Node {
     const node = new Node(`Button-${text.split('\n')[0]}`);
     node.layer = Layers.Enum.UI_2D;
     node.setParent(this.node);
     node.setPosition(x, y);
     node.addComponent(UITransform).setContentSize(width, height);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color(enabled ? '#eaf0dc' : '#ecece3');
-    graphics.strokeColor = new Color(enabled ? '#9baa82' : '#c4c5bb');
-    graphics.lineWidth = 1.5;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 12);
-    graphics.fill();
-    graphics.stroke();
-    const label = this.label(text, text.includes('\n') ? 17 : 18, new Color(enabled ? '#4c6549' : '#9a9d91'), 0, 0, width - 18, height - 8, false, node);
-    label.overflow = Label.Overflow.SHRINK;
-    if (enabled) {
-      node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-        event.propagationStopped = true;
-        this.blockWorldInputUntil = performance.now() + 100;
-        action();
-      });
+    this.skin.surface(node, text === '×' ? 'card' : style);
+    if (text === '×') this.skin.symbol(node, 'close', 0, 0, 22);
+    else if (text) {
+      this.label(text, text.includes('\n') ? 17 : 18, new Color(!enabled ? '#9a9d91' : style === 'button' ? UI_COLORS.onAccent : UI_COLORS.text),
+        0, 1, width - 18, height - 8, false, node);
     }
+    this.skin.bindButton(node, enabled, () => {
+      this.blockWorldInputUntil = performance.now() + 100;
+      action();
+    });
     return node;
   }
 

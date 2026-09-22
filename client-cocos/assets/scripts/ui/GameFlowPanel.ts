@@ -14,6 +14,7 @@ import {
   VerticalTextAlignment,
 } from 'cc';
 import { SharedArt } from '../art/SharedArt';
+import { UI_COLORS, UiSkin } from './UiSkin';
 import type { CharacterOption, CharacterSelection, GameState, MapOption } from '../model/GameTypes';
 
 const MODES = [
@@ -40,6 +41,7 @@ interface FlowActions {
 export class GameFlowPanel {
   readonly node: Node;
   private readonly backdrop: Graphics;
+  private readonly skin: UiSkin;
   private viewport = new Size(1280, 720);
   private maps: MapOption[] = [];
   private characters: CharacterOption[] = [];
@@ -59,6 +61,7 @@ export class GameFlowPanel {
   private error = '';
 
   constructor(parent: Node, private readonly art: SharedArt, private readonly actions: FlowActions) {
+    this.skin = new UiSkin(art);
     this.node = new Node('GameFlowPanel');
     this.node.layer = Layers.Enum.UI_2D;
     this.node.setParent(parent);
@@ -144,17 +147,11 @@ export class GameFlowPanel {
     if (screen === 'menu') this.renderMenuBackground(portraitMenu ? 'portrait' : 'landscape');
     const width = Math.min(
       screen === 'menu' && portraitMenu ? this.viewport.width * 0.86 : this.viewport.width - 28,
-      screen === 'menu' ? 820 : 640,
+      screen === 'menu' ? 880 : 640,
     );
     const height = Math.min(this.viewport.height - 28, screen === 'result' ? 440 : portraitMenu ? 1100 : 700);
     const card = this.makeNode('FlowCard', this.node, width, height);
-    const paper = card.addComponent(Graphics);
-    paper.fillColor = new Color(255, 253, 243, screen === 'menu' ? 239 : 255);
-    paper.strokeColor = new Color('#b3c5a8');
-    paper.lineWidth = 2;
-    paper.roundRect(-width / 2, -height / 2, width, height, 25);
-    paper.fill();
-    paper.stroke();
+    this.skin.surface(card);
     if (screen === 'menu') this.renderMenu(card, width, height);
     else if (screen === 'lobby' && this.state) this.renderLobby(card, width, height, this.state);
     else if (this.state) this.renderResult(card, width, height, this.state);
@@ -182,7 +179,7 @@ export class GameFlowPanel {
     }
     const scale = height / 700;
     const y = (offset: number) => height / 2 - offset * scale;
-    const inner = width - 36;
+    const inner = width - 64;
     const map = this.maps.find((entry) => entry.id === this.selectedMapId);
     this.label(card, '猫猫夺店计划', 35 * scale, 0, y(37), inner, 46 * scale, true);
     this.label(card, this.error || (this.connected ? '选好今晚的街区与猫猫，出发夺店' : '正在连接猫店小街…'),
@@ -197,7 +194,7 @@ export class GameFlowPanel {
           this.refresh();
         });
     });
-    this.label(card, '选择街区 · 每局房间布局仍会变化', 19 * scale, 0, y(185), inner, 28 * scale, true);
+    this.sectionLabel(card, '今晚去哪儿', y(185), inner, 19 * scale);
     if (this.maps.length > 4) {
       const pages = Math.ceil(this.maps.length / 4);
       this.button(card, `第 ${this.mapPage + 1} / ${pages} 页  ↻`, inner / 2 - 73, y(185), 140, 30 * scale,
@@ -206,15 +203,15 @@ export class GameFlowPanel {
           this.refresh();
         });
     }
-    const mapWidth = (inner - 10) / 2;
+    const mapWidth = (inner - 16) / 2;
     for (const [index, map] of this.maps.slice(this.mapPage * 4, this.mapPage * 4 + 4).entries()) {
       this.mapCard(card, map,
-        (index % 2 ? 1 : -1) * (mapWidth + 10) / 2,
+        (index % 2 ? 1 : -1) * (mapWidth + 16) / 2,
         y(index < 2 ? 258 : 373), mapWidth, 106 * scale,
         map.id === this.selectedMapId);
     }
     if (!this.maps.length) this.label(card, '正在加载可选街区…', 19 * scale, 0, y(315), inner, 80 * scale);
-    this.label(card, '选择猫猫', 19 * scale, 0, y(445), inner, 27 * scale, true);
+    this.sectionLabel(card, '选一只猫猫', y(445), inner, 19 * scale);
     const selections = this.characterSelections();
     const character = selections[this.characterIndex];
     if (selections.length > 6) {
@@ -259,10 +256,10 @@ export class GameFlowPanel {
           this.actions.join(code, this.nickname.trim() || '橘子', character!);
         });
     } else {
-      this.label(card, '单人模式由 AI 补齐队伍 · 好友联机可选双人或多人',
+      this.label(card, '今晚，和小队一起守住罐头。',
         16 * scale, 0, y(651), inner, 38 * scale);
     }
-    this.label(card, mode.capacity === 1 ? '已选择街区；房间形状与道具每局重新生成' : '加入好友房间时使用房主选择的街区',
+    if (mode.capacity !== 1) this.label(card, '加入好友房间时使用房主选择的街区',
       13 * scale, 0, y(684), inner, 20 * scale);
   }
 
@@ -286,7 +283,7 @@ export class GameFlowPanel {
           this.refresh();
         });
     });
-    this.label(card, '选择街区 · 每局房间布局仍会变化', 21 * scale, 0, y(215), inner, 30 * scale, true);
+    this.sectionLabel(card, '今晚去哪儿', y(215), inner, 24 * scale);
     if (this.maps.length > 4) {
       const pages = Math.ceil(this.maps.length / 4);
       this.button(card, `第 ${this.mapPage + 1} / ${pages} 页  ↻`, inner / 2 - 73, y(215), 140, 31 * scale,
@@ -300,7 +297,7 @@ export class GameFlowPanel {
         option.id === this.selectedMapId);
     });
     if (!this.maps.length) this.label(card, '正在加载可选街区…', 20 * scale, 0, y(450), inner, 100 * scale);
-    this.label(card, '选择猫猫', 21 * scale, 0, y(695), inner, 30 * scale, true);
+    this.sectionLabel(card, '选一只猫猫', y(695), inner, 24 * scale);
     if (selections.length > 6) {
       const pages = Math.ceil(selections.length / 6);
       this.button(card, `第 ${this.characterPage + 1} / ${pages} 页  ↻`, inner / 2 - 73, y(695), 140, 31 * scale,
@@ -345,10 +342,10 @@ export class GameFlowPanel {
           this.actions.join(code, this.nickname.trim() || '橘子', character!);
         });
     } else {
-      this.label(card, '单人模式由 AI 补齐队伍 · 好友联机可选双人或多人',
-        17 * scale, 0, y(1030), inner, 43 * scale);
+      this.label(card, '今晚，和小队一起守住罐头。',
+        20 * scale, 0, y(1030), inner, 43 * scale);
     }
-    this.label(card, mode.capacity === 1 ? '街区固定选择，房间形状与道具每局重新生成' : '加入好友房间时使用房主选择的街区',
+    if (mode.capacity !== 1) this.label(card, '加入好友房间时使用房主选择的街区',
       14 * scale, 0, y(1080), inner, 20 * scale);
   }
 
@@ -356,44 +353,33 @@ export class GameFlowPanel {
                        selected: boolean, action: () => void): void {
     const node = this.makeNode('ModeChoice', parent, width, height);
     node.setPosition(x, y);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color(selected ? '#d7ead0' : '#f6f7ed');
-    graphics.strokeColor = new Color(selected ? '#698d65' : '#ccd6c4');
-    graphics.lineWidth = selected ? 2.5 : 1.2;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 11);
-    graphics.fill();
-    graphics.stroke();
-    this.label(node, value, height > 44 ? 17 : 14, 0, 0, width - 8, height - 6, selected);
-    node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-      event.propagationStopped = true;
-      action();
-    });
+    this.skin.surface(node, selected ? 'selected' : 'card');
+    const [name, detail] = value.split('\n');
+    if (this.viewport.height > this.viewport.width * 1.15) {
+      this.label(node, name, 23, 0, 0, width - 24, height - 16, selected);
+    } else {
+      this.label(node, name, height > 44 ? 18 : 14, 0, height * 0.19, width - 24, height * 0.42, selected);
+      this.label(node, detail, height > 44 ? 13 : 11, 0, -height * 0.22, width - 24, height * 0.34);
+    }
+    this.skin.bindButton(node, true, action);
   }
 
   private mapCard(parent: Node, map: MapOption, x: number, y: number, width: number, height: number,
                   selected: boolean): void {
     const node = this.makeNode(`MapChoice-${map.id}`, parent, width, height);
     node.setPosition(x, y);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color(selected ? '#fff0d7' : '#f8f8ef');
-    graphics.strokeColor = new Color(selected ? '#c88d56' : '#cbd5c2');
-    graphics.lineWidth = selected ? 2.5 : 1.2;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 12);
-    graphics.fill();
-    graphics.stroke();
+    this.skin.surface(node, selected ? 'selected' : 'card');
     const imageWidth = Math.min(width * 0.34, height * 1.25);
-    const imageX = -width / 2 + imageWidth / 2 + 7;
-    this.previewSprite(node, 'MapPreview', imageX, 0, imageWidth, height - 12,
+    const imageX = -width / 2 + imageWidth / 2 + 12;
+    this.previewSprite(node, 'MapPreview', imageX, 0, imageWidth - 8, height - 24,
       this.art.themeBackdrop(map.theme));
     const textWidth = width - imageWidth - 19;
     const textX = width / 2 - textWidth / 2 - 6;
-    this.label(node, map.name, 19, textX, height * 0.26, textWidth, height * 0.3, true);
-    this.label(node, `${map.width}×${map.height} 格 · ${map.minRooms}～${map.maxRooms} 间猫店`,
-      15, textX, 0, textWidth, height * 0.25);
-    this.label(node, `布局${map.complexity >= 3 ? '多变' : map.complexity === 2 ? '灵活' : '舒展'} · 点击选择`,
-      14, textX, -height * 0.28, textWidth, height * 0.27);
-    node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-      event.propagationStopped = true;
+    const portrait = this.viewport.height > this.viewport.width * 1.15;
+    this.label(node, map.name, portrait ? 26 : 20, textX, height * 0.17, textWidth - 8, height * 0.32, true);
+    this.label(node, `${map.minRooms}～${map.maxRooms} 间 · ${map.complexity >= 3 ? '曲径探索' : map.complexity === 2 ? '街巷漫游' : '宽敞小街'}`,
+      portrait ? 20 : 14, textX, -height * 0.19, textWidth - 8, height * 0.3);
+    this.skin.bindButton(node, true, () => {
       this.selectedMapId = map.id;
       this.refresh();
     });
@@ -403,21 +389,13 @@ export class GameFlowPanel {
                         width: number, height: number, selected: boolean, action: () => void): void {
     const node = this.makeNode(`CatChoice-${selection.skin}`, parent, width, height);
     node.setPosition(x, y);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color(selected ? '#fff0d7' : '#f7f8ee');
-    graphics.strokeColor = new Color(selected ? '#c88d56' : '#ccd6c5');
-    graphics.lineWidth = selected ? 2.5 : 1.2;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 11);
-    graphics.fill();
-    graphics.stroke();
-    const portraitSize = Math.min(width - 7, height * 0.82);
-    this.previewSprite(node, 'CatPortrait', 0, height * 0.11, portraitSize, portraitSize,
+    this.skin.surface(node, selected ? 'selected' : 'card');
+    const portraitSize = Math.min(width - 16, height * 0.66);
+    this.previewSprite(node, 'CatPortrait', 0, height * 0.16, portraitSize, portraitSize,
       this.art.characterPortrait(selection));
-    this.label(node, this.characterName(selection), 14, 0, -height * 0.34, width - 5, height * 0.3, selected);
-    node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-      event.propagationStopped = true;
-      action();
-    });
+    this.label(node, this.characterName(selection), this.viewport.height > this.viewport.width * 1.15 ? 20 : 14,
+      0, -height * 0.34, width - 5, height * 0.3, selected);
+    this.skin.bindButton(node, true, action);
   }
 
   private previewSprite(parent: Node, name: string, x: number, y: number, width: number, height: number,
@@ -429,6 +407,8 @@ export class GameFlowPanel {
     sprite.enabled = false;
     void frame.then((result) => {
       if (!node.isValid) return;
+      const ratio = Math.min(width / result.originalSize.width, height / result.originalSize.height);
+      node.getComponent(UITransform)!.setContentSize(result.originalSize.width * ratio, result.originalSize.height * ratio);
       sprite.spriteFrame = result;
       sprite.enabled = true;
     }).catch((error: unknown) => console.warn(`${name} 美术资源加载失败`, error));
@@ -524,6 +504,11 @@ export class GameFlowPanel {
     return node;
   }
 
+  private sectionLabel(parent: Node, text: string, y: number, width: number, fontSize: number): void {
+    const label = this.label(parent, text, fontSize, 0, y, width, 30, true);
+    label.horizontalAlign = HorizontalTextAlignment.LEFT;
+  }
+
   private label(parent: Node, value: string, fontSize: number, x: number, y: number,
                 width: number, height: number, strong = false, error = false): Label {
     const node = this.makeNode('FlowLabel', parent, width, height);
@@ -532,11 +517,12 @@ export class GameFlowPanel {
     label.string = value;
     label.fontSize = Math.max(13, Math.round(fontSize));
     label.lineHeight = Math.round(label.fontSize * 1.25);
-    label.color = new Color(error ? '#b65e4b' : strong ? '#3b543b' : '#6c7967');
+    label.color = new Color(error ? '#b65e4b' : strong ? UI_COLORS.text : UI_COLORS.muted);
     label.horizontalAlign = HorizontalTextAlignment.CENTER;
     label.verticalAlign = VerticalTextAlignment.CENTER;
     label.enableWrapText = true;
     label.overflow = Label.Overflow.SHRINK;
+    label.isBold = strong;
     return label;
   }
 
@@ -544,20 +530,16 @@ export class GameFlowPanel {
                  enabled: boolean, action: () => void): Node {
     const node = this.makeNode(`FlowButton-${value.split('\n')[0]}`, parent, width, height);
     node.setPosition(x, y);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color(enabled ? '#e5efde' : '#efefe8');
-    graphics.strokeColor = new Color(enabled ? '#93aa87' : '#d2d4ca');
-    graphics.lineWidth = 1.5;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 12);
-    graphics.fill();
-    graphics.stroke();
-    const label = this.label(node, value, value.includes('\n') ? 18 : 21, 0, 0,
-      width - 16, height - 6, enabled);
-    if (!enabled) label.color = new Color('#a3a8a0');
-    if (enabled) node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-      event.propagationStopped = true;
-      action();
-    });
+    const returning = value === '返回主菜单';
+    const primary = enabled && !returning && !value.includes('\n') && !value.includes('页');
+    this.skin.surface(node, !enabled ? 'disabled' : primary ? 'button' : 'card');
+    if (returning) this.skin.symbol(node, 'back', -width / 2 + 25, 0);
+    const fontSize = value.includes('\n') ? 18 : this.viewport.height > this.viewport.width * 1.15 ? 25 : 21;
+    const label = this.label(node, value, fontSize, returning ? 8 : 0, 1,
+      width - (returning ? 48 : 24), height - 8, enabled);
+    if (!enabled) label.color = new Color('#939b90');
+    else if (primary) label.color = new Color(UI_COLORS.onAccent);
+    this.skin.bindButton(node, enabled, action);
     return node;
   }
 
@@ -566,13 +548,7 @@ export class GameFlowPanel {
     const node = this.makeNode(`FlowInput-${placeholder}`, parent, width, height);
     node.active = false;
     node.setPosition(x, y);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color('#fffefa');
-    graphics.strokeColor = new Color('#b9c9af');
-    graphics.lineWidth = 1.5;
-    graphics.roundRect(-width / 2, -height / 2, width, height, 10);
-    graphics.fill();
-    graphics.stroke();
+    this.skin.surface(node, 'field');
     const box = node.addComponent(EditBox);
     box.inputMode = EditBox.InputMode.SINGLE_LINE;
     box.maxLength = maxLength;
@@ -582,7 +558,7 @@ export class GameFlowPanel {
     for (const label of [box.textLabel, box.placeholderLabel]) {
       if (!label) continue;
       label.node.getComponent(UITransform)!.setAnchorPoint(0, 1);
-      label.fontSize = Math.max(14, Math.round(20 * height / 58));
+      label.fontSize = this.viewport.height > this.viewport.width * 1.15 ? 24 : Math.max(14, Math.round(20 * height / 58));
       label.lineHeight = Math.round(label.fontSize * 1.25);
       label.color = new Color(label === box.textLabel ? '#3b543b' : '#6c7967');
       label.horizontalAlign = HorizontalTextAlignment.CENTER;

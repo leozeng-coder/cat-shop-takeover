@@ -22,6 +22,14 @@ export class FollowCamera {
     this.apply();
   }
 
+  resize(): void {
+    if (!this.map) return;
+    this.camera.orthoHeight = this.focusOrthoHeight(this.map);
+    this.center = this.bound(this.center);
+    this.velocity = { x: 0, y: 0 };
+    this.apply();
+  }
+
   beginDrag(): void {
     this.dragging = true;
     this.velocity = { x: 0, y: 0 };
