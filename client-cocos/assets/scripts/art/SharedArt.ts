@@ -163,6 +163,7 @@ export class SharedArt {
   private readonly bundles = new Map<string, Promise<AssetManager.Bundle>>();
   private readonly themes = new Map<string, Promise<ThemeArt>>();
   private readonly themeBackdrops = new Map<string, Promise<SpriteFrame>>();
+  private readonly menuBackdrops = new Map<string, Promise<SpriteFrame>>();
   private readonly characters = new Map<string, Promise<CharacterArt>>();
   private readonly characterPortraits = new Map<string, Promise<SpriteFrame>>();
   private readonly items = new Map<string, Promise<AnimationClip>>();
@@ -185,6 +186,17 @@ export class SharedArt {
         loadSpriteFrame(bundle, `v1/${id}/background.png`),
       );
       this.themeBackdrops.set(id, result);
+    }
+    return result;
+  }
+
+  menuBackdrop(orientation: 'landscape' | 'portrait'): Promise<SpriteFrame> {
+    let result = this.menuBackdrops.get(orientation);
+    if (!result) {
+      result = this.bundle('game-ui').then((bundle) =>
+        loadSpriteFrame(bundle, `v1/menu-${orientation}.png`),
+      );
+      this.menuBackdrops.set(orientation, result);
     }
     return result;
   }

@@ -54,6 +54,15 @@ export class VirtualJoystick {
     return id === this.touchId || (id === this.consumedId && performance.now() < this.consumedUntil);
   }
 
+  contains(event: EventTouch): boolean {
+    if (!this.node.active) return false;
+    const location = event.getLocation();
+    const point = this.camera.screenToWorld(new Vec3(location.x, location.y, 0));
+    const center = this.node.worldPosition;
+    const reach = this.radius + 8;
+    return Math.abs(point.x - center.x) <= reach && Math.abs(point.y - center.y) <= reach;
+  }
+
   cancel(): void {
     if (this.touchId !== null) this.release();
   }

@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "7be9b6f2-63cf-4472-97da-5cb5bdb8d77b",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "priority": 6,
+    "bundleName": "game-ui",
+    "bundleConfigID": "default",
+    "isBundle": true
+  }
+}

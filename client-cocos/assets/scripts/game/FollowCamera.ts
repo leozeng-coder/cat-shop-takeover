@@ -9,6 +9,7 @@ export class FollowCamera {
   private map: GridMap | null = null;
   private center = { x: 0, y: 0 };
   private velocity = { x: 0, y: 0 };
+  private dragging = false;
 
   constructor(private readonly camera: Camera) {}
 
@@ -17,11 +18,33 @@ export class FollowCamera {
     this.camera.orthoHeight = this.focusOrthoHeight(map);
     this.center = this.bound(target);
     this.velocity = { x: 0, y: 0 };
+    this.dragging = false;
     this.apply();
   }
 
-  update(target: { x: number; y: number }, seconds: number): void {
-    if (!this.map) return;
+  beginDrag(): void {
+    this.dragging = true;
+    this.velocity = { x: 0, y: 0 };
+  }
+
+  dragBy(previous: { x: number; y: number }, current: { x: number; y: number }): void {
+    if (!this.map || !this.dragging) return;
+    const from = this.camera.screenToWorld(new Vec3(previous.x, previous.y, 0));
+    const to = this.camera.screenToWorld(new Vec3(current.x, current.y, 0));
+    this.center = this.bound({
+      x: this.center.x - (to.x - from.x),
+      y: this.center.y + (to.y - from.y),
+    });
+    this.apply();
+  }
+
+  endDrag(): void {
+    this.dragging = false;
+    this.velocity = { x: 0, y: 0 };
+  }
+
+  update(target: { x: number; y: number }, seconds: number, followPlayer: boolean): void {
+    if (!this.map || this.dragging || !followPlayer) return;
     const end = this.bound(target);
     const dt = Math.max(0, Math.min(seconds, 0.1));
     const decay = Math.exp(-FOLLOW_FREQUENCY * dt);

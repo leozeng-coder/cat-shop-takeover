@@ -140,12 +140,16 @@ export class GameFlowPanel {
     this.backdrop.fillColor = new Color('#d0ddcd');
     this.backdrop.fillRect(-this.viewport.width / 2, -this.viewport.height / 2,
       this.viewport.width, this.viewport.height);
-    const width = Math.min(this.viewport.width - 28, screen === 'menu' ? 820 : 640);
     const portraitMenu = screen === 'menu' && this.viewport.height > this.viewport.width * 1.15;
+    if (screen === 'menu') this.renderMenuBackground(portraitMenu ? 'portrait' : 'landscape');
+    const width = Math.min(
+      screen === 'menu' && portraitMenu ? this.viewport.width * 0.86 : this.viewport.width - 28,
+      screen === 'menu' ? 820 : 640,
+    );
     const height = Math.min(this.viewport.height - 28, screen === 'result' ? 440 : portraitMenu ? 1100 : 700);
     const card = this.makeNode('FlowCard', this.node, width, height);
     const paper = card.addComponent(Graphics);
-    paper.fillColor = new Color('#fffdf3');
+    paper.fillColor = new Color(255, 253, 243, screen === 'menu' ? 239 : 255);
     paper.strokeColor = new Color('#b3c5a8');
     paper.lineWidth = 2;
     paper.roundRect(-width / 2, -height / 2, width, height, 25);
@@ -154,6 +158,21 @@ export class GameFlowPanel {
     if (screen === 'menu') this.renderMenu(card, width, height);
     else if (screen === 'lobby' && this.state) this.renderLobby(card, width, height, this.state);
     else if (this.state) this.renderResult(card, width, height, this.state);
+  }
+
+  private renderMenuBackground(orientation: 'landscape' | 'portrait'): void {
+    const node = this.makeNode('MenuIllustration', this.node, this.viewport.width, this.viewport.height);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.enabled = false;
+    void this.art.menuBackdrop(orientation).then((frame) => {
+      if (!node.isValid) return;
+      const size = frame.originalSize;
+      const cover = Math.max(this.viewport.width / size.width, this.viewport.height / size.height);
+      node.getComponent(UITransform)!.setContentSize(size.width * cover, size.height * cover);
+      sprite.spriteFrame = frame;
+      sprite.enabled = true;
+    }).catch((error: unknown) => console.warn('首页背景加载失败', error));
   }
 
   private renderMenu(card: Node, width: number, height: number): void {

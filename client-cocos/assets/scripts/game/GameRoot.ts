@@ -68,6 +68,8 @@ interface ActorView {
   lastPose: { x: number; y: number } | null;
   lastSleeping: boolean;
   wakeAt: number;
+  lastMotionAt: number;
+  lastDirection: Direction;
 }
 
 interface WorldObjectView {
@@ -99,6 +101,7 @@ export class GameRoot extends Component {
   private noticeLabel!: Label;
   private announcementLabel!: Label;
   private titleLabel!: Label;
+  private exitButton!: Node;
   private flow!: GameFlowPanel;
   private actionPanel!: GridActionPanel;
   private joystick!: VirtualJoystick;
@@ -126,6 +129,10 @@ export class GameRoot extends Component {
   private lastViewSize = { width: 0, height: 0, safeX: 0, safeY: 0, safeWidth: 0, safeHeight: 0 };
   private lastManagerAttackSequence = -1;
   private announcementUntil = 0;
+  private cameraTouchId: number | null = null;
+  private cameraTouchStart = { x: 0, y: 0 };
+  private cameraTouchLast = { x: 0, y: 0 };
+  private cameraDragging = false;
 
   start(): void {
     this.configureDesignResolution();
@@ -166,7 +173,10 @@ export class GameRoot extends Component {
       onLeft: () => this.clearSession('已返回主菜单'),
     });
     this.connection.connect();
+    input.on(Input.EventType.TOUCH_START, this.handleCameraTouchStart, this);
+    input.on(Input.EventType.TOUCH_MOVE, this.handleCameraTouchMove, this);
     input.on(Input.EventType.TOUCH_END, this.handleTouchEnd, this);
+    input.on(Input.EventType.TOUCH_CANCEL, this.handleCameraTouchCancel, this);
     this.setStatus('正在连接游戏服务器…');
     this.updateMenu();
   }
@@ -192,12 +202,16 @@ export class GameRoot extends Component {
       this.cameraFollow.update(
         { x: position.x + (map.width * map.tileSize) / 2, y: (map.height * map.tileSize) / 2 - position.y },
         deltaTime,
+        state.players[state.you].alive,
       );
     }
   }
 
   onDestroy(): void {
+    input.off(Input.EventType.TOUCH_START, this.handleCameraTouchStart, this);
+    input.off(Input.EventType.TOUCH_MOVE, this.handleCameraTouchMove, this);
     input.off(Input.EventType.TOUCH_END, this.handleTouchEnd, this);
+    input.off(Input.EventType.TOUCH_CANCEL, this.handleCameraTouchCancel, this);
     this.connection?.dispose();
   }
 
@@ -285,6 +299,23 @@ export class GameRoot extends Component {
       },
       () => this.stopJoystick(),
     );
+    this.exitButton = this.makeNode('ExitGameButton', Layers.Enum.UI_2D, this.uiRoot);
+    this.exitButton.addComponent(UITransform).setContentSize(88, 44);
+    const exitGraphics = this.exitButton.addComponent(Graphics);
+    exitGraphics.fillColor = new Color('#fff8e9ee');
+    exitGraphics.strokeColor = new Color('#ae8b69');
+    exitGraphics.lineWidth = 2;
+    exitGraphics.roundRect(-44, -22, 88, 44, 12);
+    exitGraphics.fill();
+    exitGraphics.stroke();
+    const exitLabel = this.makeLabel('ExitGameLabel', 19, new Color('#735741'), this.exitButton);
+    exitLabel.string = '退出';
+    exitLabel.node.getComponent(UITransform)!.setContentSize(76, 38);
+    this.exitButton.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+      event.propagationStopped = true;
+      this.leaveRoom();
+    });
+    this.exitButton.active = false;
   }
 
   private makeNode(name: string, layer: number, parent?: Node): Node {
@@ -330,8 +361,9 @@ export class GameRoot extends Component {
     this.noticeLabel.node.getComponent(UITransform)!.setContentSize(Math.min(safe.width - 24, 680), 42);
     this.announcementLabel.node.setPosition(0, safe.height / 2 - 175);
     this.announcementLabel.node.getComponent(UITransform)!.setContentSize(Math.min(safe.width - 24, 760), 86);
-    this.walletLabel.node.setPosition(safe.width / 2 - 160, safe.height / 2 - 38);
-    this.walletLabel.node.getComponent(UITransform)!.setContentSize(290, 44);
+    this.walletLabel.node.setPosition(safe.width / 2 - 230, safe.height / 2 - 38);
+    this.walletLabel.node.getComponent(UITransform)!.setContentSize(280, 44);
+    this.exitButton.setPosition(safe.width / 2 - 52, safe.height / 2 - 38);
     this.titleLabel.node.setPosition(0, 80);
     this.flow.layout(new Size(safe.width, safe.height));
     this.actionPanel.relayout(new Size(safe.width, safe.height));
@@ -365,6 +397,7 @@ export class GameRoot extends Component {
     this.managerLabel.node.active = playing && !loading;
     this.teamLabel.node.active = playing && !loading;
     this.noticeLabel.node.active = playing && !loading;
+    this.exitButton.active = playing && !loading;
     this.flow.present(this.state, this.connection?.isConnected() ?? false, this.serverReady);
     this.joystick.setVisible(
       !loading && playing && !!this.state &&
@@ -407,6 +440,9 @@ export class GameRoot extends Component {
   }
 
   private clearSession(message: string): void {
+    this.cameraTouchId = null;
+    this.cameraDragging = false;
+    this.cameraFollow.endDrag();
     this.state = null;
     this.mapSeed = -1;
     ++this.themeGeneration;
@@ -455,6 +491,8 @@ export class GameRoot extends Component {
 
     const mapChanged = state.map.seed !== this.mapSeed;
     if (mapChanged) {
+      this.cameraTouchId = null;
+      this.cameraDragging = false;
       this.mapSeed = state.map.seed;
       this.worldReady = false;
       this.worldRoot.active = false;
@@ -681,6 +719,8 @@ export class GameRoot extends Component {
       lastPose: null,
       lastSleeping: false,
       wakeAt: -Infinity,
+      lastMotionAt: -Infinity,
+      lastDirection: 'down',
     };
   }
 
@@ -737,16 +777,33 @@ export class GameRoot extends Component {
       if (!actor) continue;
       actor.node.active = player.alive;
       if (!player.alive) continue;
-      const pose = actor.track.sample(now, state.map);
-      actor.node.setPosition(pose.x - width / 2, height / 2 - pose.y, 10);
-      this.animateCat(actor, player, pose, now);
+      const room = player.room >= 0 ? state.dorms[player.room] : null;
+      const pose = player.sleeping && room
+        ? cellCenter(state.map, room.nest)
+        : actor.track.sample(now, state.map);
+      if (actor.lastSleeping && !player.sleeping) actor.wakeAt = now;
+      const wakeDuration = this.clipDuration(actor.art?.clips.wake);
+      const restBlend = player.sleeping ? 1 : wakeDuration > 0
+        ? Math.max(0, 1 - (now - actor.wakeAt) / wakeDuration) : 0;
+      const nestOffset = state.map.tileSize * restBlend;
+      const x = pose.x - width / 2 + nestOffset * 0.02;
+      const y = height / 2 - pose.y - nestOffset * 0.18;
+      if (Math.abs(actor.node.position.x - x) > 0.001 || Math.abs(actor.node.position.y - y) > 0.001) {
+        actor.node.setPosition(x, y, 10);
+      }
+      this.animateCat(actor, player, pose, now, 1 - restBlend * 0.22);
     }
     const manager = this.managerActor;
     if (!manager) return;
     manager.node.active = state.phase === 'running' && state.monster.state !== 'defeated';
     if (!manager.node.active) return;
     const pose = manager.track.sample(now, state.map);
-    manager.node.setPosition(pose.x - width / 2, height / 2 - pose.y, 12);
+    const managerX = pose.x - width / 2;
+    const managerY = height / 2 - pose.y;
+    if (Math.abs(manager.node.position.x - managerX) > 0.001 ||
+        Math.abs(manager.node.position.y - managerY) > 0.001) {
+      manager.node.setPosition(managerX, managerY, 12);
+    }
     this.animateManager(manager, state, pose, now);
   }
 
@@ -755,22 +812,22 @@ export class GameRoot extends Component {
     player: PlayerState,
     pose: { x: number; y: number },
     now: number,
+    scale: number,
   ): void {
     const art = actor.art;
     if (!art) return;
-    if (actor.lastSleeping && !player.sleeping) actor.wakeAt = now;
     const wake = art.clips.wake;
     const waking = wake && now - actor.wakeAt < this.clipDuration(wake);
-    const motion = this.motion(actor.lastPose, pose);
-    const direction = this.direction(motion.x, motion.y);
+    const motion = this.stableMotion(actor, pose, now);
     const action = player.sleeping
       ? 'sleep'
       : waking
         ? 'wake'
         : motion.moving
-          ? art.movementClips[direction]
+          ? art.movementClips[motion.direction]
           : 'idle';
-    this.applyActorFrame(actor, action, direction === 'right' && art.clips[action]?.mirrorForRight === true, now);
+    this.applyActorFrame(actor, action,
+      motion.direction === 'right' && art.clips[action]?.mirrorForRight === true, now, scale);
     actor.lastPose = pose;
     actor.lastSleeping = player.sleeping;
   }
@@ -783,8 +840,7 @@ export class GameRoot extends Component {
   ): void {
     const art = actor.art;
     if (!art) return;
-    const motion = this.motion(actor.lastPose, pose);
-    const direction = this.direction(motion.x, motion.y);
+    const motion = this.stableMotion(actor, pose, now);
     if (state.monster.attackSequence !== this.lastManagerAttackSequence) {
       if (this.lastManagerAttackSequence >= 0) {
         actor.action = 'attack';
@@ -798,22 +854,26 @@ export class GameRoot extends Component {
       ? 'attack'
       : motion.moving
         ? returning
-          ? art.retreatClips?.[direction] ?? art.movementClips[direction]
-          : art.movementClips[direction]
+          ? art.retreatClips?.[motion.direction] ?? art.movementClips[motion.direction]
+          : art.movementClips[motion.direction]
         : 'idle';
     this.applyActorFrame(actor, action, false, now);
     actor.lastPose = pose;
   }
 
-  private applyActorFrame(actor: ActorView, action: string, mirror: boolean, now: number): void {
+  private applyActorFrame(actor: ActorView, action: string, mirror: boolean, now: number, scale = 1): void {
     const clip = actor.art?.clips[action];
     if (!clip) return;
     if (actor.action !== action) {
       actor.action = action;
       actor.actionAt = now;
     }
-    actor.sprite.spriteFrame = sampleClip(clip, now - actor.actionAt);
-    actor.visualNode.setScale(mirror ? -1 : 1, 1, 1);
+    const frame = sampleClip(clip, now - actor.actionAt);
+    if (actor.sprite.spriteFrame !== frame) actor.sprite.spriteFrame = frame;
+    const scaleX = mirror ? -scale : scale;
+    if (actor.visualNode.scale.x !== scaleX || actor.visualNode.scale.y !== scale) {
+      actor.visualNode.setScale(scaleX, scale, 1);
+    }
   }
 
   private syncWorldObjects(state: GameState): void {
@@ -906,14 +966,66 @@ export class GameRoot extends Component {
   private updateWorldObjects(now: number): void {
     for (const object of this.objects.values()) {
       if (object.clip && object.clip.frames.length > 1) {
-        object.sprite.spriteFrame = sampleClip(object.clip, now - object.actionAt);
+        const frame = sampleClip(object.clip, now - object.actionAt);
+        if (object.sprite.spriteFrame !== frame) object.sprite.spriteFrame = frame;
       }
     }
   }
 
+  private handleCameraTouchStart(event: EventTouch): void {
+    const state = this.state;
+    if (this.cameraTouchId !== null || !this.worldReady || this.flow.visible || !state ||
+        (state.phase !== 'preparing' && state.phase !== 'running') ||
+        this.joystick.contains(event) || this.isExitButtonTouch(event)) return;
+    const location = event.getLocation();
+    const uiPoint = this.uiCamera.screenToWorld(new Vec3(location.x, location.y, 0));
+    if (this.actionPanel.contains(uiPoint)) return;
+    this.cameraTouchId = event.getID() ?? -1;
+    this.cameraTouchStart = { x: location.x, y: location.y };
+    this.cameraTouchLast = { x: location.x, y: location.y };
+    this.cameraDragging = false;
+  }
+
+  private handleCameraTouchMove(event: EventTouch): void {
+    if (this.cameraTouchId === null || (event.getID() ?? -1) !== this.cameraTouchId) return;
+    const location = event.getLocation();
+    if (!this.cameraDragging && Math.hypot(
+      location.x - this.cameraTouchStart.x,
+      location.y - this.cameraTouchStart.y,
+    ) >= 9) {
+      this.cameraDragging = true;
+      this.cameraFollow.beginDrag();
+      if (this.state && this.actionPanel.active) this.closeActionPanel(this.state.map);
+    }
+    if (this.cameraDragging) this.cameraFollow.dragBy(this.cameraTouchLast, location);
+    this.cameraTouchLast = { x: location.x, y: location.y };
+  }
+
+  private handleCameraTouchCancel(event: EventTouch): void {
+    this.finishCameraTouch(event);
+  }
+
+  private finishCameraTouch(event: EventTouch): boolean {
+    if (this.cameraTouchId === null || (event.getID() ?? -1) !== this.cameraTouchId) return false;
+    const dragged = this.cameraDragging;
+    this.cameraTouchId = null;
+    this.cameraDragging = false;
+    if (dragged) this.cameraFollow.endDrag();
+    return dragged;
+  }
+
+  private isExitButtonTouch(event: EventTouch): boolean {
+    if (!this.exitButton.active) return false;
+    const location = event.getLocation();
+    const point = this.uiCamera.screenToWorld(new Vec3(location.x, location.y, 0));
+    const center = this.exitButton.worldPosition;
+    return Math.abs(point.x - center.x) <= 44 && Math.abs(point.y - center.y) <= 22;
+  }
+
   private handleTouchEnd(event: EventTouch): void {
+    if (this.finishCameraTouch(event)) return;
     if (!this.worldReady || this.flow.visible) return;
-    if (this.joystick.consumes(event)) return;
+    if (this.joystick.consumes(event) || this.isExitButtonTouch(event)) return;
     const location = event.getLocation();
     const uiPoint = this.uiCamera.screenToWorld(new Vec3(location.x, location.y, 0));
     if (this.actionPanel.contains(uiPoint)) return;
@@ -1040,6 +1152,15 @@ export class GameRoot extends Component {
     const x = current.x - previous.x;
     const y = current.y - previous.y;
     return { x, y, moving: x * x + y * y > 0.01 };
+  }
+
+  private stableMotion(actor: ActorView, pose: { x: number; y: number }, now: number) {
+    const delta = this.motion(actor.lastPose, pose);
+    if (delta.moving) {
+      actor.lastMotionAt = now;
+      actor.lastDirection = this.direction(delta.x, delta.y);
+    }
+    return { moving: now - actor.lastMotionAt < 160, direction: actor.lastDirection };
   }
 
   private direction(dx: number, dy: number): Direction {
